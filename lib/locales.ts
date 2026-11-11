@@ -1,8 +1,8 @@
 // One entry per language version of the site. Adding a language = one entry here
 // plus a dictionary in lib/i18n/.
 export const LOCALES = {
-  'en-us': { slug: 'studies', lang: 'en', intl: 'en-US', currency: 'USD', symbol: '$', label: 'English (US)', example: 'New York, United States' },
-  fr: { slug: 'etudes', lang: 'fr', intl: 'fr-FR', currency: 'EUR', symbol: '€', label: 'Français', example: 'Paris, France' },
+  'en-us': { slug: 'school', lang: 'en', intl: 'en-US', currency: 'USD', symbol: '$', label: 'English (US)', example: 'New York, United States' },
+  fr: { slug: 'ecole', lang: 'fr', intl: 'fr-FR', currency: 'EUR', symbol: '€', label: 'Français', example: 'Paris, France' },
   es: { slug: 'estudios', lang: 'es', intl: 'es-ES', currency: 'EUR', symbol: '€', label: 'Español', example: 'Madrid, España' },
   it: { slug: 'studi', lang: 'it', intl: 'it-IT', currency: 'EUR', symbol: '€', label: 'Italiano', example: 'Milano, Italia' },
   de: { slug: 'studium', lang: 'de', intl: 'de-DE', currency: 'EUR', symbol: '€', label: 'Deutsch', example: 'Berlin, Deutschland' },

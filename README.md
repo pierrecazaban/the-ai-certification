@@ -37,7 +37,7 @@ To get into the admin console locally, put your email in `ADMIN_EMAILS` and a pa
 | Address | What |
 |---|---|
 | `/` | Home page and catalogue |
-| `/studies`, `/etudes`, `/estudios`, `/studi`, `/studium` | Student programme “AI for students”, in 5 languages |
+| `/school`, `/ecole`, `/estudios`, `/studi`, `/studium` | Student programme “AI for students”, in 5 languages |
 | `/certifications/<slug>` | A certification page, then `/enroll` to buy it |
 | `/space` | Learner space: modules, exam, certificate |
 | `/verify` | Certificate verification |

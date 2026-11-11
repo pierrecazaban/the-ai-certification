@@ -8,11 +8,12 @@ const nextConfig = {
   serverExternalPackages: ['@electric-sql/pglite', 'nodemailer'],
   // Public pages are the same for every visitor: the host's CDN (Vercel or Netlify) keeps a copy for 5 minutes and serves it
   // instantly (refreshed in the background), so a click never waits for a cold server.
-  // French short addresses for the student programme: /ecole (and /école) open the French page.
+  // Student programme: /school (English) and /ecole (French). Former addresses and /école lead there.
   async redirects() {
     return [
-      { source: '/ecole', destination: '/etudes', permanent: true },
-      { source: '/%C3%A9cole', destination: '/etudes', permanent: true },
+      { source: '/studies', destination: '/school', permanent: true },
+      { source: '/etudes', destination: '/ecole', permanent: true },
+      { source: '/%C3%A9cole', destination: '/ecole', permanent: true },
     ];
   },
   async headers() {
@@ -21,7 +22,7 @@ const nextConfig = {
       { key: 'Vercel-CDN-Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=604800' },
     ];
     // Only pages that ignore the query string: the CDN does not vary on ?lang=.
-    const pages = ['/', '/studies', '/etudes', '/estudios', '/studi', '/studium', '/certifications/:slug'];
+    const pages = ['/', '/school', '/ecole', '/estudios', '/studi', '/studium', '/certifications/:slug'];
     return pages.map((source) => ({ source, headers: cdn }));
   },
 };

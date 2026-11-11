@@ -37,7 +37,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Automation', lessons: ['Plugging AI into your documents and data', 'Building your first agent', 'Giving your agent a real job'] },
       { title: 'Refine and ship', lessons: ['Testing your agent', 'Troubleshooting', 'Guided project walkthrough'] },
     ],
-    kind: 'ai', color: '#17274C', logo: 'ai-tools.png', wide: true, href: '/studies',
+    kind: 'ai', color: '#17274C', logo: 'ai-tools.png', wide: true, href: '/school',
   },
   {
     slug: 'chatgpt', title: 'ChatGPT', area: 'AI assistants', group: 'AI assistants',
@@ -213,7 +213,7 @@ export const programBySlug = (slug: string) => PROGRAMS.find((p) => p.slug === s
 /** Where a certification card links to. */
 export const programHref = (p: Program) => p.href ?? `/certifications/${p.slug}`;
 
-// Registrations from the student pages (/studies, /etudes…) use this programme id and the
+// Registrations from the student pages (/school, /ecole…) use this programme id and the
 // translated course of lib/course.ts; catalogue purchases use the programme slug.
 export const STUDENT_PROGRAM = 'student-ai';
 
