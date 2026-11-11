@@ -46,8 +46,8 @@ export default async function Page({ searchParams }: Props) {
           {vat && ' TVA non applicable, article 293 B du Code général des impôts.'}
         </p>
         <p>
-          Le paiement se fait en une fois, par carte ou par les moyens proposés par notre prestataire de paiement Mollie B.V. Les données bancaires sont
-          saisies chez Mollie et ne transitent jamais par nos serveurs. Pendant le paiement, ta place est réservée pendant une durée limitée ; sans
+          Le paiement se fait en une fois, par carte ou par les moyens proposés par notre prestataire de paiement Stripe. Les données bancaires sont
+          saisies chez Stripe et ne transitent jamais par nos serveurs. Pendant le paiement, ta place est réservée pendant une durée limitée ; sans
           paiement confirmé dans ce délai, elle est libérée.
         </p>
         <p>La commande est définitive à la confirmation du paiement. Tu reçois alors un email de confirmation qui vaut reçu.</p>
@@ -152,7 +152,7 @@ export default async function Page({ searchParams }: Props) {
         {vat && ' VAT not applicable, article 293 B of the French General Tax Code.'}
       </p>
       <p>
-        Payment is made once, by card or another method offered by our payment provider Mollie B.V. Card details are entered with Mollie and never
+        Payment is made once, by card or another method offered by our payment provider Stripe. Card details are entered with Stripe and never
         pass through our servers. Your place is held for a limited time while you pay; without a confirmed payment it is released.
       </p>
       <p>The order is final once the payment is confirmed. You then receive a confirmation email, which is your receipt.</p>

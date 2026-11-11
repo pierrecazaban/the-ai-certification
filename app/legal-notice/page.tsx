@@ -41,8 +41,8 @@ export default async function LegalNotice({ searchParams }: Props) {
 
             <h2 style={{ fontSize: 24, marginTop: 40 }}>Payments</h2>
             <p>
-              Payments are processed by Mollie B.V., Keizersgracht 126, 1015 CW Amsterdam, the Netherlands. Card
-              details are entered directly with Mollie and never pass through our servers.
+              Payments are processed by Stripe Payments Europe, Ltd., 1 Grand Canal Street Lower, Grand Canal Dock, Dublin,
+              D02 H210, Ireland. Card details are entered directly with Stripe and never pass through our servers.
             </p>
           </div>
         </section>

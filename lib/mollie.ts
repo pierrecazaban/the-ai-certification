@@ -66,11 +66,6 @@ export async function mollieEnabled() {
   return Boolean(await setting('MOLLIE_API_KEY'));
 }
 
-/** The mock payment page only exists in development without a Mollie key. */
-export async function mockPaymentsEnabled() {
-  return process.env.NODE_ENV !== 'production' && !(await mollieEnabled());
-}
-
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,

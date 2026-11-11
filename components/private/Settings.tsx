@@ -1,6 +1,6 @@
 import { saveSettingAction, testSettingAction } from '@/lib/privateActions';
 import { settingsOverview, SETTINGS } from '@/lib/settings';
-import { mollieMode } from '@/lib/mollie';
+import { paymentProvider, paymentsMode } from '@/lib/payments';
 import { emailConfigured } from '@/lib/email';
 import { siteUrl } from '@/lib/site';
 
@@ -11,15 +11,16 @@ export default async function Settings({ params }: { params: Record<string, stri
   const tested = String(params.test ?? '');
   const ok = params.ok === '1';
   const detail = String(params.detail ?? '');
-  const [mode, mail] = await Promise.all([mollieMode(), emailConfigured()]);
-  // Payments need both: Mollie to take the money, e-mail to send the buyer their confirmation.
+  const [provider, mode, mail] = await Promise.all([paymentProvider(), paymentsMode(), emailConfigured()]);
+  const name = provider === 'stripe' ? 'Stripe' : 'Mollie';
+  // Payments need both: a provider to take the money, e-mail to send the buyer their confirmation.
   const payments = !mode
-    ? { tone: 'tone-warn', label: 'Off', text: 'Paste the Mollie key below. Until then, the payment button says payments are unavailable.' }
+    ? { tone: 'tone-warn', label: 'Off', text: 'Paste the Stripe secret key below. Until then, the payment button says payments are unavailable.' }
     : !mail
-      ? { tone: 'tone-warn', label: 'Blocked', text: 'The Mollie key is set, but the Resend key is missing: no payment is taken while the buyer cannot receive their confirmation.' }
+      ? { tone: 'tone-warn', label: 'Blocked', text: `The ${name} key is set, but the Resend key is missing: no payment is taken while the buyer cannot receive their confirmation.` }
       : mode === 'test'
-        ? { tone: 'tone-info', label: 'Test mode', text: 'Payments go through Mollie in test mode: no money is taken, and each test payment opens a real access. Replace it with the live_… key to sell.' }
-        : { tone: 'tone-ok', label: 'Live', text: 'Real payments: buyers pay on Mollie’s secure page, then come back to The AI Certification with their access.' };
+        ? { tone: 'tone-info', label: 'Test mode', text: `Payments go through ${name} in test mode: no money is taken, and each test payment opens a real access. Replace it with the live key to sell.` }
+        : { tone: 'tone-ok', label: 'Live', text: `Real payments: buyers pay on ${name}’s secure page, then come back to The AI Certification with their access.` };
 
   return (
     <>
@@ -36,10 +37,18 @@ export default async function Settings({ params }: { params: Record<string, stri
           <span className={`cx-badge ${payments.tone}`}>{payments.label}</span>
         </div>
         <p className="help">{payments.text}</p>
-        <p className="help">
-          Nothing to set in Mollie: each payment gives its own return address ({siteUrl()}/confirmation) and
-          webhook (<code>{siteUrl()}/api/mollie/webhook</code>), which grants access even if the buyer closes the page.
-        </p>
+        {provider === 'mollie' ? (
+          <p className="help">
+            Nothing to set in Mollie: each payment gives its own return address ({siteUrl()}/confirmation) and
+            webhook (<code>{siteUrl()}/api/mollie/webhook</code>), which grants access even if the buyer closes the page.
+          </p>
+        ) : (
+          <p className="help">
+            In Stripe → Developers → Webhooks, the endpoint <code>{siteUrl()}/api/stripe/webhook</code> (events
+            checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and
+            checkout.session.expired) grants access even if the buyer closes the page. Paste its signing secret below.
+          </p>
+        )}
       </section>
       {rows.map((r) => (
         <section key={r.key} className="cx-card cx-setting">

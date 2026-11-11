@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import MockPay from '@/components/MockPay';
-import { mockPaymentsEnabled } from '@/lib/mollie';
+import { mockPaymentsEnabled } from '@/lib/payments';
 
 // Stand-in for the Mollie checkout while no Mollie key is configured (development only).
 export const dynamic = 'force-dynamic';

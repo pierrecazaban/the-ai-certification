@@ -1,7 +1,7 @@
 import 'server-only';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { sql } from './db';
-import { createPayment, getPayment, isMollieUrl, mockPaymentsEnabled, mollieEnabled } from './mollie';
+import { createPayment, getPayment, isCheckoutUrl, mockPaymentsEnabled, paymentsEnabled } from './payments';
 import { pricingFor } from './pricing';
 import { DEFAULT_LOCALE, isLocale, LOCALES, type Locale } from './locales';
 import { findOrCreateUser, setFirstPassword } from './auth';
@@ -215,19 +215,19 @@ export async function createCheckout(input: { registration_id?: string; client_t
       checkout_url: `/pay/mock?id=${r.id}&t=${encodeURIComponent(r.client_token)}&lang=${r.locale}`,
     };
   }
-  if (!(await mollieEnabled())) return { result: 'payments_unavailable' as const };
+  if (!(await paymentsEnabled())) return { result: 'payments_unavailable' as const };
   // Never take a payment the customer would get no confirmation or sign-in link for.
   if (!(await emailConfigured())) return { result: 'payments_unavailable' as const };
 
-  // Payment page opened again (double click, Back from Mollie): reuse the open payment so nobody pays twice.
+  // Payment page opened again (double click, Back from the payment page): reuse the open payment so nobody pays twice.
   if (r.payment_id) {
     const previous = await getPayment(r.payment_id).catch(() => null);
     if (previous?.status === 'paid') {
       await syncPayment(previous.id);
       return { result: 'already_paid' as const };
     }
-    const href = previous?._links.checkout?.href;
-    if (previous?.status === 'open' && href && isMollieUrl(href)) return { result: 'ok' as const, checkout_url: href };
+    const href = previous?.checkoutUrl;
+    if (previous?.status === 'open' && href && isCheckoutUrl(href)) return { result: 'ok' as const, checkout_url: href };
   }
 
   try {
@@ -236,9 +236,14 @@ export async function createCheckout(input: { registration_id?: string; client_t
       currency: r.currency,
       description: `The AI Certification ${programBySlug(r.program)?.title ?? (r.program === STUDENT_PROGRAM ? 'AI for students' : 'certification')} ${r.reference}`,
       redirectUrl,
+      // Giving up on the Stripe page: back to the confirmation page, which then offers to try again.
+      cancelUrl: `${redirectUrl}&canceled=1`,
       webhookUrl: base.startsWith('https://') ? `${base}/api/mollie/webhook` : undefined,
       registrationId: r.id,
-      locale: MOLLIE_LOCALES[r.locale as Locale],
+      reference: r.reference,
+      email: r.email,
+      locale: r.locale,
+      mollieLocale: MOLLIE_LOCALES[r.locale as Locale],
     });
     await sql('update registrations set payment_id = $2 where id = $1', [r.id, payment.id]);
     return { result: 'ok' as const, checkout_url: payment.checkoutUrl };
@@ -250,7 +255,7 @@ export async function createCheckout(input: { registration_id?: string; client_t
 
 const MOLLIE_LOCALES: Record<Locale, string> = { 'en-us': 'en_US', fr: 'fr_FR', es: 'es_ES', it: 'it_IT', de: 'de_DE' };
 
-/** Updates a registration from its Mollie payment. Always reads the status from Mollie itself. */
+/** Updates a registration from its payment. Always reads the status from the payment provider itself. */
 export async function syncPayment(paymentId: string) {
   const payment = await getPayment(paymentId);
   // A buyer who opened the payment page twice may pay the first one: the registration is found by the id
@@ -278,8 +283,8 @@ export async function registrationStatus(input: { registration_id?: string; clie
   let r = await findRegistration(input.registration_id ?? '', input.client_token ?? '');
   if (!r) return { result: 'not_found' as const };
 
-  // The webhook cannot reach a local machine, so check with Mollie directly too.
-  if (r.status === 'held' && r.payment_id && (await mollieEnabled())) {
+  // The webhook cannot reach a local machine, so check with the payment provider directly too.
+  if (r.status === 'held' && r.payment_id && (await paymentsEnabled())) {
     try {
       await syncPayment(r.payment_id);
       r = (await findRegistration(r.id, r.client_token))!;
@@ -315,7 +320,7 @@ export async function registrationStatus(input: { registration_id?: string; clie
   };
 }
 
-/** Development only: marks a held registration as paid, standing in for Mollie. */
+/** Development only: marks a held registration as paid, standing in for the payment provider. */
 export async function mockPay(input: { registration_id?: string; client_token?: string; outcome?: string }) {
   if (!(await mockPaymentsEnabled())) return { result: 'not_found' as const };
   const r = await findRegistration(input.registration_id ?? '', input.client_token ?? '');

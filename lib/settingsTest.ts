@@ -2,11 +2,25 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { sendTestEmail } from './email';
 import { checkMollieKey, describeMollieCheck } from './mollie';
+import { checkStripeKey, describeStripeCheck } from './stripe';
 import { setting, type SettingKey } from './settings';
 
 // "Tester" buttons of the admin settings: one real, harmless call per service.
 export async function testSetting(key: SettingKey, adminEmail: string): Promise<{ ok: boolean; detail: string }> {
   try {
+    if (key === 'STRIPE_SECRET_KEY') {
+      const apiKey = await setting('STRIPE_SECRET_KEY');
+      if (!apiKey) return { ok: false, detail: 'No key saved.' };
+      const check = await checkStripeKey(apiKey);
+      return { ok: check.ok, detail: describeStripeCheck(check) };
+    }
+    if (key === 'STRIPE_WEBHOOK_SECRET') {
+      const secret = await setting('STRIPE_WEBHOOK_SECRET');
+      if (!secret) return { ok: false, detail: 'No secret saved: payment notices are still accepted, but always checked again with Stripe.' };
+      return /^whsec_[A-Za-z0-9]{20,}$/.test(secret)
+        ? { ok: true, detail: 'Secret in the right format. Stripe → Developers → Webhooks shows whether its notices are delivered.' }
+        : { ok: false, detail: 'This is not a webhook signing secret (it starts with whsec_).' };
+    }
     if (key === 'MOLLIE_API_KEY') {
       const apiKey = await setting('MOLLIE_API_KEY');
       if (!apiKey) return { ok: false, detail: 'No key saved.' };

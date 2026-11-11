@@ -26,7 +26,7 @@ export default async function Page({ searchParams }: Props) {
         <h2>Les données que nous utilisons</h2>
         <ul>
           <li><strong>Inscription :</strong> prénom, nom, email, téléphone si tu le donnes, école ou organisation, programme et session choisis, langue.</li>
-          <li><strong>Paiement :</strong> montant, devise, statut et référence du paiement. Les données de carte sont saisies chez Mollie et ne nous sont jamais transmises.</li>
+          <li><strong>Paiement :</strong> montant, devise, statut et référence du paiement. Les données de carte sont saisies chez Stripe et ne nous sont jamais transmises.</li>
           <li><strong>Compte :</strong> email, mot de passe (stocké uniquement sous forme chiffrée irréversible), dates de connexion.</li>
           <li><strong>Formation :</strong> leçons terminées, réponses aux exercices, résultats des quiz et de l’examen, certificat délivré.</li>
           <li><strong>Ambassadeurs :</strong> écoles suivies, commissions, titulaire et IBAN pour les versements.</li>
@@ -46,7 +46,7 @@ export default async function Page({ searchParams }: Props) {
         <h2>Qui y a accès</h2>
         <ul>
           <li>L’équipe The AI Certification, pour gérer les inscriptions et le support.</li>
-          <li>Nos prestataires, uniquement pour leur mission : l’hébergeur du site et de la base de données ({company.host}), Mollie B.V. (paiement, Pays-Bas) et notre service d’envoi d’emails.</li>
+          <li>Nos prestataires, uniquement pour leur mission : l’hébergeur du site et de la base de données ({company.host}), Stripe Payments Europe, Ltd. (paiement, Irlande) et notre service d’envoi d’emails.</li>
           <li>Les autorités, si la loi l’exige.</li>
         </ul>
         <p>
@@ -96,7 +96,7 @@ export default async function Page({ searchParams }: Props) {
       <h2>The data we use</h2>
       <ul>
         <li><strong>Registration:</strong> first and last name, email, phone if you give it, school or organization, chosen program and cohort, language.</li>
-        <li><strong>Payment:</strong> amount, currency, status and payment reference. Card details are entered with Mollie and never sent to us.</li>
+        <li><strong>Payment:</strong> amount, currency, status and payment reference. Card details are entered with Stripe and never sent to us.</li>
         <li><strong>Account:</strong> email, password (stored only as an irreversible hash), sign-in dates.</li>
         <li><strong>Learning:</strong> lessons completed, exercise answers, quiz and exam results, certificate issued.</li>
         <li><strong>Ambassadors:</strong> schools held, commissions, account holder and IBAN for payouts.</li>
@@ -116,7 +116,7 @@ export default async function Page({ searchParams }: Props) {
       <h2>Who can see it</h2>
       <ul>
         <li>The AI Certification team, to manage registrations and support.</li>
-        <li>Our providers, only for their task: the site and database host ({company.host}), Mollie B.V. (payments, Netherlands) and our email delivery service.</li>
+        <li>Our providers, only for their task: the site and database host ({company.host}), Stripe Payments Europe, Ltd. (payments, Ireland) and our email delivery service.</li>
         <li>Authorities, when the law requires it.</li>
       </ul>
       <p>

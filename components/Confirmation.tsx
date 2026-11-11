@@ -25,6 +25,8 @@ export default function Confirmation({ locale }: { locale: Locale }) {
   const params = useSearchParams();
   const id = params.get('id') ?? '';
   const token = params.get('t') ?? '';
+  // Back from the Stripe page without paying: offer to try again at once instead of waiting for a payment.
+  const canceled = params.get('canceled') === '1';
   const [data, setData] = useState<Status | null>(null);
 
   useEffect(() => {
@@ -34,14 +36,14 @@ export default function Confirmation({ locale }: { locale: Locale }) {
       const res = await api<Status>('registration_status', { registration_id: id, client_token: token }).catch(() => null);
       setData(res ?? { result: 'error' });
       // Payment confirmation can take a few seconds to reach us.
-      if (res?.status === 'held' && tries++ < 20) timer = setTimeout(check, 3000);
+      if (res?.status === 'held' && !canceled && tries++ < 20) timer = setTimeout(check, 3000);
       if (res?.status === 'paid') {
         try { sessionStorage.removeItem('theaicert_reservation'); } catch {}
       }
     }
     check();
     return () => clearTimeout(timer);
-  }, [id, token]);
+  }, [id, token, canceled]);
 
   if (!data) return <div className="register-card"><p>{t.checking}</p></div>;
 
@@ -96,7 +98,7 @@ export default function Confirmation({ locale }: { locale: Locale }) {
     );
   }
 
-  if (data.status === 'held') {
+  if (data.status === 'held' && !canceled) {
     return (
       <div className="register-card">
         <h1>{t.pendingTitle}</h1>

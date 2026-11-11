@@ -6,7 +6,9 @@ import { sql } from './db';
 // the code or the hosting. Stored encrypted in the database; a value set in the environment is the fallback.
 
 export const SETTINGS = {
-  MOLLIE_API_KEY: { label: 'Mollie API key', help: 'Payments. Mollie → Developers → API keys: the live_… key (test_… to try without paying).', secret: true },
+  STRIPE_SECRET_KEY: { label: 'Stripe secret key', help: 'Payments. Stripe → Developers → API keys: the sk_live_… secret key (sk_test_… to try without paying). When set, Stripe takes the payments instead of Mollie.', secret: true },
+  STRIPE_WEBHOOK_SECRET: { label: 'Stripe webhook signing secret', help: 'Stripe → Developers → Webhooks → the endpoint ending in /api/stripe/webhook → Signing secret (whsec_…). Proves each payment notice really comes from Stripe.', secret: true },
+  MOLLIE_API_KEY: { label: 'Mollie API key', help: 'Payments, only used when no Stripe key is set. Mollie → Developers → API keys: the live_… key (test_… to try without paying).', secret: true },
   RESEND_API_KEY: { label: 'Resend API key', help: 'Sends the emails. Resend → API Keys (a “Sending access” key is enough).', secret: true },
   EMAIL_FROM: { label: 'Email sender', help: 'For example: The AI Certification <noreply@your-domain.com>. The domain must be verified in Resend.', secret: false },
   ANTHROPIC_API_KEY: { label: 'Claude API key (chatbot)', help: 'console.anthropic.com → API Keys. Empty = the chatbot is hidden.', secret: true },

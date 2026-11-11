@@ -7,7 +7,7 @@ export const SITE_NAME = 'The AI Certification';
  */
 export const SITE_DOMAIN = (process.env.NEXT_PUBLIC_SITE_DOMAIN?.trim() || `localhost:${process.env.PORT ?? 3000}`).replace(/^https?:\/\//, '').replace(/\/$/, '');
 
-/** Public address of the site: payment return links, Mollie webhook, emails, certificates. Never localhost in production. */
+/** Public address of the site: payment return links, payment webhooks, emails, certificates. Never localhost in production. */
 export function siteUrl() {
   const url =
     process.env.BASE_URL?.trim() ||
