@@ -1,6 +1,6 @@
 import { saveSettingAction, testSettingAction } from '@/lib/privateActions';
 import { settingsOverview, SETTINGS } from '@/lib/settings';
-import { paymentProvider, paymentsMode } from '@/lib/payments';
+import { paymentsMode } from '@/lib/payments';
 import { emailConfigured } from '@/lib/email';
 import { siteUrl } from '@/lib/site';
 
@@ -11,8 +11,8 @@ export default async function Settings({ params }: { params: Record<string, stri
   const tested = String(params.test ?? '');
   const ok = params.ok === '1';
   const detail = String(params.detail ?? '');
-  const [provider, mode, mail] = await Promise.all([paymentProvider(), paymentsMode(), emailConfigured()]);
-  const name = provider === 'stripe' ? 'Stripe' : 'Mollie';
+  const [mode, mail] = await Promise.all([paymentsMode(), emailConfigured()]);
+  const name = 'Stripe';
   // Payments need both: a provider to take the money, e-mail to send the buyer their confirmation.
   const payments = !mode
     ? { tone: 'tone-warn', label: 'Off', text: 'Paste the Stripe secret key below. Until then, the payment button says payments are unavailable.' }
@@ -37,18 +37,11 @@ export default async function Settings({ params }: { params: Record<string, stri
           <span className={`cx-badge ${payments.tone}`}>{payments.label}</span>
         </div>
         <p className="help">{payments.text}</p>
-        {provider === 'mollie' ? (
-          <p className="help">
-            Nothing to set in Mollie: each payment gives its own return address ({siteUrl()}/confirmation) and
-            webhook (<code>{siteUrl()}/api/mollie/webhook</code>), which grants access even if the buyer closes the page.
-          </p>
-        ) : (
-          <p className="help">
-            In Stripe → Developers → Webhooks, the endpoint <code>{siteUrl()}/api/stripe/webhook</code> (events
-            checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and
-            checkout.session.expired) grants access even if the buyer closes the page. Paste its signing secret below.
-          </p>
-        )}
+        <p className="help">
+          In Stripe → Developers → Webhooks, the endpoint <code>{siteUrl()}/api/stripe/webhook</code> (events
+          checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and
+          checkout.session.expired) grants access even if the buyer closes the page. Paste its signing secret below.
+        </p>
       </section>
       {rows.map((r) => (
         <section key={r.key} className="cx-card cx-setting">

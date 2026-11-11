@@ -19,7 +19,7 @@ function Inner() {
     <div className="register-card">
       <span className="badge" style={{ background: '#B54708' }}>Test mode</span>
       <h1 style={{ marginTop: 16 }}>Simulated payment page</h1>
-      <p className="lead">No Mollie key is configured, so this page stands in for the Mollie checkout. It does not exist in production.</p>
+      <p className="lead">No Stripe key is configured, so this page stands in for the Stripe checkout. It does not exist in production.</p>
       <div className="row-actions">
         <button className="btn btn-ghost" disabled={busy} onClick={() => finish('canceled')}>Cancel payment</button>
         <button className="btn btn-green" disabled={busy} onClick={() => finish('paid')}>Simulate successful payment</button>

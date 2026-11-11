@@ -2,7 +2,7 @@
 
 Site and learning platform for **The AI Certification**: online AI certifications with lessons, exercises, quizzes, a final exam and a certificate anyone can verify.
 
-It is a copy of the Certifiix platform with a new identity (logo, colours, mascot Kai) and a new catalogue of 13 AI certifications. Next.js 15 (App Router), React 19, TypeScript, Postgres (Neon in production, embedded PGlite locally), Mollie payments, emails through Resend or SMTP, and a site assistant powered by Claude.
+It is a copy of the Certifiix platform with a new identity (logo, colours, mascot Kai) and a new catalogue of 13 AI certifications. Next.js 15 (App Router), React 19, TypeScript, Postgres (Neon in production, embedded PGlite locally), Stripe payments, emails through Resend or SMTP, and a site assistant powered by Claude.
 
 ## Run it locally
 
@@ -23,7 +23,7 @@ To get into the admin console locally, put your email in `ADMIN_EMAILS` and a pa
 3. Set the environment variables (see `.env.example`). The ones that matter in production:
    - `BASE_URL`: `https://<domain>` (payment returns, webhooks, links in emails).
    - `NEXT_PUBLIC_SITE_DOMAIN`: `<domain>` without https:// (shown in texts and emails). Redeploy after changing it.
-   - `MOLLIE_API_KEY`: `live_…` (or `test_…` to try).
+   - `STRIPE_SECRET_KEY`: `sk_live_…` (or `sk_test_…` to try), and `STRIPE_WEBHOOK_SECRET` (`whsec_…`) of the webhook `https://<domain>/api/stripe/webhook` (events `checkout.session.*`).
    - `ADMIN_EMAILS`, `ADMIN_PASSWORD_HASH`.
    - `SETTINGS_KEY`: any long random string, set once; it encrypts the API keys entered in the admin console.
    - `RESEND_API_KEY` and `EMAIL_FROM` (the sender domain must be verified in Resend), or the SMTP settings.

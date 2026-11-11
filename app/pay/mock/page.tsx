@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import MockPay from '@/components/MockPay';
 import { mockPaymentsEnabled } from '@/lib/payments';
 
-// Stand-in for the Mollie checkout while no Mollie key is configured (development only).
+// Stand-in for the Stripe checkout while no Stripe key is configured (development only).
 export const dynamic = 'force-dynamic';
 
 export default async function MockPayPage() {

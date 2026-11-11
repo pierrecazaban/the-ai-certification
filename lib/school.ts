@@ -238,12 +238,10 @@ export async function createCheckout(input: { registration_id?: string; client_t
       redirectUrl,
       // Giving up on the Stripe page: back to the confirmation page, which then offers to try again.
       cancelUrl: `${redirectUrl}&canceled=1`,
-      webhookUrl: base.startsWith('https://') ? `${base}/api/mollie/webhook` : undefined,
       registrationId: r.id,
       reference: r.reference,
       email: r.email,
       locale: r.locale,
-      mollieLocale: MOLLIE_LOCALES[r.locale as Locale],
     });
     await sql('update registrations set payment_id = $2 where id = $1', [r.id, payment.id]);
     return { result: 'ok' as const, checkout_url: payment.checkoutUrl };
@@ -253,7 +251,6 @@ export async function createCheckout(input: { registration_id?: string; client_t
   }
 }
 
-const MOLLIE_LOCALES: Record<Locale, string> = { 'en-us': 'en_US', fr: 'fr_FR', es: 'es_ES', it: 'it_IT', de: 'de_DE' };
 
 /** Updates a registration from its payment. Always reads the status from the payment provider itself. */
 export async function syncPayment(paymentId: string) {

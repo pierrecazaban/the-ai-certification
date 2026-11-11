@@ -1,7 +1,6 @@
 import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { sendTestEmail } from './email';
-import { checkMollieKey, describeMollieCheck } from './mollie';
 import { checkStripeKey, describeStripeCheck } from './stripe';
 import { setting, type SettingKey } from './settings';
 
@@ -20,12 +19,6 @@ export async function testSetting(key: SettingKey, adminEmail: string): Promise<
       return /^whsec_[A-Za-z0-9]{20,}$/.test(secret)
         ? { ok: true, detail: 'Secret in the right format. Stripe → Developers → Webhooks shows whether its notices are delivered.' }
         : { ok: false, detail: 'This is not a webhook signing secret (it starts with whsec_).' };
-    }
-    if (key === 'MOLLIE_API_KEY') {
-      const apiKey = await setting('MOLLIE_API_KEY');
-      if (!apiKey) return { ok: false, detail: 'No key saved.' };
-      const check = await checkMollieKey(apiKey);
-      return { ok: check.ok, detail: describeMollieCheck(check) };
     }
     if (key === 'RESEND_API_KEY' || key === 'EMAIL_FROM') {
       const status = await sendTestEmail(adminEmail);

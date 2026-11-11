@@ -8,7 +8,6 @@ import { PRIVATE_SLUGS } from './private';
 import { replyToTicket, setTicketStatus } from './tickets';
 import { saveSetting, SETTINGS, type SettingKey } from './settings';
 import { testSetting } from './settingsTest';
-import { checkMollieKey, describeMollieCheck } from './mollie';
 import { checkStripeKey, describeStripeCheck } from './stripe';
 import { setOnSale } from './visibility';
 import { programBySlug } from './catalog';
@@ -111,7 +110,7 @@ export async function saveSettingAction(formData: FormData) {
   // Pasted keys often come with spaces or quotes around them.
   const value = formData.get('clear') === '1' ? '' : String(formData.get('value') ?? '').trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
   if (key === 'STRIPE_SECRET_KEY' && value) {
-    // Same rule for Stripe: only a key Stripe accepts is saved.
+    // A Stripe key is only saved once Stripe accepts it, so payments never break on a wrong paste.
     const check = await checkStripeKey(value);
     if (check.ok) await saveSetting(key, value);
     const detail = check.ok ? `Saved. ${describeStripeCheck(check)}` : `Key not saved. ${describeStripeCheck(check)}`;
@@ -120,13 +119,6 @@ export async function saveSettingAction(formData: FormData) {
   if (key === 'STRIPE_WEBHOOK_SECRET' && value && !/^whsec_[A-Za-z0-9]{20,}$/.test(value)) {
     const detail = 'Secret not saved. A Stripe webhook signing secret starts with whsec_ (Stripe → Developers → Webhooks → your endpoint → Signing secret).';
     redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages&test=${key}&ok=0&detail=${encodeURIComponent(detail)}`);
-  }
-  if (key === 'MOLLIE_API_KEY' && value) {
-    // A Mollie key is only saved once Mollie accepts it, so payments never break on a wrong paste.
-    const check = await checkMollieKey(value);
-    if (check.ok) await saveSetting(key, value);
-    const detail = check.ok ? `Saved. ${describeMollieCheck(check)}` : `Key not saved. ${describeMollieCheck(check)}`;
-    redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages&test=${key}&ok=${check.ok ? 1 : 0}&detail=${encodeURIComponent(detail)}`);
   }
   await saveSetting(key, value);
   redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages&saved=${key}`);
