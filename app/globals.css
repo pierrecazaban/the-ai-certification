@@ -1444,6 +1444,10 @@ body:has(.cx-header) .course-bar { top: 0; }
 .btn-green:hover { background: var(--amber-hover); border-color: var(--amber-hover); color: var(--navy); }
 .btn:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
 
+/* Site logo: “AI” and the star in violet (light violet on dark bands) */
+:root { --logo-accent: var(--violet); }
+.site-footer, .section-dark { --logo-accent: #B9AEFF; }
+
 /* Section labels and links */
 .eyebrow { color: var(--violet); }
 .section-dark .eyebrow { color: #C9C2FF; }
