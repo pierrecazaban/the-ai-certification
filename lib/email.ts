@@ -18,7 +18,7 @@ function layout(locale: Locale, body: string) {
 <div style="background:#17274C;padding:18px 28px">
 <img src="${base()}/assets/logo-email-white.png" width="133" height="30" alt="AI Certification" style="display:block;border:0">
 </div>
-<div style="background:#EAEFF8;text-align:center;padding:24px 0 0">
+<div style="background:#F1EEFF;text-align:center;padding:24px 0 0">
 <img src="${base()}/assets/kai-email.png" width="170" height="170" alt="" style="display:block;margin:0 auto;border:0">
 </div>
 <div style="padding:28px">${body}</div>
@@ -33,7 +33,7 @@ function layout(locale: Locale, body: string) {
 }
 
 const button = (href: string, label: string) =>
-  `<p style="margin:24px 0;text-align:center"><a href="${esc(href)}" style="display:inline-block;background:#1F3A75;color:#fff;text-decoration:none;font-weight:700;font-size:16px;padding:16px 32px;border-radius:999px">${esc(label)} &rarr;</a></p>`;
+  `<p style="margin:24px 0;text-align:center"><a href="${esc(href)}" style="display:inline-block;background:#FFB020;color:#17274C;text-decoration:none;font-weight:700;font-size:16px;padding:16px 32px;border-radius:999px">${esc(label)} &rarr;</a></p>`;
 
 /**
  * Sends an email through SMTP (SMTP_USER/SMTP_PASS, e.g. Gmail) or Resend (RESEND_API_KEY) when configured. Every email is also kept
