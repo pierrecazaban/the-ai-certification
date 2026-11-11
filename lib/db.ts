@@ -276,7 +276,7 @@ async function seed(q: Query) {
     }
   }
 
-  // The admin account is shown as “Felix” (ambassador view, invite pages).
+  // The admin account is shown as “Pierre” (ambassador view, invite pages).
   // The old test account (test@test.test) is removed with what hangs on it. Its registrations, if any, stay as
   // history, detached from the account; schools it held become free again.
   const [test] = await q(`select id from users where lower(email) = 'test@test.test'`);
@@ -295,7 +295,7 @@ async function seed(q: Query) {
   // A single admin account: the first address of ADMIN_EMAILS. Any other admin goes back to ambassador or student.
   const admin = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).find(Boolean);
   if (admin) {
-    await q(`update users set first_name = 'Felix' where lower(email) = $1 and first_name <> 'Felix'`, [admin]);
+    await q(`update users set first_name = 'Pierre' where lower(email) = $1 and first_name <> 'Pierre'`, [admin]);
     await q(
       `update users set role = case when exists (select 1 from ambassadors a where a.user_id = users.id) then 'ambassador' else 'student' end
        where role = 'admin' and lower(email) <> $1`,

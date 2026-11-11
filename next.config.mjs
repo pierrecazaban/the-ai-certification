@@ -16,6 +16,17 @@ const nextConfig = {
       { source: '/%C3%A9cole', destination: '/ecole', permanent: true },
     ];
   },
+  // Smart Mail (the outreach tool) stays on its own server; the site only relays /tool to it.
+  // Its live login screen uses a WebSocket, which the app opens straight to that server.
+  async rewrites() {
+    const tool = 'https://158-69-232-131.sslip.io';
+    return {
+      beforeFiles: [
+        { source: '/tool', destination: `${tool}/` },
+        { source: '/tool/:path*', destination: `${tool}/:path*` },
+      ],
+    };
+  },
   async headers() {
     const cdn = [
       { key: 'Netlify-CDN-Cache-Control', value: 'public, durable, s-maxage=300, stale-while-revalidate=604800' },
