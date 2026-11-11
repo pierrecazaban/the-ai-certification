@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -35,7 +36,7 @@ const FEATURED_GROUPS = 2;
 function CatalogBlock({ g, isAvailable }: { g: (typeof GROUPS)[number]; isAvailable: (slug: string) => boolean }) {
   const certs = PROGRAMS.filter((c) => c.group === g.title);
   return (
-    <div className="hm-block">
+    <div className="hm-block" style={{ '--g': g.color, '--g-tint': g.tint } as CSSProperties}>
       <div className="hm-block-head">
         <h3>{g.title}</h3>
         <p>{g.text}</p>
@@ -83,7 +84,7 @@ export default async function Home() {
           <div className="container hm-hero">
             <div>
               <span className="eyebrow">Skills certification for everyone</span>
-              <h1>Prove what you can do with AI.</h1>
+              <h1>Prove what you can do <span className="grad-text">with AI.</span></h1>
               <p className="lead">
                 ChatGPT, Claude, Copilot, prompting, automation, agents and more. The AI Certification designs online AI certifications for
                 companies, schools, students and associations: a real exam, and a certificate anyone can verify.
@@ -105,7 +106,7 @@ export default async function Home() {
                 priority
               />
               <div className="hm-cert" aria-hidden="true">
-                <CertBadge kind="ai" color="#1F3A75" size={44} />
+                <CertBadge kind="ai" color="#5B45E0" size={44} />
                 <div>
                   <small>Certificate of completion</small>
                   <strong>AI for students</strong>

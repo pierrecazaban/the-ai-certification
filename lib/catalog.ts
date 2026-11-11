@@ -37,7 +37,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Automation', lessons: ['Plugging AI into your documents and data', 'Building your first agent', 'Giving your agent a real job'] },
       { title: 'Refine and ship', lessons: ['Testing your agent', 'Troubleshooting', 'Guided project walkthrough'] },
     ],
-    kind: 'ai', color: '#17274C', logo: 'ai-tools.png', wide: true, href: '/studies',
+    kind: 'ai', color: '#5B45E0', logo: 'ai-tools.png', wide: true, href: '/studies',
   },
   {
     slug: 'chatgpt', title: 'ChatGPT', area: 'AI assistants', group: 'AI assistants',
@@ -49,7 +49,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Everyday work', lessons: ['Writing and rewriting', 'Summarising documents and meetings', 'Working with files and data'] },
       { title: 'Going further', lessons: ['Custom instructions and memory', 'Building a custom GPT', 'Checking and citing answers'] },
     ],
-    kind: 'chat', color: '#17274C', logo: 'chatgpt.png',
+    kind: 'chat', color: '#1F63D6', logo: 'chatgpt.png',
   },
   {
     slug: 'claude', title: 'Claude', area: 'AI assistants', group: 'AI assistants',
@@ -61,7 +61,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Documents and projects', lessons: ['Working with long documents', 'Organising work in Projects', 'Artifacts: documents, pages and tools'] },
       { title: 'Professional use', lessons: ['Research and analysis', 'Writing in your own voice', 'Privacy and safe use'] },
     ],
-    kind: 'ai', color: '#17274C', logo: 'claude.png',
+    kind: 'ai', color: '#1F63D6', logo: 'claude.png',
   },
   {
     slug: 'gemini', title: 'Gemini', area: 'AI assistants', group: 'AI assistants',
@@ -73,7 +73,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Gemini in Workspace', lessons: ['Gmail: draft, reply and summarise', 'Docs: write and edit faster', 'Sheets: organise and analyse'] },
       { title: 'Advanced use', lessons: ['Gems for repeated tasks', 'Images and files', 'Good habits and data protection'] },
     ],
-    kind: 'compass', color: '#17274C', logo: 'gemini.png',
+    kind: 'compass', color: '#1F63D6', logo: 'gemini.png',
   },
   {
     slug: 'microsoft-copilot', title: 'Microsoft Copilot', area: 'AI assistants', group: 'AI assistants',
@@ -85,7 +85,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Documents and data', lessons: ['Word: draft and rewrite', 'Excel: analyse and explain', 'PowerPoint: from document to deck'] },
       { title: 'Communication', lessons: ['Outlook: triage and reply', 'Teams: meetings and recaps', 'Agents and good practice'] },
     ],
-    kind: 'doc', color: '#17274C', logo: 'microsoft-copilot.png',
+    kind: 'doc', color: '#1F63D6', logo: 'microsoft-copilot.png',
   },
   {
     slug: 'prompt-engineering', title: 'Prompt engineering', area: 'Prompting & research', group: 'Prompting & research',
@@ -97,7 +97,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Advanced techniques', lessons: ['Step-by-step reasoning', 'Chaining prompts', 'Structured outputs'] },
       { title: 'Prompts that last', lessons: ['Testing and comparing prompts', 'Building a prompt library', 'Avoiding common failures'] },
     ],
-    kind: 'ai', color: '#1F3A75',
+    kind: 'ai', color: '#08747E',
   },
   {
     slug: 'ai-research', title: 'Research with AI', area: 'Prompting & research', group: 'Prompting & research',
@@ -109,7 +109,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Working from your sources', lessons: ['Building a source notebook', 'Summaries, briefings and audio overviews', 'Deep research reports'] },
       { title: 'Rigour', lessons: ['Verifying facts', 'Spotting hallucinations and bias', 'Writing up and citing'] },
     ],
-    kind: 'compass', color: '#1F3A75',
+    kind: 'compass', color: '#08747E',
   },
   {
     slug: 'ai-images', title: 'AI image creation', area: 'Creative AI', group: 'Creative AI',
@@ -121,7 +121,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Control and consistency', lessons: ['Reference images and style', 'Editing, inpainting and extending', 'Series and brand consistency'] },
       { title: 'Professional use', lessons: ['Images for marketing and presentations', 'Rights, licences and disclosure', 'A complete visual project'] },
     ],
-    kind: 'image', color: '#2B4A8B',
+    kind: 'image', color: '#B8338A',
   },
   {
     slug: 'ai-video', title: 'AI video and voice', area: 'Creative AI', group: 'Creative AI',
@@ -133,7 +133,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Production', lessons: ['Text-to-video and image-to-video', 'Voice-overs and music', 'Editing and subtitles'] },
       { title: 'Publishing', lessons: ['Formats for each platform', 'Consent, likeness and disclosure', 'A complete video project'] },
     ],
-    kind: 'video', color: '#2B4A8B',
+    kind: 'video', color: '#B8338A',
   },
   {
     slug: 'ai-automation', title: 'Automation with AI', area: 'Automation & agents', group: 'Automation & agents',
@@ -145,7 +145,7 @@ export const PROGRAMS: Program[] = [
       { title: 'AI inside workflows', lessons: ['Classifying and routing', 'Extracting data from text and documents', 'Drafting replies and reports'] },
       { title: 'Reliable automations', lessons: ['Errors, limits and costs', 'Human in the loop', 'An end-to-end automation'] },
     ],
-    kind: 'bolt', color: '#17274C',
+    kind: 'bolt', color: '#B24E0A',
   },
   {
     slug: 'ai-agents', title: 'AI agents without code', area: 'Automation & agents', group: 'Automation & agents',
@@ -157,7 +157,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Building an agent', lessons: ['Writing agent instructions', 'Knowledge and connected tools', 'Permissions and guardrails'] },
       { title: 'Shipping an agent', lessons: ['Testing with real cases', 'Monitoring and improving', 'Your agent in production'] },
     ],
-    kind: 'bot', color: '#17274C',
+    kind: 'bot', color: '#B24E0A',
   },
   {
     slug: 'ai-data', title: 'Data analysis with AI', area: 'Data & code', group: 'Data & code',
@@ -169,7 +169,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Analysing', lessons: ['Asking good analytical questions', 'Formulas and code written for you', 'Charts and dashboards'] },
       { title: 'Trusting the results', lessons: ['Checking the numbers', 'Explaining results to others', 'A complete analysis'] },
     ],
-    kind: 'chart', color: '#1F3A75',
+    kind: 'chart', color: '#18804A',
   },
   {
     slug: 'ai-coding', title: 'AI coding assistants', area: 'Data & code', group: 'Data & code',
@@ -181,7 +181,7 @@ export const PROGRAMS: Program[] = [
       { title: 'Building with AI', lessons: ['Describing features clearly', 'Reviewing AI-written code', 'Debugging with AI'] },
       { title: 'Shipping', lessons: ['Testing and version control', 'Security basics', 'Publishing your project'] },
     ],
-    kind: 'code', color: '#1F3A75',
+    kind: 'code', color: '#18804A',
   },
   {
     slug: 'responsible-ai', title: 'Responsible AI', area: 'Trust & safety', group: 'Trust & safety',
@@ -193,18 +193,20 @@ export const PROGRAMS: Program[] = [
       { title: 'The rules', lessons: ['The EU AI Act', 'Copyright and intellectual property', 'Transparency and disclosure'] },
       { title: 'In practice', lessons: ['Bias and fairness', 'Human oversight', 'Writing an AI use policy'] },
     ],
-    kind: 'shield', color: '#2B4A8B',
+    kind: 'shield', color: '#C63D2F',
   },
 ];
 
+// Each group has its own colour (text-safe on white, ≥ 4.5:1) and a light tint for card backgrounds.
+// The certifications of a group use the same colour for their badge.
 export const GROUPS = [
-  { title: 'Artificial intelligence', text: 'Build your own AI agent and prove you can use AI at work.' },
-  { title: 'AI assistants', text: 'The assistants everyone now works with, used properly.' },
-  { title: 'Prompting & research', text: 'Get reliable answers and sources you can defend.' },
-  { title: 'Creative AI', text: 'Images, video and voice made with AI, ready to publish.' },
-  { title: 'Automation & agents', text: 'Let AI take over repetitive work, safely.' },
-  { title: 'Data & code', text: 'Analyse data and build software with an AI at your side.' },
-  { title: 'Trust & safety', text: 'Use AI within the law and with good judgement.' },
+  { title: 'Artificial intelligence', text: 'Build your own AI agent and prove you can use AI at work.', color: '#5B45E0', tint: '#F1EEFF' },
+  { title: 'AI assistants', text: 'The assistants everyone now works with, used properly.', color: '#1F63D6', tint: '#EAF1FF' },
+  { title: 'Prompting & research', text: 'Get reliable answers and sources you can defend.', color: '#08747E', tint: '#E3F5F6' },
+  { title: 'Creative AI', text: 'Images, video and voice made with AI, ready to publish.', color: '#B8338A', tint: '#FCEBF5' },
+  { title: 'Automation & agents', text: 'Let AI take over repetitive work, safely.', color: '#B24E0A', tint: '#FFF0E3' },
+  { title: 'Data & code', text: 'Analyse data and build software with an AI at your side.', color: '#18804A', tint: '#E5F5EC' },
+  { title: 'Trust & safety', text: 'Use AI within the law and with good judgement.', color: '#C63D2F', tint: '#FDECEA' },
 ];
 
 export const programBySlug = (slug: string) => PROGRAMS.find((p) => p.slug === slug) ?? null;
