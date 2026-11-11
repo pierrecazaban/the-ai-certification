@@ -63,10 +63,7 @@ Card text in `lib/catalog.ts`, full courses in `lib/learning/catalog/<slug>.ts`.
 Everything is in `brand/`: logos (SVG, text outlined so no font is needed, plus white versions and PNGs), app icons, Kai's images and the logo generator (`generate-logo.py`). `brand/apercu.png` shows the whole set.
 
 - Navy is the base, the colour of Kai: navy `#17274C` (taken from his coat), night `#0B152C`, navy accents `#1F3A75` / `#3D5A99`, white. Font: Manrope.
-- Accents on top of the navy (variables at the top of `app/globals.css`, rules in its “Colour layer” section at the end):
-  - main actions in amber `#FFB020` with navy text (the gold of Kai’s collar);
-  - “AI” accents in a violet → blue gradient (`#5B45E0` → `#1F63D6`): section labels, the hero title, step numbers, hero and contact backgrounds;
-  - one colour per catalogue group (`GROUPS` in `lib/catalog.ts`), also used by its certifications’ badges and pages: violet (Artificial intelligence), blue (AI assistants), teal `#08747E` (Prompting & research), magenta `#B8338A` (Creative AI), orange `#B24E0A` (Automation & agents), green `#18804A` (Data & code), red `#C63D2F` (Trust & safety). All of them are readable as text on white (4.5:1 or more).
+- Two accents on top of the navy, nothing more (variables at the top of `app/globals.css`, rules in its “Colour layer” section at the end): amber `#FFB020` with navy text for the main actions (the gold of Kai’s collar), and violet `#5B45E0` for highlights (section labels, ticks, step numbers, hero title). Only alerts use other colours.
 - Logo: the words “AI Certification” alone in Plus Jakarta Sans (AI extra bold, Certification medium, OFL licence, file in `brand/fonts/`), with a four-point star above the I (no symbol next to it). The site text keeps Manrope. The rounded navy square with a white star is only used as the app icon and favicon.
 - The logo is the `components/Logo.tsx` component: it takes the text colour (navy on light pages, white on dark bands); the star inside the square takes `--logo-cut`.
 - `brand/propositions/` and `brand/polices/` keep the colour directions and the 12 fonts that were compared.

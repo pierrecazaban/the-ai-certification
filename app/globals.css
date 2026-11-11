@@ -9,20 +9,9 @@
   --muted: #4A5370;
   /* Accent colours (see "Colour layer" at the end of the file). Text-safe on white: ≥ 4.5:1. */
   --violet: #5B45E0;
-  --blue: #1F63D6;
-  --teal: #08747E;
-  --magenta: #B8338A;
-  --orange: #B24E0A;
-  --ok: #18804A;
-  --coral: #C63D2F;
   --amber: #FFB020;        /* main call to action, navy text on it (8:1) */
   --amber-hover: #F59E0B;
   --violet-tint: #F1EEFF;
-  --blue-tint: #EAF1FF;
-  --ok-tint: #E5F5EC;
-  --amber-tint: #FFF4DE;
-  --grad-ai: linear-gradient(120deg, var(--violet) 0%, var(--blue) 100%);
-  --grad-rainbow: linear-gradient(90deg, #5B45E0, #1F63D6, #08747E, #18804A, #FFB020, #B24E0A, #B8338A);
   --radius: 14px;
   --max: 1160px;
 }
@@ -1446,9 +1435,8 @@ body:has(.cx-header) .course-bar { top: 0; }
 
 /* ===================================================================
    Colour layer
-   Navy stays the base (Kai's coat). On top of it: a warm amber for the
-   main actions, a violet → blue gradient for the "AI" accents, and one
-   colour per catalogue group (lib/catalog.ts › GROUPS).
+   Navy stays the base (Kai's coat). Two accents only: amber for the main
+   actions (the gold of Kai's collar) and one violet for highlights.
    =================================================================== */
 
 /* Main action: amber with navy text */
@@ -1458,70 +1446,30 @@ body:has(.cx-header) .course-bar { top: 0; }
 
 /* Section labels and links */
 .eyebrow { color: var(--violet); }
-.section-dark .eyebrow { color: #FFD27A; }
+.section-dark .eyebrow { color: #C9C2FF; }
 a:hover { color: var(--violet); }
 .nav-links a[aria-current="page"] { color: var(--violet); }
-.grad-text {
-  background: var(--grad-ai);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: var(--violet);
-}
+.grad-text { color: var(--violet); }
 
-/* Hero and contact bands: soft violet / amber light instead of grey-blue */
-.hero-bands {
-  background:
-    radial-gradient(60% 70% at 88% 18%, #E7E1FF 0%, rgba(231,225,255,0) 70%),
-    radial-gradient(50% 60% at 6% 96%, #FFEBC7 0%, rgba(255,235,199,0) 70%),
-    linear-gradient(160deg, #F7F8FF 0%, #EEF2FF 100%);
-}
+/* Hero and contact bands: a light violet wash, navy and violet corners */
+.hero-bands { background: radial-gradient(60% 70% at 88% 18%, #EEEBFF 0%, rgba(238,235,255,0) 70%), linear-gradient(160deg, #F7F8FC 0%, #EEF1F8 100%); }
 .hero-bands::before { background: linear-gradient(135deg, var(--navy) 0 26%, var(--violet) 26% 50%, transparent 50%); }
-.hero-bands::after { background: linear-gradient(135deg, transparent 50%, var(--amber) 50% 64%, var(--violet) 64% 80%, var(--navy) 80%); }
+.hero-bands::after { background: linear-gradient(135deg, transparent 50%, #D9D3FF 50% 64%, var(--violet) 64% 80%, var(--navy) 80%); }
 .hm-cert small { color: var(--violet); }
-.hm-li { color: var(--navy); }
 
 /* Ticks and steps */
-.checklist li::before { background-color: var(--ok); }
-.numbered li::before { background: var(--grad-ai); }
-.numbered li:nth-child(3n+2)::before { background: linear-gradient(120deg, var(--blue), var(--teal)); }
-.numbered li:nth-child(3n)::before { background: linear-gradient(120deg, var(--teal), var(--ok)); }
+.checklist li::before { background-color: var(--violet); }
+.numbered li::before { background: var(--violet); }
 
-/* Catalogue: each group block carries its colour (--g) and tint (--g-tint) */
-.hm-block { --g: var(--navy); --g-tint: var(--cream); box-shadow: inset 0 5px 0 var(--g); }
-.hm-block-head span { color: var(--g); }
-.hm-block .hm-cert-card { background: var(--g-tint); }
-.hm-block .hm-cert-card.is-live { background: #fff; border-color: var(--g); }
-.hm-block .hm-cert-card:hover { box-shadow: 0 18px 36px -22px var(--g); }
-.hm-cert-more { color: var(--g, var(--violet)); }
-.hm-feature:hover { border-color: var(--g) !important; }
-.hm-status { background: var(--amber-tint); color: #8A4B00; }
-.hm-status.is-live { background: var(--ok-tint); color: #127A43; }
+/* Catalogue */
+.hm-block .hm-cert-card.is-live { border-color: var(--line); }
+.hm-block .hm-cert-card:hover { box-shadow: 0 18px 36px -22px rgba(23,39,76,.35); }
+.hm-block-head span, .hm-cert-more { color: var(--violet); }
+.hm-feature:hover { border-color: var(--violet) !important; }
+.hm-status { background: #ECEFF4; color: #4A5370; }
+.hm-status.is-live { background: var(--violet-tint); color: var(--violet); }
 
-/* LinkedIn section: a light blue wash */
-#linkedin { background: linear-gradient(180deg, #F4F7FF 0%, #FFFFFF 100%); }
-
-/* Solutions: one colour per audience */
-.hm-solution { --s: var(--blue); border-top: 4px solid var(--s); }
-.hm-solution:nth-child(2) { --s: var(--violet); }
-.hm-solution:nth-child(3) { --s: var(--orange); }
-.hm-solution:nth-child(4) { --s: var(--ok); }
-.hm-solution-body li svg { color: var(--s); }
-
-/* Verification mock-up: a green "valid" state and coloured window dots */
-.co-valid { background: var(--ok-tint); }
-.co-valid svg { color: var(--ok); }
-.co-browser-bar span:nth-child(1) { background: #FF5F57; }
-.co-browser-bar span:nth-child(2) { background: #FEBC2E; }
-.co-browser-bar span:nth-child(3) { background: #28C840; }
-
-/* Dark band: navy lit with violet and teal */
-.section-dark {
-  background:
-    radial-gradient(55% 90% at 85% 0%, rgba(91,69,224,.55) 0%, rgba(91,69,224,0) 70%),
-    radial-gradient(45% 80% at 0% 100%, rgba(8,116,126,.45) 0%, rgba(8,116,126,0) 70%),
-    var(--navy);
-}
-
-/* Footer: a strip with every group colour on top */
-.site-footer { position: relative; }
-.site-footer::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--grad-rainbow); }
-.site-footer a:hover { color: #FFD27A; }
+/* Solutions and verification */
+.hm-solution-body li svg { color: var(--violet); }
+.co-valid { background: var(--violet-tint); }
+.co-valid svg { color: var(--violet); }
