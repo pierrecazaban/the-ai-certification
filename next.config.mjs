@@ -8,6 +8,13 @@ const nextConfig = {
   serverExternalPackages: ['@electric-sql/pglite', 'nodemailer'],
   // Public pages are the same for every visitor: the host's CDN (Vercel or Netlify) keeps a copy for 5 minutes and serves it
   // instantly (refreshed in the background), so a click never waits for a cold server.
+  // French short addresses for the student programme: /ecole (and /école) open the French page.
+  async redirects() {
+    return [
+      { source: '/ecole', destination: '/etudes', permanent: true },
+      { source: '/%C3%A9cole', destination: '/etudes', permanent: true },
+    ];
+  },
   async headers() {
     const cdn = [
       { key: 'Netlify-CDN-Cache-Control', value: 'public, durable, s-maxage=300, stale-while-revalidate=604800' },
