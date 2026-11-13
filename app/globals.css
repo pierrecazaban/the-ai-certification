@@ -1853,3 +1853,44 @@ main > section.section-dark + section::before, main > section + section.section-
 .cx-toolcode small { font-size: 13px; opacity: .75; }
 .cx-toolcode-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .cx-toolcode .btn-ghost { color: #fff; border-color: rgba(255,255,255,.4); }
+
+/* /admin › Prospection: content on the left, the live panel on the right (stacked on small screens) */
+.ol-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.ol-main { min-width: 0; display: grid; gap: 20px; }
+.ol-main > .cx-card { margin: 0; }
+.ol-panel { position: sticky; top: 140px; margin: 0; max-height: calc(100vh - 160px); overflow-y: auto; }
+.ol-events { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; font-size: 13.5px; }
+.ol-events li { border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+@media (max-width: 1100px) { .ol-layout { grid-template-columns: 1fr; } .ol-panel { position: static; max-height: none; order: -1; } }
+
+/* /admin › Prospection: visual dashboard */
+.ov h2 { margin-bottom: 14px; }
+.ov-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 20px; align-items: start; }
+.ov-pair { display: grid; gap: 14px; }
+.ov-chart { position: relative; margin: 0; }
+.ov-chart figcaption { font-weight: 700; font-size: 14px; margin-bottom: 8px; color: var(--navy); }
+.ov-chart svg { width: 100%; height: auto; display: block; }
+.ov-funnel { display: grid; gap: 10px; }
+.ov-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 84px; gap: 10px; align-items: center; font-size: 13px; }
+.ov-label { color: var(--muted); }
+.ov-track { height: 18px; background: #F2F4F8; border-radius: 4px; overflow: hidden; }
+.ov-bar { height: 100%; background: #17274C; border-radius: 0 4px 4px 0; transition: width .6s; }
+.ov-val { font-weight: 800; font-variant-numeric: tabular-nums; }
+.ov-val small { font-weight: 500; color: var(--muted); }
+.ov-schools { margin-top: 22px; }
+.ov-grid { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; }
+.ov-cell { aspect-ratio: 1; border-radius: 3px; display: grid; place-items: center; font-size: 11px; color: #fff; cursor: default; outline-offset: 1px; }
+.ov-cell:hover { outline: 2px solid #17274C; }
+.ov-legend { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.ov-key { display: inline-flex; gap: 5px; align-items: center; }
+.ov-key i { width: 14px; height: 14px; border-radius: 3px; display: inline-grid; place-items: center; font-style: normal; font-size: 9px; color: #fff; }
+.ov-tip { position: absolute; z-index: 5; pointer-events: none; background: #17274C; color: #fff; font-size: 12px; padding: 6px 9px; border-radius: 6px; white-space: nowrap; box-shadow: 0 6px 16px rgba(23,39,76,.25); }
+@media (max-width: 900px) { .ov-top { grid-template-columns: 1fr; } .ov-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); } }
+
+/* Assistant: a speech bubble instead of the mascot's head. */
+.chat-bubble { background: var(--violet); color: #fff; }
+.chat-bubble:hover { background: #4B37D4; }
+.chat-head-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--violet); color: #fff; display: grid; place-items: center; flex: none; }
+.mascot-cta.no-art { grid-template-columns: 1fr; text-align: center; }
+.mascot-cta.no-art h2 { margin-left: auto; margin-right: auto; }
+.mascot-cta.no-art .lead { max-width: 640px; margin-left: auto; margin-right: auto; }

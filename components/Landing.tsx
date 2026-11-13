@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import Header from './Header';
 import Footer from './Footer';
@@ -84,10 +83,9 @@ export default async function Landing({ locale }: { locale: Locale }) {
           </div>
         </section>
 
-        {/* Mascot */}
+        {/* Call to action (no mascot on the student programme page) */}
         <section className="mascot-band">
-          <div className="container mascot-cta">
-            <Image src="/assets/kai-cert.png" alt={d.mascot.alt} width={800} height={800} sizes="(max-width: 760px) 240px, 320px" />
+          <div className="container mascot-cta no-art">
             <div>
               <h2>{d.mascot.title}</h2>
               <p className="lead" style={{ marginBottom: 28 }}>{d.mascot.lead}</p>

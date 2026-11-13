@@ -86,7 +86,7 @@ export default function ChatWidget() {
       {open && (
         <section className="chat-panel" aria-label="Assistant The AI Certification">
           <header className="chat-head">
-            <img src="/assets/kai-avatar.png" alt="" width={32} height={32} style={{ borderRadius: "50%" }} />
+            <span className="chat-head-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z" /><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" strokeWidth="2.6" /></svg></span>
             <div>
               <strong>Assistant The AI Certification</strong>
               <small>Réponses instantanées</small>
@@ -118,7 +118,7 @@ export default function ChatWidget() {
         </section>
       )}
       <button type="button" className="chat-bubble" aria-expanded={open} aria-label={open ? 'Fermer l’assistant' : 'Ouvrir l’assistant'} onClick={() => setOpen(!open)}>
-        <img src="/assets/kai-avatar.png" alt="" width={44} height={44} style={{ borderRadius: "50%" }} />
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z" /><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" strokeWidth="2.6" /></svg>
       </button>
     </div>
   );
