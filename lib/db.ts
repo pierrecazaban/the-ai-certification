@@ -260,6 +260,81 @@ create table if not exists certificates (
   total int not null,
   issued_at timestamptz not null default now(),
   unique (user_id, program)
+);
+
+-- Ambassador calls (/call): the admin's availability windows, and the 45-minute calls booked in them.
+create table if not exists call_windows (
+  id uuid primary key,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists call_bookings (
+  id uuid primary key,
+  reference text not null unique,
+  token text not null,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  first_name text not null,
+  last_name text not null default '',
+  email text not null,
+  school text not null default '',
+  linkedin text not null default '',
+  meet_url text not null default '',
+  calendar_event_id text,
+  status text not null default 'booked',
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists call_bookings_slot on call_bookings (starts_at) where status = 'booked';
+
+create table if not exists call_prospects (
+  token text primary key,
+  linkedin text not null unique,
+  first_name text not null default '',
+  last_name text not null default '',
+  school text not null default '',
+  created_at timestamptz not null default now()
+);
+
+alter table call_bookings add column if not exists prospect_token text;
+alter table call_bookings add column if not exists linkedin_notified_at timestamptz;
+
+-- LinkedIn prospecting run by the script on the admin's Mac, watched and steered from /admin › Prospection.
+create table if not exists outreach_prospects (
+  linkedin text primary key,
+  name text not null default '',
+  first_name text not null default '',
+  school text not null default '',
+  headline text not null default '',
+  token text,
+  status text not null default 'found',
+  found_at timestamptz not null default now(),
+  invited_at timestamptz,
+  accepted_at timestamptz,
+  messaged_at timestamptz,
+  booked_at timestamptz,
+  error text not null default ''
+);
+
+create table if not exists outreach_log (
+  id uuid primary key,
+  kind text not null,
+  text text not null,
+  at timestamptz not null default now()
+);
+
+create table if not exists outreach_config (
+  id integer primary key,
+  data jsonb not null default '{}'
+);
+
+-- Visitors with a page open right now (live counter in the admin console). One row per browser tab, no personal data.
+create table if not exists live_visitors (
+  vid text primary key,
+  path text not null,
+  seen_at timestamptz not null default now()
 )
 `;
 

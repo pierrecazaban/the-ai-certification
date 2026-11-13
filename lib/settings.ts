@@ -11,6 +11,11 @@ export const SETTINGS = {
   RESEND_API_KEY: { label: 'Resend API key', help: 'Sends the emails. Resend → API Keys (a “Sending access” key is enough).', secret: true },
   EMAIL_FROM: { label: 'Email sender', help: 'For example: The AI Certification <noreply@your-domain.com>. The domain must be verified in Resend.', secret: false },
   ANTHROPIC_API_KEY: { label: 'Claude API key (chatbot)', help: 'console.anthropic.com → API Keys. Empty = the chatbot is hidden.', secret: true },
+  GOOGLE_CLIENT_ID: { label: 'Google OAuth client ID (calls)', help: 'Google Cloud → APIs & Services → Credentials → OAuth client ID (Web application). Used to create the Google Meet links of /call.', secret: false },
+  GOOGLE_CLIENT_SECRET: { label: 'Google OAuth client secret (calls)', help: 'Same OAuth client → Client secret.', secret: true },
+  GOOGLE_REFRESH_TOKEN: { label: 'Google Calendar connection (calls)', help: 'Set by the “Connect Google Calendar” button in /admin › Calls. Empty = not connected.', secret: true },
+  CALLS_API_KEY: { label: 'Outreach script key (calls)', help: 'Shared with the LinkedIn script on your Mac: it registers prospects and sends the video link of each booked call on LinkedIn. Any long random string.', secret: true },
+  MEET_LINK: { label: 'Fixed video link (calls, fallback)', help: 'Used for /call while Google Calendar is not connected, e.g. your personal meet.google.com/xxx-xxxx-xxx room. Empty = a Jitsi room per call.', secret: false },
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;

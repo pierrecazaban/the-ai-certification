@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/space/layout,_N_T_/space/certificate/layout,_N_T_/space/certificate/page,_N_T_/space/certificate"
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/379c47d2a41b2511201e62b406954a996b9a7aebde07beafd8a687d1b109104e/$/space/certificate",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/space/certificate/page"
+    },
+    "isFallback": false
+  }
+}

@@ -197,15 +197,15 @@ export const PROGRAMS: Program[] = [
   },
 ];
 
-// Accent colour and card tint of each group block on the home page (the same calm violet for all).
+// Accent colour and card tint of each group block on the home page (the same gold as Kai’s collar for all).
 export const GROUPS = [
-  { title: 'Artificial intelligence', text: 'Build your own AI agent and prove you can use AI at work.', color: '#5B45E0', tint: '#F7F8FA' },
-  { title: 'AI assistants', text: 'The assistants everyone now works with, used properly.', color: '#5B45E0', tint: '#F7F8FA' },
-  { title: 'Prompting & research', text: 'Get reliable answers and sources you can defend.', color: '#5B45E0', tint: '#F7F8FA' },
-  { title: 'Creative AI', text: 'Images, video and voice made with AI, ready to publish.', color: '#5B45E0', tint: '#F7F8FA' },
-  { title: 'Automation & agents', text: 'Let AI take over repetitive work, safely.', color: '#5B45E0', tint: '#F7F8FA' },
-  { title: 'Data & code', text: 'Analyse data and build software with an AI at your side.', color: '#5B45E0', tint: '#F7F8FA' },
-  { title: 'Trust & safety', text: 'Use AI within the law and with good judgement.', color: '#5B45E0', tint: '#F7F8FA' },
+  { title: 'Artificial intelligence', text: 'Build your own AI agent and prove you can use AI at work.', color: '#B8862B', tint: '#F7F8FA' },
+  { title: 'AI assistants', text: 'The assistants everyone now works with, used properly.', color: '#B8862B', tint: '#F7F8FA' },
+  { title: 'Prompting & research', text: 'Get reliable answers and sources you can defend.', color: '#B8862B', tint: '#F7F8FA' },
+  { title: 'Creative AI', text: 'Images, video and voice made with AI, ready to publish.', color: '#B8862B', tint: '#F7F8FA' },
+  { title: 'Automation & agents', text: 'Let AI take over repetitive work, safely.', color: '#B8862B', tint: '#F7F8FA' },
+  { title: 'Data & code', text: 'Analyse data and build software with an AI at your side.', color: '#B8862B', tint: '#F7F8FA' },
+  { title: 'Trust & safety', text: 'Use AI within the law and with good judgement.', color: '#B8862B', tint: '#F7F8FA' },
 ];
 
 export const programBySlug = (slug: string) => PROGRAMS.find((p) => p.slug === slug) ?? null;

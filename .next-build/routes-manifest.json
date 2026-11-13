@@ -1,0 +1,373 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    },
+    {
+      "source": "/studies",
+      "destination": "/school",
+      "statusCode": 308,
+      "regex": "^(?!/_next)/studies(?:/)?$"
+    },
+    {
+      "source": "/etudes",
+      "destination": "/ecole",
+      "statusCode": 308,
+      "regex": "^(?!/_next)/etudes(?:/)?$"
+    },
+    {
+      "source": "/%C3%A9cole",
+      "destination": "/ecole",
+      "statusCode": 308,
+      "regex": "^(?!/_next)/%C3%A9cole(?:/)?$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Netlify-CDN-Cache-Control",
+          "value": "public, durable, s-maxage=300, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=604800"
+        }
+      ],
+      "regex": "^/(?:/)?$"
+    },
+    {
+      "source": "/school",
+      "headers": [
+        {
+          "key": "Netlify-CDN-Cache-Control",
+          "value": "public, durable, s-maxage=300, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=604800"
+        }
+      ],
+      "regex": "^/school(?:/)?$"
+    },
+    {
+      "source": "/ecole",
+      "headers": [
+        {
+          "key": "Netlify-CDN-Cache-Control",
+          "value": "public, durable, s-maxage=300, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=604800"
+        }
+      ],
+      "regex": "^/ecole(?:/)?$"
+    },
+    {
+      "source": "/estudios",
+      "headers": [
+        {
+          "key": "Netlify-CDN-Cache-Control",
+          "value": "public, durable, s-maxage=300, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=604800"
+        }
+      ],
+      "regex": "^/estudios(?:/)?$"
+    },
+    {
+      "source": "/studi",
+      "headers": [
+        {
+          "key": "Netlify-CDN-Cache-Control",
+          "value": "public, durable, s-maxage=300, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=604800"
+        }
+      ],
+      "regex": "^/studi(?:/)?$"
+    },
+    {
+      "source": "/studium",
+      "headers": [
+        {
+          "key": "Netlify-CDN-Cache-Control",
+          "value": "public, durable, s-maxage=300, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=604800"
+        }
+      ],
+      "regex": "^/studium(?:/)?$"
+    },
+    {
+      "source": "/certifications/:slug",
+      "headers": [
+        {
+          "key": "Netlify-CDN-Cache-Control",
+          "value": "public, durable, s-maxage=300, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=300, stale-while-revalidate=604800"
+        }
+      ],
+      "regex": "^/certifications(?:/([^/]+?))(?:/)?$"
+    }
+  ],
+  "rewrites": {
+    "beforeFiles": [
+      {
+        "source": "/tool",
+        "destination": "https://158-69-232-131.sslip.io/",
+        "regex": "^/tool(?:/)?$"
+      },
+      {
+        "source": "/tool/:path*",
+        "destination": "https://158-69-232-131.sslip.io/:path*",
+        "regex": "^/tool(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+      }
+    ],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/certifications/[slug]",
+      "regex": "^/certifications/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/certifications/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/certifications/[slug]/enroll",
+      "regex": "^/certifications/([^/]+?)/enroll(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/certifications/(?<nxtPslug>[^/]+?)/enroll(?:/)?$"
+    },
+    {
+      "page": "/space/module/[id]",
+      "regex": "^/space/module/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/space/module/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/space/[program]/certificate",
+      "regex": "^/space/([^/]+?)/certificate(?:/)?$",
+      "routeKeys": {
+        "nxtPprogram": "nxtPprogram"
+      },
+      "namedRegex": "^/space/(?<nxtPprogram>[^/]+?)/certificate(?:/)?$"
+    },
+    {
+      "page": "/space/[program]/exam",
+      "regex": "^/space/([^/]+?)/exam(?:/)?$",
+      "routeKeys": {
+        "nxtPprogram": "nxtPprogram"
+      },
+      "namedRegex": "^/space/(?<nxtPprogram>[^/]+?)/exam(?:/)?$"
+    },
+    {
+      "page": "/space/[program]/module/[id]",
+      "regex": "^/space/([^/]+?)/module/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPprogram": "nxtPprogram",
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/space/(?<nxtPprogram>[^/]+?)/module/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/verify/[ref]",
+      "regex": "^/verify/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPref": "nxtPref"
+      },
+      "namedRegex": "^/verify/(?<nxtPref>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/[locale]",
+      "regex": "^/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPlocale": "nxtPlocale"
+      },
+      "namedRegex": "^/(?<nxtPlocale>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/ambassador-terms",
+      "regex": "^/ambassador\\-terms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ambassador\\-terms(?:/)?$"
+    },
+    {
+      "page": "/call",
+      "regex": "^/call(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/call(?:/)?$"
+    },
+    {
+      "page": "/call/confirmed",
+      "regex": "^/call/confirmed(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/call/confirmed(?:/)?$"
+    },
+    {
+      "page": "/confirmation",
+      "regex": "^/confirmation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/confirmation(?:/)?$"
+    },
+    {
+      "page": "/legal-notice",
+      "regex": "^/legal\\-notice(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/legal\\-notice(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/login/password",
+      "regex": "^/login/password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login/password(?:/)?$"
+    },
+    {
+      "page": "/login/verify",
+      "regex": "^/login/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login/verify(?:/)?$"
+    },
+    {
+      "page": "/manifest.webmanifest",
+      "regex": "^/manifest\\.webmanifest(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/manifest\\.webmanifest(?:/)?$"
+    },
+    {
+      "page": "/pay/mock",
+      "regex": "^/pay/mock(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pay/mock(?:/)?$"
+    },
+    {
+      "page": "/privacy",
+      "regex": "^/privacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacy(?:/)?$"
+    },
+    {
+      "page": "/refund-policy",
+      "regex": "^/refund\\-policy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/refund\\-policy(?:/)?$"
+    },
+    {
+      "page": "/register",
+      "regex": "^/register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/register(?:/)?$"
+    },
+    {
+      "page": "/robots.txt",
+      "regex": "^/robots\\.txt(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/robots\\.txt(?:/)?$"
+    },
+    {
+      "page": "/sitemap.xml",
+      "regex": "^/sitemap\\.xml(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/sitemap\\.xml(?:/)?$"
+    },
+    {
+      "page": "/space",
+      "regex": "^/space(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/space(?:/)?$"
+    },
+    {
+      "page": "/space/certificate",
+      "regex": "^/space/certificate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/space/certificate(?:/)?$"
+    },
+    {
+      "page": "/space/exam",
+      "regex": "^/space/exam(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/space/exam(?:/)?$"
+    },
+    {
+      "page": "/support",
+      "regex": "^/support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/support(?:/)?$"
+    },
+    {
+      "page": "/terms",
+      "regex": "^/terms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/terms(?:/)?$"
+    },
+    {
+      "page": "/verify",
+      "regex": "^/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/verify(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

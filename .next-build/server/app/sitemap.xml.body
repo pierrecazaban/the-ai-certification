@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<url>
+<loc>http://localhost:3000/</loc>
+<changefreq>weekly</changefreq>
+<priority>0.5</priority>
+</url>
+<url>
+<loc>http://localhost:3000/school</loc>
+<xhtml:link rel="alternate" hreflang="en-US" href="http://localhost:3000/school" />
+<xhtml:link rel="alternate" hreflang="fr-FR" href="http://localhost:3000/ecole" />
+<xhtml:link rel="alternate" hreflang="es-ES" href="http://localhost:3000/estudios" />
+<xhtml:link rel="alternate" hreflang="it-IT" href="http://localhost:3000/studi" />
+<xhtml:link rel="alternate" hreflang="de-DE" href="http://localhost:3000/studium" />
+<changefreq>weekly</changefreq>
+<priority>1</priority>
+</url>
+<url>
+<loc>http://localhost:3000/ecole</loc>
+<xhtml:link rel="alternate" hreflang="en-US" href="http://localhost:3000/school" />
+<xhtml:link rel="alternate" hreflang="fr-FR" href="http://localhost:3000/ecole" />
+<xhtml:link rel="alternate" hreflang="es-ES" href="http://localhost:3000/estudios" />
+<xhtml:link rel="alternate" hreflang="it-IT" href="http://localhost:3000/studi" />
+<xhtml:link rel="alternate" hreflang="de-DE" href="http://localhost:3000/studium" />
+<changefreq>weekly</changefreq>
+<priority>1</priority>
+</url>
+<url>
+<loc>http://localhost:3000/estudios</loc>
+<xhtml:link rel="alternate" hreflang="en-US" href="http://localhost:3000/school" />
+<xhtml:link rel="alternate" hreflang="fr-FR" href="http://localhost:3000/ecole" />
+<xhtml:link rel="alternate" hreflang="es-ES" href="http://localhost:3000/estudios" />
+<xhtml:link rel="alternate" hreflang="it-IT" href="http://localhost:3000/studi" />
+<xhtml:link rel="alternate" hreflang="de-DE" href="http://localhost:3000/studium" />
+<changefreq>weekly</changefreq>
+<priority>1</priority>
+</url>
+<url>
+<loc>http://localhost:3000/studi</loc>
+<xhtml:link rel="alternate" hreflang="en-US" href="http://localhost:3000/school" />
+<xhtml:link rel="alternate" hreflang="fr-FR" href="http://localhost:3000/ecole" />
+<xhtml:link rel="alternate" hreflang="es-ES" href="http://localhost:3000/estudios" />
+<xhtml:link rel="alternate" hreflang="it-IT" href="http://localhost:3000/studi" />
+<xhtml:link rel="alternate" hreflang="de-DE" href="http://localhost:3000/studium" />
+<changefreq>weekly</changefreq>
+<priority>1</priority>
+</url>
+<url>
+<loc>http://localhost:3000/studium</loc>
+<xhtml:link rel="alternate" hreflang="en-US" href="http://localhost:3000/school" />
+<xhtml:link rel="alternate" hreflang="fr-FR" href="http://localhost:3000/ecole" />
+<xhtml:link rel="alternate" hreflang="es-ES" href="http://localhost:3000/estudios" />
+<xhtml:link rel="alternate" hreflang="it-IT" href="http://localhost:3000/studi" />
+<xhtml:link rel="alternate" hreflang="de-DE" href="http://localhost:3000/studium" />
+<changefreq>weekly</changefreq>
+<priority>1</priority>
+</url>
+</urlset>

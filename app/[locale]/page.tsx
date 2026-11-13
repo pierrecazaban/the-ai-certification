@@ -41,7 +41,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const slug = (await params).locale;
   const locale = localeFromSlug(slug);
   if (!locale) {
-    return (await privatePage(slug)) ? { title: 'The AI Certification', robots: { index: false, follow: false } } : {};
+    const page = await privatePage(slug);
+    if (page?.kind === 'admin') {
+      // Installable on its own: "Add to Home Screen" opens the admin directly, with the logo.
+      return { title: 'AI Cert Admin', robots: { index: false, follow: false }, manifest: '/admin.webmanifest',
+               appleWebApp: { title: 'AI Cert Admin', capable: true, statusBarStyle: 'black-translucent' } };
+    }
+    return page ? { title: 'The AI Certification', robots: { index: false, follow: false } } : {};
   }
   const { meta } = dict(locale);
   return {

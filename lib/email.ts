@@ -18,7 +18,7 @@ function layout(locale: Locale, body: string) {
 <div style="background:#17274C;padding:18px 28px">
 <img src="${base()}/assets/logo-email-white.png" width="133" height="30" alt="AI Certification" style="display:block;border:0">
 </div>
-<div style="background:#F1EEFF;text-align:center;padding:24px 0 0">
+<div style="background:#FBF3E2;text-align:center;padding:24px 0 0">
 <img src="${base()}/assets/kai-email.png" width="170" height="170" alt="" style="display:block;margin:0 auto;border:0">
 </div>
 <div style="padding:28px">${body}</div>
@@ -206,4 +206,18 @@ ${li('You are an independent partner, responsible for declaring your income.')}
 <p style="font-size:11px;color:#4A5370;margin:20px 0 0">To receive your commissions in France you need a business status, for example a micro-entreprise (auto-entrepreneur). Outside France, the equivalent status in your country.</p>`,
   );
   return send({ to: input.to, subject: 'Welcome to The AI Certification ambassador programme', html, kind: 'ambassador_welcome', locale: 'en-us' });
+}
+
+/** Confirmation of an ambassador call booked on /call: day, time and the video link. In French, like /call. */
+export function sendCallBookedEmail(input: { to: string; firstName: string; when: string; meetUrl: string; reference: string; manageUrl: string }) {
+  const html = layout(
+    'fr',
+    `<p style="margin:0 0 12px"><span style="display:inline-block;background:#EAEFF8;color:#1F3A75;font-weight:700;font-size:13px;padding:6px 12px;border-radius:999px">&#10003; Appel confirmé</span></p>
+<p style="font-size:22px;line-height:1.25;font-weight:800;margin:0 0 12px">À très vite${input.firstName ? `, ${esc(input.firstName)}` : ''} !</p>
+<p style="font-size:15px;line-height:1.5;margin:0">On se retrouve <strong>${esc(input.when)}</strong> (heure de Paris) pour 45 minutes autour du programme ambassadeurs de The AI Certification.</p>
+${button(input.meetUrl, 'Rejoindre l’appel')}
+<p style="font-size:13px;color:#4A5370;margin:0;word-break:break-all">Lien de l’appel : <a href="${esc(input.meetUrl)}" style="color:#1F3A75">${esc(input.meetUrl)}</a></p>
+<p style="font-size:13px;color:#4A5370;margin:12px 0 0">Récapitulatif de ton rendez-vous : <a href="${esc(input.manageUrl)}" style="color:#1F3A75">${esc(input.reference)}</a></p>`,
+  );
+  return send({ to: input.to, subject: `Ton appel avec The AI Certification : ${input.when}`, html, kind: 'call_booked', locale: 'fr' });
 }

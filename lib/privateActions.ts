@@ -11,6 +11,8 @@ import { testSetting } from './settingsTest';
 import { checkStripeKey, describeStripeCheck } from './stripe';
 import { setOnSale } from './visibility';
 import { programBySlug } from './catalog';
+import { cancelBooking, deleteWindow, updateAvailability } from './calls';
+import { getConfig, saveConfig } from './outreach';
 
 // Schools sit on the overview now: messages about them land there, at the schools section.
 const team = (tab: string, msg: string) =>
@@ -138,4 +140,51 @@ export async function courseOnSaleAction(formData: FormData) {
   const lang = String(formData.get('lang') ?? 'fr');
   if (programBySlug(program)) await setOnSale(program, formData.get('on_sale') === '1');
   redirect(lang === 'settings' ? `/${PRIVATE_SLUGS.admin}?tab=reglages#ventes` : `/${PRIVATE_SLUGS.admin}?tab=formation&program=${program}&lang=${lang}`);
+}
+
+// Calls (/admin › Calls): availability told to Claude in plain words, and the bookings.
+export async function availabilityAction(formData: FormData) {
+  await admin();
+  const text = String(formData.get('text') ?? '').trim();
+  if (!text) pro('appels', 'empty');
+  const result = await updateAvailability(text);
+  if (!result.ok) pro('appels', result.error);
+  redirect(`/${PRIVATE_SLUGS.admin}?tab=appels&msg=ok&summary=${encodeURIComponent(result.ok ? result.summary : '')}`);
+}
+
+export async function deleteWindowAction(formData: FormData) {
+  await admin();
+  await deleteWindow(String(formData.get('id') ?? ''));
+  pro('appels', 'window-deleted');
+}
+
+export async function cancelCallAction(formData: FormData) {
+  await admin();
+  await cancelBooking(String(formData.get('id') ?? ''));
+  pro('appels', 'call-canceled');
+}
+
+// Prospection (/admin › Prospection): the plan the LinkedIn script follows.
+export async function outreachConfigAction(formData: FormData) {
+  await admin();
+  const num = (k: string) => Number(formData.get(k) ?? 0);
+  await saveConfig({
+    invitesPerDay: num('invitesPerDay'),
+    weeklyCap: num('weeklyCap'),
+    messagesPerDay: num('messagesPerDay'),
+    repostPerDay: num('repostPerDay'),
+    perSchool: num('perSchool'),
+    searchesPerDay: num('searchesPerDay'),
+    schools: String(formData.get('schools') ?? '').split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 200),
+    message: String(formData.get('message') ?? '').trim().slice(0, 1500),
+    inviteNote: String(formData.get('inviteNote') ?? '').trim().slice(0, 280),
+  });
+  pro('prospection', 'saved');
+}
+
+export async function outreachPauseAction() {
+  await admin();
+  const c = await getConfig();
+  await saveConfig({ paused: !c.paused });
+  pro('prospection', c.paused ? 'resumed' : 'paused');
 }

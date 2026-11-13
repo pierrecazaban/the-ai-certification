@@ -1,0 +1,16 @@
+{
+  "id": "/admin",
+  "name": "The AI Certification · Admin",
+  "short_name": "AI Cert Admin",
+  "description": "Admin console: sales, Smart Mail code of the day and console.",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F8FA",
+  "theme_color": "#17274C",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -13,6 +13,8 @@ import type { Locale } from '@/lib/locales';
 export const ADMIN_TABS = [
   { id: 'apercu', label: 'Dashboard' },
   { id: 'tickets', label: 'Tickets' },
+  { id: 'appels', label: 'Calls' },
+  { id: 'prospection', label: 'Prospection' },
   { id: 'versements', label: 'Payouts' },
 ] as const;
 

@@ -21,10 +21,10 @@ export const metadata: Metadata = {
 // The general home page.
 
 const SOLUTIONS = [
-  { img: '/images/team-meeting.webp', title: 'Companies', text: 'Upskill a team and give every person proof of what they learned.', points: ['Corporate rate per seat', 'Online, in five languages', 'One verifiable certificate per person'] },
-  { img: '/images/laptop-work.webp', title: 'Schools & universities', text: 'Add a checkable credential to your students’ profile, with nothing to build.', points: ['Funded rate for students', 'Nothing to host or maintain', 'Independent from the curriculum'] },
-  { img: '/images/students.webp', title: 'Students', text: 'Show employers a skill they can check, not just a line on a CV.', points: ['Funded place for students', 'About three hours online', 'Ready for your LinkedIn profile'] },
-  { img: '/images/volunteers.webp', title: 'Associations', text: 'Recognise what your volunteers and members learn with you.', points: ['Pricing for non-profits', 'Certify members and volunteers', 'The same verifiable standard'] },
+  { img: '/images/team-meeting.webp', title: 'Companies', text: 'Upskill your team, with proof for each person.', points: ['Corporate rate per seat', 'Online, in five languages', 'One verifiable certificate per person'] },
+  { img: '/images/laptop-work.webp', title: 'Schools & universities', text: 'A checkable credential for your students. Nothing to build.', points: ['Funded rate for students', 'Nothing to host or maintain', 'Independent from the curriculum'] },
+  { img: '/images/students.webp', title: 'Students', text: 'A skill employers can check, not just a CV line.', points: ['Funded place for students', 'About three hours online', 'Ready for your LinkedIn profile'] },
+  { img: '/images/volunteers.webp', title: 'Associations', text: 'Recognise what your members and volunteers learn.', points: ['Pricing for non-profits', 'Certify members and volunteers', 'The same verifiable standard'] },
 ];
 
 const check = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>;
@@ -83,11 +83,9 @@ export default async function Home() {
         <section className="hero hero-bands">
           <div className="container hm-hero">
             <div>
-              <span className="eyebrow">Skills certification for everyone</span>
               <h1>Prove what you can do <span className="grad-text">with AI.</span></h1>
               <p className="lead">
-                ChatGPT, Claude, Copilot, prompting, automation, agents and more. The AI Certification designs online AI certifications for
-                companies, schools, students and associations: a real exam, and a certificate anyone can verify.
+                ChatGPT, Claude, Copilot, agents. Pass a real exam, get a certificate anyone can verify.
               </p>
               <div className="hm-ctas">
                 <a className="btn btn-green" href="#certifications">See the certifications</a>
@@ -105,17 +103,25 @@ export default async function Home() {
                 sizes="(max-width: 960px) 80vw, 460px"
                 priority
               />
+              {/* Hand-drawn doodles around Kai */}
+              <p className="note note-kai" aria-hidden="true">Hi, I’m Kai!</p>
+              <svg className="doodle doodle-star-a" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M20 3 C 21 13, 24 17, 37 20 C 25 22, 21.5 26, 20 37 C 18.5 26, 15 22, 3 20.5 C 15 18, 18.8 14, 20 3 Z" />
+              </svg>
+              <svg className="doodle doodle-star-b" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+                <path d="M20 4 C 21 14, 24 17, 36 20 C 25 22, 21 26, 20 36 C 19 26, 15 22, 4 20 C 15 18, 19 14, 20 4 Z" />
+              </svg>
+              <svg className="doodle doodle-arrow" viewBox="0 0 120 80" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M110 8 C 92 10, 70 18, 58 34 C 48 48, 50 60, 34 66 C 26 69, 18 68, 10 64" />
+                <path d="M20 56 C 15 60, 12 62, 9 64 C 13 66, 17 69, 21 73" />
+              </svg>
               <div className="hm-cert" aria-hidden="true">
-                <CertBadge kind="ai" color="#5B45E0" size={44} />
+                <CertBadge kind="ai" color="#B8862B" size={44} />
                 <div>
                   <small>Certificate of completion</small>
                   <strong>AI for students</strong>
                   <span>Ref. TAC-SAMPLE · Verified</span>
                 </div>
-              </div>
-              <div className="hm-li" aria-hidden="true">
-                <LinkedInLogo size={20} />
-                <span>Added to profile</span>
               </div>
             </div>
           </div>
@@ -127,8 +133,8 @@ export default async function Home() {
             <div className="section-head">
               <div className="section-logo"><LinkedInLogo size={48} /></div>
               <span className="eyebrow">Certifications</span>
-              <h2>Get certified. Shine on LinkedIn. Walk into interviews with proof.</h2>
-              <p className="lead">The AI tools every job now relies on. Pass a real exam, add your certificate to LinkedIn and show the skills the best companies look for, with a credential recruiters can verify in seconds.</p>
+              <h2>Don’t just say you know AI. <span className="hl">Prove it.</span></h2>
+              <p className="lead">One exam. One certificate on your LinkedIn. Checked by recruiters in seconds.</p>
             </div>
             <div className="hm-blocks">
               {GROUPS.slice(0, FEATURED_GROUPS).map((g) => <CatalogBlock key={g.title} g={g} isAvailable={isAvailable} />)}
@@ -142,14 +148,13 @@ export default async function Home() {
         </section>
 
         {/* LinkedIn */}
-        <section id="linkedin">
+        <section className="section-dark" id="linkedin">
           <div className="container split" style={{ alignItems: 'center' }}>
             <div>
               <span className="eyebrow">Made to be shown</span>
-              <h2 className="hm-li-title"><LinkedInLogo size={34} /> Put it on your LinkedIn profile</h2>
+              <h2 className="hm-li-title"><LinkedInLogo size={34} /> <span>Put it on your <span className="circled">LinkedIn</span> profile</span></h2>
               <p className="lead">
-                Every certificate goes in the Licenses &amp; certifications section of LinkedIn, with its name, The AI Certification as the issuer
-                and its credential ID. Recruiters see it on your profile and can check it on our verification page.
+                Your certificate goes straight into LinkedIn’s Licenses &amp; certifications, with a credential ID recruiters can check.
               </p>
               <ul className="checklist">
                 <li>Name, issuer, date and credential ID, ready to copy</li>
@@ -157,6 +162,8 @@ export default async function Home() {
                 <li>Seen by every recruiter who opens your profile</li>
               </ul>
             </div>
+            <div className="note-host">
+            <p className="note note-li" aria-hidden="true">recruiters see this ↓</p>
             <div className="hm-linkedin" aria-hidden="true">
               <div className="hm-linkedin-head">
                 <LinkedInLogo size={24} />
@@ -175,6 +182,7 @@ export default async function Home() {
                 </div>
               ))}
             </div>
+            </div>
           </div>
         </section>
 
@@ -183,7 +191,7 @@ export default async function Home() {
           <div className="container">
             <div className="section-head">
               <span className="eyebrow">Solutions</span>
-              <h2>One standard for everyone who needs to prove a skill</h2>
+              <h2>One standard for <span className="hl">everyone</span> who needs to prove a skill</h2>
             </div>
             <div className="hm-solutions">
               {SOLUTIONS.map((s) => (
@@ -205,14 +213,16 @@ export default async function Home() {
           <div className="container split" style={{ alignItems: 'center' }}>
             <div>
               <span className="eyebrow">Verification</span>
-              <h2>A certificate you can check, not take on trust</h2>
-              <p className="lead">Every certificate has its own reference and a public page. A recruiter, a manager or a school can confirm it in seconds.</p>
+              <h2>A certificate you can <span className="circled">check</span>, not take on trust</h2>
+              <p className="lead">Every certificate has its own public page. Anyone can confirm it in seconds.</p>
               <ol className="numbered" style={{ marginTop: 24 }}>
-                <li><span><strong>Learn online.</strong> Short modules at your own pace, built around real tasks.</span></li>
-                <li><span><strong>Pass a real exam.</strong> The certificate is earned, never given for showing up.</span></li>
-                <li><span><strong>Prove it anywhere.</strong> CV, LinkedIn, interviews: anyone can verify it.</span></li>
+                <li><span><strong>Learn online.</strong> Short modules, real tasks.</span></li>
+                <li><span><strong>Pass a real exam.</strong> Earned, never given.</span></li>
+                <li><span><strong>Prove it anywhere.</strong> CV, LinkedIn, interviews.</span></li>
               </ol>
             </div>
+            <div className="note-host">
+            <p className="note note-verify" aria-hidden="true">anyone can check it, for free</p>
             <div className="co-browser" aria-hidden="true">
               <div className="co-browser-bar"><span /><span /><span /><p>{SITE_DOMAIN}/verify/TAC-SAMPLE</p></div>
               <div className="co-browser-body">
@@ -225,19 +235,19 @@ export default async function Home() {
                 </dl>
               </div>
             </div>
+            </div>
           </div>
         </section>
 
         {/* Ambition */}
-        <section className="section-dark">
+        <section className="section-dark hm-ambition">
           <div className="container split">
             <div>
               <span className="eyebrow">Our ambition</span>
-              <h2>This is the start of something big.</h2>
+              <h2>This is the start of <span className="hl">something big.</span></h2>
             </div>
             <p className="lead">
-              A certificate should be a fact you can check. We are building that standard, one certification and one country at a
-              time, for everyone who has a skill to prove.
+              A certificate should be a fact you can check. We’re building that standard, one country at a time.
             </p>
           </div>
         </section>
@@ -247,8 +257,8 @@ export default async function Home() {
           <div className="container split">
             <div>
               <span className="eyebrow">Contact</span>
-              <h2>Certify your team, your students or your members</h2>
-              <p className="lead">Tell us who you are and what you need. We reply by email.</p>
+              <h2>Certify your <span className="hl">team</span>, your students or your members</h2>
+              <p className="lead">Tell us what you need. We reply by email.</p>
             </div>
             <div className="card"><ContactForm /></div>
           </div>

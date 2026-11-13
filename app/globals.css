@@ -8,10 +8,13 @@
   --line: #E1E5EC;
   --muted: #4A5370;
   /* Accent colours (see "Colour layer" at the end of the file). Text-safe on white: ≥ 4.5:1. */
-  --violet: #5B45E0;
+  --violet: #946A1A;        /* accent = Kai's gold collar (name kept for older rules); text on light, 4.6:1 */
+  --gold: #D4A74C;          /* the collar itself: on navy (6.6:1) */
+  --gold-mid: #B8862B;      /* icons and the logo star on light backgrounds (3:1) */
+  --gold-light: #E3BC63;    /* text and stars on navy bands (8:1) */
   --amber: #FFB020;        /* main call to action, navy text on it (8:1) */
   --amber-hover: #F59E0B;
-  --violet-tint: #F1EEFF;
+  --violet-tint: #FBF3E2;
   --radius: 14px;
   --max: 1160px;
 }
@@ -1435,45 +1438,418 @@ body:has(.cx-header) .course-bar { top: 0; }
 
 /* ===================================================================
    Colour layer
-   Navy stays the base (Kai's coat). Two accents only: amber for the main
-   actions (the gold of Kai's collar) and one violet for highlights.
+   Kai's colours only: navy (his coat) as the base, white, and gold (his collar).
+   Amber for the main actions, gold for highlights. --violet now holds the dark gold.
    =================================================================== */
 
 /* Main action: amber with navy text */
 .btn-green { background: var(--amber); border-color: var(--amber); color: var(--navy); }
 .btn-green:hover { background: var(--amber-hover); border-color: var(--amber-hover); color: var(--navy); }
-.btn:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
+.btn:focus-visible { outline: 3px solid var(--gold-mid); outline-offset: 3px; }
 
-/* Site logo: “AI” and the star in violet (light violet on dark bands) */
-:root { --logo-accent: var(--violet); }
-.site-footer, .section-dark { --logo-accent: #B9AEFF; }
+/* Site logo: the star and “The AI” in gold (lighter gold on dark bands) */
+:root { --logo-accent: var(--gold-mid); }
+.site-footer, .section-dark, .co-footer, .cx-brand { --logo-accent: var(--gold-light); }
 
 /* Section labels and links */
 .eyebrow { color: var(--violet); }
-.section-dark .eyebrow { color: #C9C2FF; }
+.section-dark .eyebrow { color: var(--gold-light); }
 a:hover { color: var(--violet); }
 .nav-links a[aria-current="page"] { color: var(--violet); }
-.grad-text { color: var(--violet); }
+.grad-text { color: var(--gold-mid); }
+.section-dark .grad-text { color: var(--gold-light); }
 
-/* Hero and contact bands: a light violet wash, navy and violet corners */
-.hero-bands { background: radial-gradient(60% 70% at 88% 18%, #EEEBFF 0%, rgba(238,235,255,0) 70%), linear-gradient(160deg, #F7F8FC 0%, #EEF1F8 100%); }
-.hero-bands::before { background: linear-gradient(135deg, var(--navy) 0 26%, var(--violet) 26% 50%, transparent 50%); }
-.hero-bands::after { background: linear-gradient(135deg, transparent 50%, #D9D3FF 50% 64%, var(--violet) 64% 80%, var(--navy) 80%); }
+/* Hero and contact bands: a warm gold wash, navy and gold corners like Kai's coat and collar */
+.hero-bands { background: radial-gradient(60% 70% at 88% 18%, #FBF1DC 0%, rgba(251,241,220,0) 70%), linear-gradient(160deg, #F7F8FC 0%, #EEF1F8 100%); }
+.hero-bands::before { background: linear-gradient(135deg, var(--navy) 0 26%, var(--gold) 26% 50%, transparent 50%); }
+.hero-bands::after { background: linear-gradient(135deg, transparent 50%, #F1DFB4 50% 64%, var(--gold) 64% 80%, var(--navy) 80%); }
 .hm-cert small { color: var(--violet); }
 
 /* Ticks and steps */
-.checklist li::before { background-color: var(--violet); }
-.numbered li::before { background: var(--violet); }
+.checklist li::before { background-color: var(--gold-mid); }
+.numbered li::before { background: var(--navy); color: var(--gold-light); }
 
 /* Catalogue */
 .hm-block .hm-cert-card.is-live { border-color: var(--line); }
 .hm-block .hm-cert-card:hover { box-shadow: 0 18px 36px -22px rgba(23,39,76,.35); }
 .hm-block-head span, .hm-cert-more { color: var(--violet); }
-.hm-feature:hover { border-color: var(--violet) !important; }
+.hm-feature:hover { border-color: var(--gold-mid) !important; }
 .hm-status { background: #ECEFF4; color: #4A5370; }
 .hm-status.is-live { background: var(--violet-tint); color: var(--violet); }
 
 /* Solutions and verification */
-.hm-solution-body li svg { color: var(--violet); }
+.hm-solution-body li svg { color: var(--gold-mid); }
 .co-valid { background: var(--violet-tint); }
-.co-valid svg { color: var(--violet); }
+.co-valid svg { color: var(--gold-mid); }
+
+/* /call: month calendar of the ambassador call booking */
+.cal { max-width: 420px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cal-nav { width: 40px; height: 40px; border-radius: 999px; border: 1px solid #C8CED9; background: #fff; font-size: 22px; line-height: 1; cursor: pointer; color: var(--navy); }
+.cal-nav:disabled { opacity: .3; cursor: default; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal-wd { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; padding: 4px 0; }
+.cal-day { aspect-ratio: 1; min-height: 40px; border-radius: 12px; border: 1px solid #C8CED9; background: #fff; font-weight: 700; font-size: 15px; color: var(--navy); cursor: pointer; }
+.cal-day:hover:not(:disabled) { border-color: var(--green-dark); }
+.cal-day:disabled { border-color: transparent; background: transparent; color: #B4BBC8; font-weight: 500; cursor: default; }
+.cal-day.is-on { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
+.cal-day:focus-visible { outline: 3px solid #C9D6EE; outline-offset: 2px; }
+
+/* Navy bands (Kai's coat): text, ticks and the LinkedIn mark stay readable on them */
+.section-dark .checklist li { color: #E3E7F2; }
+.section-dark .checklist li::before { background-color: var(--gold-light); }
+.section-dark .numbered li::before { background: var(--gold); color: var(--navy); }
+.section-dark .hm-li-title { color: #fff; }
+.section-dark .hm-linkedin { color: var(--navy); }
+.section-dark .hm-li-title svg, .section-dark .hm-li-title img { background: #fff; border-radius: 6px; padding: 2px; box-sizing: content-box; }
+
+/* Hero, plain version (2026-11-13): flat background, no gradient wash, no corner stripes, no glow.
+   Kai sits on a flat panel in his collar's gold; the certificate card has a border instead of a floating shadow. */
+.hero-bands { background: var(--cream); }
+.hero-bands::before, .hero-bands::after { content: none; }
+.hm-visual { padding: 0; }
+.hm-visual::before { content: ""; position: absolute; inset: 12% 4% 6% 10%; background: #FBF1DC; border: 1px solid #F0E0B8; border-radius: 28px; z-index: 0; }
+.hm-mascot, .hm-visual .hm-mascot { position: relative; z-index: 1; filter: none; }
+.hm-cert { z-index: 2; left: 0; bottom: 4%; box-shadow: none; border: 1px solid var(--line); border-radius: 14px; }
+@media (max-width: 760px) { .hm-visual::before { inset: 14% 0 6% 0; } }
+
+/* Phones: header buttons on one line; the TAC logo (wider than the old one) a little smaller to leave them room. */
+.site-header .btn, .co-header .btn, .nav .btn { white-space: nowrap; }
+@media (max-width: 480px) {
+  .site-header .brand svg, .co-header .brand svg, .nav .brand svg { height: 30px; width: auto; }
+  .site-header .btn-sm, .co-header .btn-sm, .nav .btn-sm { padding: 0 14px; font-size: 14px; }
+}
+
+
+/* ===================================================================
+   Hand-drawn touches (2026-11-13): a few strokes in Kai's gold and navy,
+   so the site feels made by people. Kept to the hero, ticks and steps.
+   =================================================================== */
+.hm-hero h1 .grad-text { position: relative; display: inline-block; }
+.hm-hero h1 .grad-text::after { content: ""; position: absolute; left: -2%; right: -4%; bottom: -.12em; height: .32em; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15 C 40 6, 70 20, 104 12 S 170 5, 205 13 S 262 19, 296 9' fill='none' stroke='%23B8862B' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M30 20 C 90 14, 160 18, 250 15' fill='none' stroke='%23B8862B' stroke-width='2.5' stroke-linecap='round' opacity='.7'/%3E%3C/svg%3E") center / 100% 100% no-repeat; pointer-events: none; }
+
+.hm-visual::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400' preserveAspectRatio='none'%3E%3Cpath d='M26 18 C 120 10, 260 14, 378 22 C 390 120, 386 270, 380 382 C 260 390, 130 386, 20 380 C 12 260, 16 130, 26 18 Z' fill='%23FBF1DC'/%3E%3Cpath d='M24 20 C 120 12, 262 16, 380 20 C 388 122, 384 268, 382 384 C 262 388, 128 388, 18 378 C 14 262, 14 132, 24 20' fill='none' stroke='%2317274C' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M30 26 C 140 22, 250 24, 372 30' fill='none' stroke='%2317274C' stroke-width='1.2' opacity='.35' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat; border: 0; border-radius: 0; transform: rotate(-1.2deg); }
+.doodle { position: absolute; pointer-events: none; z-index: 1; color: var(--gold-mid); }
+.doodle-star-a { left: 4%; top: 10%; width: 34px; }
+.doodle-star-b { left: 14%; top: 22%; width: 18px; color: var(--navy); }
+.doodle-arrow { left: -14%; bottom: 25%; width: 96px; color: var(--gold-mid); z-index: 3; transform: rotate(-8deg); }
+@media (max-width: 760px) { .doodle-arrow { display: none; } .doodle-star-a { left: 0; top: 8%; width: 24px; } .doodle-star-b { display: none; } }
+
+.checklist li::before { border-radius: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B8862B' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 13.2 C 5.5 14.6, 7.6 16.8, 9.4 19.6 C 12 13.4, 15.6 8.2, 21 3.6'/%3E%3C/svg%3E") center / 20px no-repeat !important; }
+.section-dark .checklist li::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E3BC63' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 13.2 C 5.5 14.6, 7.6 16.8, 9.4 19.6 C 12 13.4, 15.6 8.2, 21 3.6'/%3E%3C/svg%3E") center / 20px no-repeat !important; }
+
+.numbered li::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23B8862B' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M21 4 C 31 4, 37 11, 36 20 C 35 30, 28 36, 19 36 C 9 35, 4 28, 4.5 19 C 5 10, 12 4.5, 23 5.5'/%3E%3C/svg%3E") center / 100% 100% no-repeat !important; color: var(--navy); }
+.section-dark .numbered li::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23E3BC63' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M21 4 C 31 4, 37 11, 36 20 C 35 30, 28 36, 19 36 C 9 35, 4 28, 4.5 19 C 5 10, 12 4.5, 23 5.5'/%3E%3C/svg%3E") center / 100% 100% no-repeat !important; color: #fff; }
+
+/* More hand-drawn: highlighter strokes, circled words and handwritten notes in Caveat */
+.hl { position: relative; z-index: 0; white-space: nowrap; }
+.hl::before { content: ""; position: absolute; z-index: -1; left: -.15em; right: -.2em; top: .38em; bottom: -.05em; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M4 24 C 40 16, 90 20, 196 14 L 194 34 C 120 36, 60 32, 6 36 Z' fill='%23F3D488' opacity='.75'/%3E%3C/svg%3E") center / 100% 100% no-repeat; transform: rotate(-1deg); }
+.section-dark .hl::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M4 24 C 40 16, 90 20, 196 14 L 194 34 C 120 36, 60 32, 6 36 Z' fill='%23D4A74C' opacity='.45'/%3E%3C/svg%3E"); }
+.circled { position: relative; white-space: nowrap; }
+.circled::after { content: ""; position: absolute; left: -.28em; right: -.28em; top: -.12em; bottom: -.14em; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none' fill='none' stroke='%23B8862B' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M120 8 C 170 8, 196 24, 192 42 C 188 64, 140 74, 96 73 C 46 72, 8 62, 7 40 C 6 18, 48 6, 104 7 C 130 8, 150 12, 162 16' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat; transform: rotate(-2deg); pointer-events: none; }
+.section-dark .circled::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none' fill='none' stroke='%23E3BC63' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M120 8 C 170 8, 196 24, 192 42 C 188 64, 140 74, 96 73 C 46 72, 8 62, 7 40 C 6 18, 48 6, 104 7 C 130 8, 150 12, 162 16' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E"); }
+
+.note { position: absolute; margin: 0; font-family: 'Caveat', 'Bradley Hand', cursive; font-weight: 600; font-size: 26px; line-height: 1; color: var(--gold-mid); white-space: nowrap; pointer-events: none; z-index: 3; }
+.section-dark .note { color: var(--gold-light); }
+.note-kai { right: 2%; top: 4%; transform: rotate(6deg); }
+.hm-linkedin, .co-browser { position: relative; }
+.note-li { right: 4px; top: -38px; transform: rotate(-3deg); }
+.note-verify { left: 8px; top: -40px; transform: rotate(-2deg); color: var(--gold-mid); }
+@media (max-width: 760px) { .note { font-size: 21px; } .note-kai { top: 0; right: 0; } }
+
+/* notes sit on a wrapper, outside the cards (which clip their content) */
+.note-host { position: relative; min-width: 0; }
+.hm-linkedin, .co-browser { position: static; }
+.note-li { right: 6px; top: -34px; }
+.note-verify { left: 10px; top: -36px; }
+/* on navy, a gold squiggle under the words instead of a highlighter (which turns muddy on dark) */
+.section-dark .hl::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15 C 40 6, 70 20, 104 12 S 170 5, 205 13 S 262 19, 296 9' fill='none' stroke='%23E3BC63' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E") center bottom / 100% .32em no-repeat; top: auto; bottom: -.18em; height: .34em; opacity: 1; }
+@media (max-width: 760px) { .note-kai { display: none; } }
+
+
+/* ===================================================================
+   Hand-drawn, round 3: wavy header, wobbly shapes, wave separators
+   =================================================================== */
+/* Header: solid, with a hand-drawn wave as its bottom edge */
+.site-header, .co-header { background: #F7F8FA; backdrop-filter: none; -webkit-backdrop-filter: none; border-bottom: 0; }
+.site-header::after, .co-header::after { content: ""; position: absolute; left: 0; right: 0; bottom: -13px; height: 14px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 18' preserveAspectRatio='none'%3E%3Cpath d='M0 6 C 20 6, 20 14, 40 14 C 60 14, 60 5, 80 5 C 100 5, 100 13, 120 13.5 C 140 14, 140 6, 160 6 V0 H0 Z' fill='%23F7F8FA'/%3E%3Cpath d='M0 6 C 20 6, 20 14, 40 14 C 60 14, 60 5, 80 5 C 100 5, 100 13, 120 13.5 C 140 14, 140 6, 160 6' fill='none' stroke='%2317274C' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") left top / 160px 14px repeat-x; pointer-events: none; }
+
+/* Wobbly edges, like shapes drawn with a pen (uneven elliptical radii) */
+.btn { border-radius: 34px 26px 38px 24px / 26px 36px 24px 34px; }
+.card, .numbered li, .hm-cert, .hm-cert-card, .hm-feature, .hm-block, .co-browser, .hm-linkedin, .help-shortcut { border-radius: 22px 8px 26px 10px / 10px 26px 8px 22px; }
+.field input, .field select, .field textarea { border-radius: 14px 6px 16px 5px / 5px 16px 6px 14px; border-width: 1.5px; }
+.cal-day { border-radius: 14px 6px 12px 7px / 7px 12px 6px 14px; }
+.topic-chips label { border-radius: 30px 22px 32px 20px / 22px 30px 20px 30px; }
+
+/* A small gold wave between sections */
+main > section + section { position: relative; }
+main > section + section::before { content: ""; position: absolute; left: 50%; top: 18px; width: 120px; height: 16px; transform: translateX(-50%); background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16'%3E%3Cpath d='M3 9 C 13 2, 21 2, 31 8 S 49 15, 59 8 S 77 1, 88 8 S 106 14, 117 7' fill='none' stroke='%23B8862B' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; pointer-events: none; }
+main > section.section-dark + section::before, main > section + section.section-dark::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 16'%3E%3Cpath d='M3 9 C 13 2, 21 2, 31 8 S 49 15, 59 8 S 77 1, 88 8 S 106 14, 117 7' fill='none' stroke='%23E3BC63' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+
+/* Section labels: a sketched star in front */
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; }
+.eyebrow::before { content: ""; flex: 0 0 14px; height: 14px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23B8862B' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M20 4 C 21 14, 24 17, 36 20 C 25 22, 21 26, 20 36 C 19 26, 15 22, 4 20 C 15 18, 19 14, 20 4 Z'/%3E%3C/svg%3E") center / contain no-repeat; }
+.section-dark .eyebrow::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23E3BC63' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M20 4 C 21 14, 24 17, 36 20 C 25 22, 21 26, 20 36 C 19 26, 15 22, 4 20 C 15 18, 19 14, 20 4 Z'/%3E%3C/svg%3E"); }
+
+
+/* ===================================================================
+   Training widgets on the home page, hand-drawn (2026-11-13)
+   Index cards with a pen outline, a gold stamp, a gold offset shadow on hover.
+   =================================================================== */
+.hm-block { background: transparent; border: 0; padding: 8px 0; }
+.hm-carousel > .hm-block { background: #fff; border: 1.5px solid var(--navy); border-radius: 22px 8px 26px 10px / 10px 26px 8px 22px; padding: 20px; }
+.hm-block-head h3 { display: inline-block; position: relative; padding-bottom: 6px; }
+.hm-block-head h3::after { content: ""; position: absolute; left: 0; right: -6px; bottom: -2px; height: 10px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'%3E%3Cpath d='M3 9 C 50 4, 110 11, 197 6' fill='none' stroke='%23B8862B' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
+.hm-block-head span { display: inline-block; font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--gold-mid); transform: rotate(-2deg); }
+
+.hm-cert-card, .hm-block .hm-cert-card, .hm-block .hm-cert-card.is-live, .hm-carousel .hm-cert-card {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' preserveAspectRatio='none'%3E%3Cpath d='M10 8 C 120 4, 280 6, 392 10 C 396 100, 394 200, 390 292 C 280 296, 120 294, 8 290 C 4 200, 6 100, 10 8 Z' fill='%23FFFFFF'/%3E%3Cpath d='M9 9 C 120 3, 282 7, 391 9 C 397 102, 393 198, 391 293 C 280 297, 118 293, 7 291 C 3 198, 5 102, 11 6' fill='none' stroke='%2317274C' stroke-width='1.7' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat !important; border: 0 !important; border-radius: 0 !important;
+  box-shadow: none; transform: rotate(-.6deg); transition: transform .18s ease, filter .18s ease;
+}
+.hm-certs > .hm-cert-card:nth-child(even) { transform: rotate(.5deg); }
+.hm-cert-card:hover, .hm-certs > .hm-cert-card:nth-child(even):hover { transform: rotate(0) translate(-2px, -3px); box-shadow: none; filter: drop-shadow(5px 6px 0 #E3BC63); }
+
+/* Icon in a pen-drawn gold circle */
+.hm-cert-top :is(img, svg), .hm-feature > :is(img, svg) { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M52 6 C 78 6, 95 24, 94 50 C 93 77, 74 95, 48 94 C 22 93, 6 75, 6 49 C 7 24, 26 7, 56 8' fill='%23FBF1DC' stroke='%23B8862B' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat; padding: 9px; box-sizing: content-box; border-radius: 0; }
+.hm-carousel .hm-cert-card .hm-cert-top :is(img, svg) { padding: 6px; }
+
+/* “Available now” as a stamp */
+.hm-status { background: transparent !important; border: 1.5px dashed var(--gold-mid); color: var(--gold-ink, #946A1A) !important; border-radius: 6px; transform: rotate(-4deg); text-transform: uppercase; letter-spacing: .8px; font-size: 10px; padding: 3px 8px; }
+.hm-status.is-live::before { content: "✓ "; }
+.hm-status:not(.is-live) { border-color: #B4BBC8; color: #6B7896 !important; }
+
+/* Handwritten link */
+.hm-cert-more { font-family: 'Caveat', cursive; font-size: 21px; font-weight: 600; color: var(--gold-mid); margin-top: 4px; }
+
+/* Featured card: bigger, a sticky note for the funded place */
+.hm-feature { padding: 30px 32px !important; position: relative; }
+.hm-feature .hm-tags li { background: transparent; border: 1.5px solid var(--navy); border-radius: 14px 6px 14px 6px / 6px 14px 6px 14px; }
+.hm-feature .hm-tags li:last-child { background: #F3D488; border-color: transparent; transform: rotate(-2deg); box-shadow: 2px 3px 0 rgba(23,39,76,.15); font-family: 'Caveat', cursive; font-size: 19px; font-weight: 600; padding: 2px 12px; }
+@media (max-width: 760px) {
+  .hm-block .hm-cert-card:not(.hm-feature) { column-gap: 20px; padding: 16px 16px 16px 14px; }
+  .hm-block .hm-cert-card:not(.hm-feature) .hm-cert-top :is(img, svg) { padding: 6px; }
+}
+
+
+/* ===================================================================
+   Phones: shorter page (2026-11-13). Cards keep name + arrow, Solutions swipe
+   sideways, decorative mock-ups that repeat the text are hidden.
+   =================================================================== */
+@media (max-width: 760px) {
+  .hero { padding: 32px 0 28px; }
+  section { padding-top: 48px; padding-bottom: 48px; }
+  .section-logo { display: none; }
+  .lead { font-size: 16px; }
+
+  /* Certifications: one tight row per certification */
+  .hm-block-head p { display: none; }
+  .hm-block .hm-cert-card:not(.hm-feature) p { display: none; }
+  .hm-block .hm-cert-card:not(.hm-feature) { padding: 10px 14px 10px 12px; }
+  .hm-block .hm-cert-card:not(.hm-feature) h4 { grid-row: 1 / span 2; align-self: center; }
+  .hm-feature > p, .hm-feature-body p { display: none; }
+  .hm-feature .hm-tags li:not(:last-child) { display: none; }
+  .hm-blocks { gap: 8px; }
+  .hm-carousel .hm-block-head p, .hm-carousel .hm-cert-card p { display: none; }
+
+  /* LinkedIn: the example card shows it, the list repeats it */
+  #linkedin .checklist { display: none; }
+
+  /* Solutions: swipe sideways, no photos */
+  .hm-solutions { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 78%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; }
+  .hm-solution { scroll-snap-align: start; }
+  .hm-solution-img { display: none; }
+  .hm-solution-body ul { display: none; }
+
+  /* Verification: the steps say it, the browser mock-up repeats it */
+  #verify .note-host { display: none; }
+  .numbered li { padding: 12px 14px; }
+}
+
+/* Phones, tighter (2026-11-13): smaller type, spacing and cards */
+@media (max-width: 760px) {
+  body { font-size: 15px; }
+  h1, .hero h1 { font-size: 27px !important; line-height: 1.12; letter-spacing: -.6px; margin-bottom: 10px; }
+  h2 { font-size: 22px !important; line-height: 1.18; letter-spacing: -.3px; margin-bottom: 8px; }
+  h3 { font-size: 17px; }
+  .lead, .hero .lead { font-size: 14.5px !important; line-height: 1.5; }
+  .eyebrow { font-size: 10.5px; margin-bottom: 6px; }
+  section { padding-top: 34px !important; padding-bottom: 34px !important; }
+  .hero { padding: 22px 0 22px !important; }
+  .section-head { margin-bottom: 18px; }
+  main > section + section::before { top: 8px; width: 80px; height: 11px; }
+  .container { padding: 0 16px; }
+
+  .btn { min-height: 42px; padding: 0 18px; font-size: 14.5px; }
+  .hm-ctas { gap: 10px; margin-top: 14px; }
+
+  /* Training cards */
+  .hm-block { gap: 8px; padding: 2px 0; }
+  .hm-block-head h3 { font-size: 17px; margin: 0; }
+  .hm-block-head span { font-size: 18px; }
+  .hm-block .hm-cert-card:not(.hm-feature) { grid-template-columns: 36px minmax(0, 1fr) auto; padding: 8px 12px 8px 10px; column-gap: 14px; }
+  .hm-block .hm-cert-card:not(.hm-feature) .hm-cert-top :is(img, svg) { width: 32px; height: 32px; padding: 4px; }
+  .hm-block .hm-cert-card:not(.hm-feature) h4 { font-size: 15px; }
+  .hm-feature { padding: 16px 16px !important; gap: 8px !important; }
+  .hm-feature > img:first-child, .hm-feature > :is(img, svg) { width: 72px !important; height: auto; padding: 6px; }
+  .hm-feature-body h4 { font-size: 18px; }
+  .hm-status { font-size: 9px; padding: 2px 6px; }
+  .hm-feature .hm-tags li:last-child { font-size: 16px; }
+  .hm-carousel { grid-auto-columns: 82%; gap: 10px; }
+  .hm-carousel > .hm-block { padding: 14px; }
+  .hm-carousel .hm-cert-card { padding: 8px 10px; }
+  .hm-carousel .hm-cert-card h4 { font-size: 14px; }
+
+  /* Other blocks */
+  .hm-linkedin-row { padding: 10px 14px; }
+  .hm-linkedin-row strong { font-size: 14px; }
+  .hm-solution-body { padding: 14px; }
+  .hm-solution-body h3 { font-size: 17px; }
+  .hm-solution-body p { font-size: 13.5px; margin: 0; }
+  .numbered { gap: 8px; }
+  .numbered li { padding: 10px 12px; font-size: 14px; gap: 12px; }
+  .numbered li::before { flex-basis: 28px; height: 28px; font-size: 13px; }
+  .field label { font-size: 14px; }
+  .field input, .field select { min-height: 42px; }
+  .field textarea { min-height: 100px; }
+  .topic-chips label { min-height: 36px; padding: 0 12px; font-size: 13.5px; }
+  .card { padding: 18px; }
+  .hm-legal { font-size: 10px; line-height: 1.4; }
+}
+@media (max-width: 760px) { .split { gap: 14px !important; } .hm-linkedin-head { padding: 12px 14px; } }
+
+
+/* Circle the key words instead of the highlighter (2026-11-13) */
+.hl::before { content: none !important; }
+.hl { position: relative; white-space: nowrap; }
+.hl::after { content: ""; position: absolute; left: -.3em; right: -.3em; top: -.14em; bottom: -.16em; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none' fill='none' stroke='%23B8862B' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M120 8 C 170 8, 196 24, 192 42 C 188 64, 140 74, 96 73 C 46 72, 8 62, 7 40 C 6 18, 48 6, 104 7 C 130 8, 150 12, 162 16' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat; transform: rotate(-1.5deg); pointer-events: none; }
+.section-dark .hl::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none' fill='none' stroke='%23E3BC63' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M120 8 C 170 8, 196 24, 192 42 C 188 64, 140 74, 96 73 C 46 72, 8 62, 7 40 C 6 18, 48 6, 104 7 C 130 8, 150 12, 162 16' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E"); }
+
+/* Rounder hand-drawn frames on the training cards */
+.hm-cert-card, .hm-block .hm-cert-card, .hm-block .hm-cert-card.is-live, .hm-carousel .hm-cert-card { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' preserveAspectRatio='none'%3E%3Cpath d='M40 8 C 140 4, 270 6, 362 10 C 392 12, 396 40, 394 70 C 396 140, 394 210, 390 250 C 388 286, 360 294, 330 292 C 240 296, 130 294, 50 290 C 14 288, 6 262, 7 230 C 4 160, 6 100, 9 50 C 10 20, 20 9, 40 8 Z' fill='%23FFFFFF'/%3E%3Cpath d='M38 9 C 140 3, 272 7, 360 9 C 393 11, 397 42, 393 72 C 397 142, 393 208, 391 252 C 389 287, 358 295, 328 293 C 240 297, 128 293, 48 291 C 12 289, 5 260, 6 228 C 3 160, 5 100, 8 48 C 10 18, 22 7, 46 7' fill='none' stroke='%2317274C' stroke-width='1.7' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") !important; }
+.hm-carousel > .hm-block { border-radius: 30px 22px 34px 20px / 22px 32px 20px 30px; }
+
+/* Phones, round 2: the featured card on one compact row, a shorter LinkedIn example, a tighter footer */
+@media (max-width: 760px) {
+  .hm-feature { grid-template-columns: 58px minmax(0, 1fr) !important; grid-template-rows: auto auto; column-gap: 14px !important; row-gap: 10px !important; align-items: center; padding: 14px !important; }
+  .hm-feature > :is(img, svg):first-child, .hm-feature > img { width: 46px !important; grid-row: 1; }
+  .hm-feature-body { gap: 4px; }
+  .hm-feature-body h4 { font-size: 17px; margin: 0; }
+  .hm-feature .hm-status { display: none; }
+  .hm-feature .hm-tags { margin: 2px 0 0; }
+  .hm-feature .hm-tags li:last-child { font-size: 15px; padding: 1px 10px; }
+  .hm-feature-cta { grid-column: 1 / -1; min-height: 38px; }
+  .hm-block .hm-cert-card:not(.hm-feature) { padding: 6px 12px 6px 10px; }
+  .hm-block .hm-certs { gap: 6px; }
+
+  .hm-linkedin-row:nth-of-type(n+3) { display: none; }
+  .hm-linkedin-row { padding: 10px 12px; gap: 10px; }
+  .note-li { top: -28px; font-size: 19px; }
+
+  .hl::after, .circled::after { left: -.18em; right: -.18em; top: -.06em; bottom: -.08em; }
+
+  .site-footer { padding: 32px 0 20px; }
+  .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 18px 16px !important; }
+  .footer-grid > div:first-child { grid-column: 1 / -1; }
+  .footer-grid h4 { font-size: 11px; margin-bottom: 6px; }
+  .footer-grid li { font-size: 13.5px; }
+  .footer-grid ul { gap: 4px; }
+}
+@media (max-width: 760px) {
+  .hm-ambition { display: none; }
+  .hero { padding: 16px 0 18px !important; }
+  .hm-hero { gap: 12px !important; }
+  .hm-ctas .btn { min-height: 40px; }
+  .section-head .lead { margin-bottom: 0; }
+  main > section + section::before { display: none; }
+}
+@media (max-width: 760px) { .hero { padding-top: 40px !important; padding-bottom: 26px !important; } }
+
+
+/* Header in navy (Kai's coat) so it stands apart from the page; the wave keeps the navy and a gold edge */
+.site-header, .co-header { background: var(--navy) !important; color: #fff; --logo-accent: var(--gold-light); }
+.site-header::after, .co-header::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 18' preserveAspectRatio='none'%3E%3Cpath d='M0 6 C 20 6, 20 14, 40 14 C 60 14, 60 5, 80 5 C 100 5, 100 13, 120 13.5 C 140 14, 140 6, 160 6 V0 H0 Z' fill='%2317274C'/%3E%3Cpath d='M0 6 C 20 6, 20 14, 40 14 C 60 14, 60 5, 80 5 C 100 5, 100 13, 120 13.5 C 140 14, 140 6, 160 6' fill='none' stroke='%23D4A74C' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") !important; }
+.site-header .brand, .co-header .brand { color: #fff; }
+.site-header .hm-links a, .site-header .nav-links a, .co-header .nav-links a, .co-header nav a:not(.btn) { color: #fff; }
+.site-header .hm-links a:hover, .site-header .nav-links a:hover, .co-header nav a:not(.btn):hover { color: var(--gold-light); }
+.site-header .btn-ghost, .co-header .btn-ghost, .site-header .btn:not(.btn-green), .co-header .btn:not(.btn-green) { color: #fff; border-color: #fff; background: transparent; }
+.site-header .menu-toggle, .co-header .menu-toggle { color: #fff; background: transparent; border-color: rgba(255,255,255,.35); }
+
+/* ===================================================================
+   iPhone, calmer (2026-11-13): fewer decorations, one column hero,
+   plain rows for the certifications, more air between sections.
+   =================================================================== */
+@media (max-width: 760px) {
+  section { padding-top: 44px !important; padding-bottom: 44px !important; }
+  .hero { padding-top: 36px !important; padding-bottom: 36px !important; }
+  .section-head { margin-bottom: 22px; }
+  .lead, .hero .lead { line-height: 1.6; }
+
+  /* Hero: text, then Kai centred below */
+  .hm-hero { grid-template-columns: 1fr !important; gap: 22px !important; }
+  .hm-hero h1 { font-size: 30px !important; }
+  .hm-ctas .btn-ghost { display: none; }
+  .hm-visual { max-width: 250px; margin: 0 auto; }
+  .hm-visual .hm-mascot { width: 100% !important; margin: 0 !important; }
+  .hm-cert { position: relative; left: auto; bottom: auto; margin: -18px auto 0; width: max-content; }
+  .doodle { display: none !important; }
+
+  /* Certifications: plain rows with a hairline, no frames or circles */
+  .hm-block-head span { display: none; }
+  .hm-block .hm-certs { gap: 0; }
+  .hm-block .hm-cert-card:not(.hm-feature) {
+    background: none !important; transform: none !important; filter: none !important;
+    border-bottom: 1px solid var(--line) !important; padding: 12px 2px !important;
+  }
+  .hm-block .hm-cert-card:not(.hm-feature) .hm-cert-top :is(img, svg) { background: none !important; padding: 0 !important; width: 30px !important; height: 30px !important; }
+  .hm-block .hm-cert-card:not(.hm-feature):last-child { border-bottom: 0 !important; }
+  .hm-blocks { gap: 26px; }
+  .hm-feature { transform: none !important; }
+  .hm-feature > :is(img, svg) { background: none !important; padding: 0 !important; }
+  .hm-carousel .hm-cert-card { background: none !important; transform: none !important; border-bottom: 1px solid var(--line) !important; }
+  .hm-carousel .hm-cert-card .hm-cert-top :is(img, svg) { background: none !important; padding: 0 !important; }
+  .hm-carousel > .hm-block { border-width: 1px; border-color: var(--line); }
+
+  /* Fewer notes */
+  .note-li { display: none; }
+  #linkedin .lead { margin-bottom: 18px; }
+}
+/* iPhone: Kai back beside the text (not below), without the card under him */
+@media (max-width: 760px) {
+  .hm-hero { grid-template-columns: minmax(0, 1.25fr) minmax(0, .9fr) !important; gap: 10px !important; align-items: center; }
+  .hm-hero h1 { font-size: 26px !important; }
+  .hm-hero .lead { font-size: 14px !important; }
+  .hm-visual { max-width: none; margin: 0; }
+  .hm-visual .hm-mascot { width: 118% !important; max-width: none; margin: 0 -12% 0 0 !important; }
+  .hm-cert { display: none !important; }
+}
+/* iPhone: a bigger hero */
+@media (max-width: 760px) {
+  .hero { padding-top: 52px !important; padding-bottom: 52px !important; min-height: 62svh; display: flex; align-items: center; }
+  .hero > .container { width: 100%; }
+  .hm-hero h1 { font-size: 33px !important; line-height: 1.08; margin-bottom: 14px; }
+  .hm-hero .lead { font-size: 15.5px !important; }
+  .hm-ctas { margin-top: 22px; }
+  .hm-ctas .btn { min-height: 48px; font-size: 15.5px; padding: 0 22px; }
+  .hm-visual .hm-mascot { width: 135% !important; margin: 0 -30% 0 -5% !important; }
+}
+@media (max-width: 760px) {
+  .hero { min-height: 56svh; padding-top: 40px !important; padding-bottom: 40px !important; }
+  .hm-hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) !important; gap: 4px !important; }
+  .hm-ctas .btn { white-space: nowrap; padding: 0 18px; font-size: 15px; }
+  .hm-visual .hm-mascot { width: 150% !important; margin: 0 -42% 0 -8% !important; }
+}
+
+/* Live visitors KPI (admin): a pulsing green dot next to the label. */
+.cx-live span { display: inline-flex; align-items: center; gap: 7px; }
+.cx-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: cx-pulse 1.8s infinite; }
+@keyframes cx-pulse { 70% { box-shadow: 0 0 0 7px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+@media (prefers-reduced-motion: reduce) { .cx-live-dot { animation: none; } }
+
+/* Admin: today's Smart Mail code, first thing on the page */
+.cx-toolcode { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--navy); color: #fff; border-radius: 20px; padding: 18px 24px; margin-bottom: 16px; }
+.cx-toolcode > div:first-child { display: grid; gap: 2px; }
+.cx-toolcode-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; opacity: .75; }
+.cx-toolcode-value { font-size: clamp(40px, 9vw, 56px); font-weight: 800; letter-spacing: 4px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.cx-toolcode small { font-size: 13px; opacity: .75; }
+.cx-toolcode-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cx-toolcode .btn-ghost { color: #fff; border-color: rgba(255,255,255,.4); }

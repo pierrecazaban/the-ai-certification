@@ -5,10 +5,15 @@ import { getCourse, lessonIdsOf } from '@/lib/learning';
 import { LOCALES, isLocale } from '@/lib/locales';
 import Tickets from '@/components/private/Tickets';
 import Settings from '@/components/private/Settings';
+import Calls from '@/components/private/Calls';
+import Outreach from '@/components/private/Outreach';
+import LiveVisitors from '@/components/private/LiveVisitors';
 import { ADMIN_TABS, AdminHeader } from '@/components/private/ConsoleHeaders';
 import { programBySlug } from '@/lib/catalog';
 import { decideSchoolRequestAction, markPayoutPaidAction } from '@/lib/privateActions';
 import { setting } from '@/lib/settings';
+import { toolCode } from '@/lib/toolGate';
+import ToolCode from '@/components/private/ToolCode';
 
 // Admin console, rendered by app/[locale]/page.tsx for signed-in admins only.
 // It has no route of its own, so for anyone else its address behaves like any unknown address.
@@ -65,6 +70,10 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
             {!id && <SchoolRequests msg={String(params.msg ?? '')} />}
             <Tickets id={id} status={statusFilter} />
           </>
+        ) : tab === 'prospection' ? (
+          <Outreach params={params} />
+        ) : tab === 'appels' ? (
+          <Calls params={params} />
         ) : tab === 'versements' ? (
           <Payouts />
         ) : tab === 'reglages' ? (
@@ -104,6 +113,7 @@ async function Overview({ name }: { name: string }) {
 
   return (
     <>
+      <ToolCode code={toolCode()} />
       <section className="cx-welcome">
         <div>
           <span className="cx-kicker">{today}</span>
@@ -113,6 +123,7 @@ async function Overview({ name }: { name: string }) {
         <img src="/assets/kai-laptop.png" alt="" width={150} height={150} />
       </section>
       <div className="cx-kpis">
+        <LiveVisitors />
         {revenue.length === 0 && <Kpi label="Revenue" value="€0" />}
         {revenue.map((r) => (
           <Kpi key={r.currency} label={`Revenue (${r.currency})`} value={money(r.cents, r.currency)} sub={`${r.n} sale${r.n === 1 ? '' : 's'}`} />
