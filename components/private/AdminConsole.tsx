@@ -8,9 +8,11 @@ import Settings from '@/components/private/Settings';
 import Calls from '@/components/private/Calls';
 import Outreach from '@/components/private/Outreach';
 import LiveVisitors from '@/components/private/LiveVisitors';
+import CopyLink from '@/components/private/CopyLink';
+import { GUEST_PAYMENT, guestCode, guestUrl } from '@/lib/guest';
 import { ADMIN_TABS, AdminHeader } from '@/components/private/ConsoleHeaders';
 import { programBySlug } from '@/lib/catalog';
-import { decideSchoolRequestAction, markPayoutPaidAction } from '@/lib/privateActions';
+import { decideSchoolRequestAction, markPayoutPaidAction, resetGuestLinkAction } from '@/lib/privateActions';
 import { setting } from '@/lib/settings';
 import { toolCode } from '@/lib/toolGate';
 import ToolCode from '@/components/private/ToolCode';
@@ -22,13 +24,14 @@ type Params = Record<string, string | string[] | undefined>;
 
 const STATUS: Record<string, { label: string; tone: string }> = {
   paid: { label: 'Paid', tone: 'ok' },
+  guest: { label: 'Guest (free)', tone: 'ok' },
   held: { label: 'Paying now', tone: 'warn' },
   expired: { label: 'Not paid', tone: 'muted' },
   canceled: { label: 'Not paid', tone: 'muted' },
   failed: { label: 'Not paid', tone: 'muted' },
 };
 // Filters of the Students table: expired, cancelled and failed are all “not paid”.
-const FILTERS: [string, string][] = [['', 'All'], ['paid', 'Paid'], ['unpaid', 'Not paid'], ['certified', 'Certified']];
+const FILTERS: [string, string][] = [['', 'All'], ['paid', 'Paid'], ['guest', 'Guests'], ['unpaid', 'Not paid'], ['certified', 'Certified']];
 
 const money = (cents: number, currency: string) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
@@ -80,7 +83,7 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
           <Settings params={params} />
         ) : (
           <>
-            <Overview name={admin.first_name} />
+            <Overview name={admin.first_name} msg={String(params.msg ?? '')} />
             <div id="etudiants" className="cx-anchor"><Students q={asked === 'etudiants' ? q : ''} status={asked === 'etudiants' ? statusFilter : ''} /></div>
           </>
         )}
@@ -89,23 +92,25 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
   );
 }
 
-async function Overview({ name }: { name: string }) {
+async function Overview({ name, msg }: { name: string; msg: string }) {
+  const invite = await guestCode();
   const revenue = await sql(
-    `select currency, sum(amount_cents)::int as cents, count(*)::int as n from registrations where status = 'paid' group by currency order by currency`,
+    `select currency, sum(amount_cents)::int as cents, count(*)::int as n from registrations where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}' group by currency order by currency`,
   );
   const [counts] = await sql(`
     select
-      count(*) filter (where status = 'paid')::int as paid,
+      count(*) filter (where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}')::int as paid,
+      count(*) filter (where status = 'paid' and payment_id = '${GUEST_PAYMENT}')::int as guests,
       count(*) filter (where status = 'held' and hold_expires_at > now())::int as held,
       count(*) filter (where status in ('expired','canceled','failed') or (status = 'held' and hold_expires_at <= now()))::int as lost,
       count(*) filter (where email_domain_mismatch and status = 'paid')::int as mismatch,
-      count(*)::int as total
+      count(*) filter (where payment_id is distinct from '${GUEST_PAYMENT}')::int as total
     from registrations`);
   const [certs] = await sql('select count(*)::int as n from certificates');
   const recent = await sql(
     `select r.reference, r.first_name, r.last_name, r.currency, r.amount_cents, r.paid_at, r.program, r.organization, u.name as uni
      from registrations r left join universities u on u.id = r.university_id
-     where r.status = 'paid' order by r.paid_at desc limit 8`,
+     where r.status = 'paid' and r.payment_id is distinct from '${GUEST_PAYMENT}' order by r.paid_at desc limit 8`,
   );
   const conversion = counts.total ? Math.round((counts.paid / counts.total) * 100) : 0;
 
@@ -130,7 +135,17 @@ async function Overview({ name }: { name: string }) {
         ))}
         <Kpi label="Paid registrations" value={String(counts.paid)} sub={`${conversion} % of registrations started`} />
         <Kpi label="Certificates issued" value={String(certs.n)} />
+        <Kpi label="Guests (free access)" value={String(counts.guests)} sub="Signed up through the invite link" />
       </div>
+
+      <section className="cx-card" id="invite">
+        <h2>Invite link · free access</h2>
+        <p className="help">Anyone with this link can create an account and follow the course for free. Share it only with people you invite.{msg === 'guest-link' ? ' New link created: the previous one no longer works.' : ''}</p>
+        <CopyLink url={guestUrl(invite)} />
+        <form action={resetGuestLinkAction} style={{ marginTop: 10 }}>
+          <button className="btn btn-sm btn-ghost" type="submit">Create a new link (the current one stops working)</button>
+        </form>
+      </section>
 
       <div>
         <section className="cx-card">
@@ -171,7 +186,7 @@ function Kpi({ label, value, sub, href }: { label: string; value: string; sub?: 
 async function Students({ q, status }: { q: string; status: string }) {
   const rows = await sql(
     `select r.*, u.name as uni, us.last_login_at,
-       case when r.status = 'held' and r.hold_expires_at <= now() then 'expired' else r.status end as live_status
+       case when r.status = 'held' and r.hold_expires_at <= now() then 'expired' when r.status = 'paid' and r.payment_id = '${GUEST_PAYMENT}' then 'guest' else r.status end as live_status
      from registrations r
      left join universities u on u.id = r.university_id
      left join users us on us.id = r.user_id
@@ -185,6 +200,7 @@ async function Students({ q, status }: { q: string; status: string }) {
   const filter = ['expired', 'canceled', 'failed'].includes(status) ? 'unpaid' : status;
   const filtered = rows.filter((r) =>
     filter === 'paid' ? r.live_status === 'paid'
+      : filter === 'guest' ? r.live_status === 'guest'
       : filter === 'unpaid' ? ['expired', 'canceled', 'failed'].includes(r.live_status)
         : filter === 'certified' ? certified(r)
           : true,

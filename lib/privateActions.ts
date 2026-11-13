@@ -10,6 +10,7 @@ import { saveSetting, SETTINGS, type SettingKey } from './settings';
 import { testSetting } from './settingsTest';
 import { checkStripeKey, describeStripeCheck } from './stripe';
 import { setOnSale } from './visibility';
+import { resetGuestCode } from './guest';
 import { programBySlug } from './catalog';
 import { cancelBooking, deleteWindow, updateAvailability } from './calls';
 import { getConfig, saveConfig } from './outreach';
@@ -187,4 +188,11 @@ export async function outreachPauseAction() {
   const c = await getConfig();
   await saveConfig({ paused: !c.paused });
   pro('prospection', c.paused ? 'resumed' : 'paused');
+}
+
+/** Admin: replaces the free-access invite link (the old one stops working). */
+export async function resetGuestLinkAction() {
+  await admin();
+  await resetGuestCode();
+  redirect(`/${PRIVATE_SLUGS.admin}?msg=guest-link#invite`);
 }

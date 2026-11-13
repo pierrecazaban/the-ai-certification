@@ -335,6 +335,12 @@ create table if not exists live_visitors (
   vid text primary key,
   path text not null,
   seen_at timestamptz not null default now()
+);
+
+-- The secret invite link giving free access to the course (one row, a new code replaces the old link).
+create table if not exists guest_invite (
+  id integer primary key,
+  code text not null
 )
 `;
 
