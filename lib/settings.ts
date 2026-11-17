@@ -15,6 +15,7 @@ export const SETTINGS = {
   GOOGLE_CLIENT_SECRET: { label: 'Google OAuth client secret (calls)', help: 'Same OAuth client → Client secret.', secret: true },
   GOOGLE_REFRESH_TOKEN: { label: 'Google Calendar connection (calls)', help: 'Set by the “Connect Google Calendar” button in /admin › Calls. Empty = not connected.', secret: true },
   CALLS_API_KEY: { label: 'Outreach script key (calls)', help: 'Shared with the LinkedIn script on your Mac: it registers prospects and sends the video link of each booked call on LinkedIn. Any long random string.', secret: true },
+  RELANCES_API_KEY: { label: 'Reminders key (Smart Mail)', help: 'Shared with Smart Mail: it reads the unfinished registrations to send each student a short reminder from their school ambassador’s mailbox. Any long random string, the same as RELANCES_CLE on the Smart Mail server.', secret: true },
   MEET_LINK: { label: 'Fixed video link (calls, fallback)', help: 'Used for /call while Google Calendar is not connected, e.g. your personal meet.google.com/xxx-xxxx-xxx room. Empty = a Jitsi room per call.', secret: false },
 } as const;
 
@@ -59,12 +60,20 @@ async function stored(): Promise<Partial<Record<SettingKey, string>>> {
   return values;
 }
 
-/** The value set from the admin console, else the environment variable of the same name. */
+// Keys can no longer be changed from the admin (15/11, decision of the owner): every key is read from the hosting
+// (Vercel environment variables) only. The one exception is the Google Calendar connection, written by Google's
+// own sign-in flow (lib/calls.ts), never pasted.
+const FROM_ADMIN_FLOW: SettingKey[] = ['GOOGLE_REFRESH_TOKEN'];
+
+/** The environment variable of that name (set in Vercel); only the Google Calendar connection may come from the database. */
 export async function setting(key: SettingKey): Promise<string | undefined> {
-  return (await stored())[key] || process.env[key]?.trim() || undefined;
+  const env = process.env[key]?.trim() || undefined;
+  if (!FROM_ADMIN_FLOW.includes(key)) return env;
+  return (await stored())[key] || env;
 }
 
 export async function saveSetting(key: SettingKey, value: string) {
+  if (!FROM_ADMIN_FLOW.includes(key)) throw new Error(`Setting ${key} can only be changed in the hosting (Vercel).`);
   const clean = value.trim();
   if (clean) {
     await sql(
@@ -82,7 +91,7 @@ export async function saveSetting(key: SettingKey, value: string) {
 export async function settingsOverview() {
   const values = await stored();
   return KEYS.map((key) => {
-    const fromDb = values[key];
+    const fromDb = FROM_ADMIN_FLOW.includes(key) ? values[key] : undefined;
     const value = fromDb || process.env[key]?.trim() || '';
     const masked = !value ? '' : SETTINGS[key].secret ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
     return { key, ...SETTINGS[key], masked, source: fromDb ? 'admin' : value ? 'host' : null };

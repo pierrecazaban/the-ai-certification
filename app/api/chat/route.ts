@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   if (rateLimited(ip)) return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
 
   const body = await req.json().catch(() => ({}));
+  const page = typeof body?.page === 'string' ? body.page.slice(0, 200) : '/';
   const raw: unknown[] = Array.isArray(body?.messages) ? body.messages.slice(-MAX_TURNS) : [];
   const messages: Anthropic.Beta.BetaMessageParam[] = raw
     .filter((m): m is { role: 'user' | 'assistant'; content: string } =>
@@ -40,12 +41,13 @@ export async function POST(req: NextRequest) {
     model: 'claude-opus-5-5',
     // Short chat answers; also caps the cost of a public endpoint.
     max_tokens: 4096,
-    output_config: { effort: 'low' },
+    output_config: { effort: 'medium' },
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
     system: [
       { type: 'text', text: chatInstructions(), cache_control: { type: 'ephemeral' } },
       { type: 'text', text: await chatToday() },
+      { type: 'text', text: `The visitor is on this page of the site: ${page}` },
     ],
     messages,
   });

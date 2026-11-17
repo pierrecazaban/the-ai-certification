@@ -14,7 +14,7 @@ const T = {
   fr: {
     eyebrow: 'Invitation',
     title: 'Ton accès gratuit à The AI Certification',
-    lead: 'Tu as été invité(e). Crée ton compte et accède tout de suite à la formation complète : 3 modules, environ 3 heures, ton agent IA et ton certificat à la fin. Rien à payer.',
+    lead: 'Tu as été invité(e). Crée ton compte et accède tout de suite à la formation complète : 3 modules, environ 2 heures, ton agent IA et ton certificat à la fin. Rien à payer.',
     first: 'Prénom', last: 'Nom', email: 'Email', password: 'Mot de passe', passwordHelp: '8 caractères minimum.',
     terms: <>J’accepte les <Link href="/terms">conditions d’utilisation</Link> et la <Link href="/privacy">politique de confidentialité</Link>.</>,
     submit: 'Créer mon compte et commencer',
@@ -32,7 +32,7 @@ const T = {
   en: {
     eyebrow: 'Invitation',
     title: 'Your free access to The AI Certification',
-    lead: 'You have been invited. Create your account and start the full course right away: 3 modules, about 3 hours, your own AI agent and your certificate at the end. Nothing to pay.',
+    lead: 'You have been invited. Create your account and start the full course right away: 3 modules, about 2 hours, your own AI agent and your certificate at the end. Nothing to pay.',
     first: 'First name', last: 'Last name', email: 'Email', password: 'Password', passwordHelp: 'At least 8 characters.',
     terms: <>I accept the <Link href="/terms">terms of use</Link> and the <Link href="/privacy">privacy policy</Link>.</>,
     submit: 'Create my account and start',

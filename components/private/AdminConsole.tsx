@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { adminLogEntries } from '@/lib/adminLog';
 import type { User } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { getCourse, lessonIdsOf } from '@/lib/learning';
@@ -14,8 +15,9 @@ import { ADMIN_TABS, AdminHeader } from '@/components/private/ConsoleHeaders';
 import { programBySlug } from '@/lib/catalog';
 import { decideSchoolRequestAction, markPayoutPaidAction, resetGuestLinkAction } from '@/lib/privateActions';
 import { setting } from '@/lib/settings';
-import { toolCode } from '@/lib/toolGate';
+import { toolCodeForAdmin } from '@/lib/toolGate';
 import ToolCode from '@/components/private/ToolCode';
+import RevenueChart from '@/components/private/RevenueChart';
 
 // Admin console, rendered by app/[locale]/page.tsx for signed-in admins only.
 // It has no route of its own, so for anyone else its address behaves like any unknown address.
@@ -36,7 +38,7 @@ const FILTERS: [string, string][] = [['', 'All'], ['paid', 'Paid'], ['guest', 'G
 const money = (cents: number, currency: string) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
 const dt = (v: string | Date | null) =>
-  v ? new Date(v).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  v ? new Date(v).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—';
 const bought = (r: { uni?: string | null; program?: string; organization?: string }) =>
   r.uni ?? [programBySlug(r.program ?? '')?.title ?? 'Certification', r.organization].filter(Boolean).join(' · ');
 const lang = (l: string) => (isLocale(l) ? LOCALES[l].slug : l);
@@ -79,6 +81,8 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
           <Calls params={params} />
         ) : tab === 'versements' ? (
           <Payouts />
+        ) : tab === 'journal' ? (
+          <AdminJournal />
         ) : tab === 'reglages' ? (
           <Settings params={params} />
         ) : (
@@ -92,10 +96,13 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
   );
 }
 
+// Test payments (mock checkout, Stripe test mode) are left out of every figure and list of the admin (14/11).
+const NOT_TEST = `coalesce(payment_id, '') not like 'mock\\_%' and coalesce(payment_id, '') not like 'cs\\_test\\_%'`;
+
 async function Overview({ name, msg }: { name: string; msg: string }) {
   const invite = await guestCode();
   const revenue = await sql(
-    `select currency, sum(amount_cents)::int as cents, count(*)::int as n from registrations where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}' group by currency order by currency`,
+    `select currency, sum(amount_cents)::int as cents, count(*)::int as n from registrations where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST} group by currency order by currency`,
   );
   const [counts] = await sql(`
     select
@@ -105,20 +112,26 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
       count(*) filter (where status in ('expired','canceled','failed') or (status = 'held' and hold_expires_at <= now()))::int as lost,
       count(*) filter (where email_domain_mismatch and status = 'paid')::int as mismatch,
       count(*) filter (where payment_id is distinct from '${GUEST_PAYMENT}')::int as total
-    from registrations`);
+    from registrations where ${NOT_TEST}`);
   const [certs] = await sql('select count(*)::int as n from certificates');
-  const recent = await sql(
-    `select r.reference, r.first_name, r.last_name, r.currency, r.amount_cents, r.paid_at, r.program, r.organization, u.name as uni
-     from registrations r left join universities u on u.id = r.university_id
-     where r.status = 'paid' and r.payment_id is distinct from '${GUEST_PAYMENT}' order by r.paid_at desc limit 8`,
-  );
+  // Buyers: distinct people who paid (guests and test payments left out); "today" in Paris time.
+  const BOUGHT = `r.status = 'paid' and r.payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST.replaceAll('payment_id', 'r.payment_id')}`;
+  const [buyers] = await sql(`
+    select count(distinct lower(r.email))::int as n,
+      count(distinct lower(r.email)) filter (where (coalesce(r.paid_at, r.created_at) at time zone 'Europe/Paris')::date = (now() at time zone 'Europe/Paris')::date)::int as today
+    from registrations r where ${BOUGHT}`);
+  const bySchool = await sql(`
+    select coalesce(u.short_name, u.name, 'No school') as school, count(distinct lower(r.email))::int as n,
+      count(distinct lower(r.email)) filter (where (coalesce(r.paid_at, r.created_at) at time zone 'Europe/Paris')::date = (now() at time zone 'Europe/Paris')::date)::int as today
+    from registrations r left join universities u on u.id = r.university_id
+    where ${BOUGHT} group by 1 order by 2 desc, 1`);
   const conversion = counts.total ? Math.round((counts.paid / counts.total) * 100) : 0;
 
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' });
 
   return (
     <>
-      <ToolCode code={toolCode()} />
+      <ToolCode code={await toolCodeForAdmin()} />
       <section className="cx-welcome">
         <div>
           <span className="cx-kicker">{today}</span>
@@ -138,6 +151,22 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
         <Kpi label="Guests (free access)" value={String(counts.guests)} sub="Signed up through the invite link" />
       </div>
 
+      <RevenueChart />
+
+      <section className="cx-card" id="buyers">
+        <h2>Buyers by school</h2>
+        <p className="help">People who paid (one line per person, free guests and tests left out).</p>
+        <table className="cx-table">
+          <thead><tr><th>School</th><th className="num">Buyers</th><th className="num">Today</th></tr></thead>
+          <tbody>
+            {bySchool.map((s) => (
+              <tr key={String(s.school)}><td>{String(s.school)}</td><td className="num">{s.n}</td><td className="num">{s.today}</td></tr>
+            ))}
+            <tr><td><strong>Total</strong></td><td className="num"><strong>{buyers.n}</strong></td><td className="num"><strong>{buyers.today}</strong></td></tr>
+          </tbody>
+        </table>
+      </section>
+
       <section className="cx-card" id="invite">
         <h2>Invite link · free access</h2>
         <p className="help">Anyone with this link can create an account and follow the course for free. Share it only with people you invite.{msg === 'guest-link' ? ' New link created: the previous one no longer works.' : ''}</p>
@@ -147,23 +176,6 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
         </form>
       </section>
 
-      <div>
-        <section className="cx-card">
-          <h2>Latest sales</h2>
-          <table className="cx-table">
-            <tbody>
-              {recent.map((r) => (
-                <tr key={r.reference}>
-                  <td><strong>{r.first_name} {r.last_name}</strong><small>{bought(r)}</small></td>
-                  <td>{dt(r.paid_at)}</td>
-                  <td className="num">{money(r.amount_cents, r.currency)}</td>
-                </tr>
-              ))}
-              {recent.length === 0 && <tr><td className="empty">No sale yet.</td></tr>}
-            </tbody>
-          </table>
-        </section>
-      </div>
     </>
   );
 }
@@ -190,7 +202,7 @@ async function Students({ q, status }: { q: string; status: string }) {
      from registrations r
      left join universities u on u.id = r.university_id
      left join users us on us.id = r.user_id
-     where ($1 = '' or lower(r.email) like $2 or lower(r.first_name || ' ' || r.last_name) like $2 or lower(r.reference) like $2 or lower(coalesce(u.name, '')) like $2)
+     where ${NOT_TEST.replaceAll('payment_id', 'r.payment_id')} and ($1 = '' or lower(r.email) like $2 or lower(r.first_name || ' ' || r.last_name) like $2 or lower(r.reference) like $2 or lower(coalesce(u.name, '')) like $2)
      order by r.created_at desc limit 500`,
     [q, `%${q}%`],
   );
@@ -424,3 +436,39 @@ async function Payouts() {
   );
 }
 
+
+
+/** Journal of the admin (15/11): who signed in, from where, what was opened and done. Most recent first. */
+function device(ua: string) {
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
+  const nav = /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : ua ? ua.slice(0, 40) : '';
+  return [os, nav].filter(Boolean).join(' · ') || '—';
+}
+
+async function AdminJournal() {
+  const rows = await adminLogEntries(400);
+  const when = (d: string) => new Date(d).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const alert = (a: string) => /ÉCHEC|REFUSÉ/.test(a);
+  return (
+    <section className="cx-card">
+      <h2>Journal de l’admin</h2>
+      <p className="help">Chaque connexion au compte admin (et chaque tentative ratée), chaque page ouverte et chaque action, avec l’adresse IP, le lieu approximatif et l’appareil. Les 400 dernières lignes, la plus récente en haut. Aucune clé ni mot de passe n’y est écrit.</p>
+      <div className="cx-scroll">
+      <table className="cx-table">
+        <thead><tr><th>Quand (Paris)</th><th>Quoi</th><th>Détail</th><th>Depuis</th></tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} style={alert(String(r.action)) ? { background: '#FDECEC' } : undefined}>
+              <td style={{ whiteSpace: 'nowrap' }}>{when(String(r.at))}</td>
+              <td><strong>{String(r.action)}</strong></td>
+              <td><small>{String(r.detail)}</small></td>
+              <td><small>{String(r.ip) || '—'}{r.place ? ` · ${String(r.place)}` : ''}<br />{device(String(r.ua))}</small></td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td className="empty" colSpan={4}>Rien pour l’instant.</td></tr>}
+        </tbody>
+      </table>
+      </div>
+    </section>
+  );
+}

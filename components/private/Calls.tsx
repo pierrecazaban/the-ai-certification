@@ -74,6 +74,7 @@ export default async function Calls({ params }: { params: Record<string, string 
       <section className="cx-card">
         <h2>Booked calls</h2>
         {bookings.length ? (
+          <div className="cx-scroll">
           <table className="cx-table">
             <thead>
               <tr><th>When</th><th>Who</th><th>School</th><th>Video link</th><th /></tr>
@@ -98,6 +99,7 @@ export default async function Calls({ params }: { params: Record<string, string 
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <p className="help">No call booked yet.</p>
         )}

@@ -122,6 +122,22 @@ alter table users add column if not exists password_hash text;
 alter table registrations alter column university_id drop not null;
 alter table registrations add column if not exists program text not null default 'student-ai';
 alter table registrations add column if not exists organization text not null default '';
+-- Set when the payment created the buyer's account (15/11): only then may the confirmation page set its first password.
+alter table registrations add column if not exists created_account boolean not null default false;
+
+-- Journal of the admin (15/11): sign-ins, failed attempts, pages opened, actions. Shown in /admin › Journal.
+create table if not exists admin_log (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  user_id uuid,
+  email text not null default '',
+  ip text not null default '',
+  place text not null default '',
+  ua text not null default '',
+  action text not null,
+  detail text not null default ''
+);
+create index if not exists admin_log_at on admin_log (at desc);
 
 create table if not exists ambassadors (
   user_id uuid primary key references users(id),
@@ -330,12 +346,24 @@ create table if not exists outreach_config (
   data jsonb not null default '{}'
 );
 
+-- Refusals, follow-ups and withdrawn invitations, and when each school was last searched (searches are rationed).
+alter table outreach_prospects add column if not exists declined_at timestamptz;
+alter table outreach_prospects add column if not exists followed_up_at timestamptz;
+alter table outreach_prospects add column if not exists withdrawn_at timestamptz;
+create table if not exists outreach_school_search (
+  school text primary key,
+  searched_at timestamptz not null default now(),
+  found integer not null default 0
+);
+
 -- Visitors with a page open right now (live counter in the admin console). One row per browser tab, no personal data.
 create table if not exists live_visitors (
   vid text primary key,
   path text not null,
   seen_at timestamptz not null default now()
 );
+-- One person with several tabs counts once: pid is a random id kept by the browser (no personal data).
+alter table live_visitors add column if not exists pid text;
 
 -- The secret invite link giving free access to the course (one row, a new code replaces the old link).
 create table if not exists guest_invite (
@@ -344,18 +372,59 @@ create table if not exists guest_invite (
 )
 `;
 
+/** Moves everything attached to school `from` onto school `into`, then deletes `from`. No-op once done. */
+async function mergeSchool(q: Query, from: string, into: string) {
+  const [gone] = await q('select id from universities where id = $1', [from]);
+  if (!gone) return;
+  const moved = await q(
+    `update registrations set university_id = $2 where university_id = $1 returning id::text as id, status`,
+    [from, into],
+  );
+  await q('update waitlist set university_id = $2 where university_id = $1', [from, into]);
+  await q('update school_requests set university_id = $2 where university_id = $1', [from, into]);
+  // The claim follows only if the target school is still free; otherwise the target's holder keeps it.
+  await q(
+    `update school_claims set university_id = $2 where university_id = $1
+     and not exists (select 1 from school_claims where university_id = $2)`,
+    [from, into],
+  );
+  await q('delete from school_claims where university_id = $1', [from]);
+  await q('delete from universities where id = $1', [from]);
+  const paid = moved.filter((r: Row) => r.status === 'paid').map((r: Row) => String(r.id));
+  console.log(`[db] merged school ${from} into ${into}: ${moved.length} registrations (${paid.length} paid)`);
+  if (paid.length) {
+    // After init: recordCommissions goes through sql(), which waits for this initialisation to finish.
+    setTimeout(async () => {
+      const { recordCommissions } = await import('./team');
+      for (const id of paid) await recordCommissions(id).catch((e) => console.error('[db] commission', id, e));
+    }, 0);
+  }
+}
+
 async function seed(q: Query) {
-  // Schools added to data/universities.json later are inserted on the next start (existing ones are left as they are).
-  const [{ n }] = await q('select count(*)::int as n from universities');
-  if (n < (universities as Row[]).length) {
-    for (const u of universities as Row[]) {
+  // Schools of data/universities.json missing from the database are inserted on the next start, whatever the total
+  // (schools created from the ambassador space count too, so a count comparison would miss new ones: McGill, 14/11).
+  // Their email domains follow the file (registration pre-fills them: neoma-bs.com, edu.escp.eu…).
+  const enBase = new Map(
+    (await q('select id::text as id, email_domains from universities')).map((r: Row) => [String(r.id), (r.email_domains as string[]) ?? []]),
+  );
+  for (const u of universities as Row[]) {
+    const domaines = (u.email_domains as string[]) ?? [];
+    if (!enBase.has(String(u.id))) {
       await q(
         `insert into universities (id, name, short_name, state, email_domains, timezone)
          values ($1, $2, $3, $4, $5, $6) on conflict (id) do nothing`,
-        [u.id, u.name, u.short_name ?? '', u.state ?? '', u.email_domains ?? [], u.timezone ?? 'Europe/Paris'],
+        [u.id, u.name, u.short_name ?? '', u.state ?? '', domaines, u.timezone ?? 'Europe/Paris'],
       );
+    } else if (domaines.length && domaines.join(',') !== (enBase.get(String(u.id)) ?? []).join(',')) {
+      await q('update universities set email_domains = $2 where id = $1', [u.id, domaines]);
     }
   }
+
+  // NEOMA is one school with one ambassador (17/11): the old “NEOMA Paris” campus entry is merged into NEOMA.
+  // Its registrations, waitlist rows, requests and claim move over, then the entry is removed. Paid sales that
+  // moved get their commissions once the database is ready (recordCommissions is idempotent).
+  await mergeSchool(q, 'd1fdfd3e-d78c-5ef8-916d-13f6baabd02b', '826a2869-d10b-49e0-a6fa-1a525f42523d');
 
   // The admin account is shown as “Pierre” (ambassador view, invite pages).
   // The old test account (test@test.test) is removed with what hangs on it. Its registrations, if any, stay as

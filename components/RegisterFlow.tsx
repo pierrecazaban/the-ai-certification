@@ -1,5 +1,6 @@
 'use client';
 
+import { searchSchools } from '@/lib/schoolSearch';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/client';
@@ -50,9 +51,13 @@ function utmParams() {
 }
 
 // The page loads the schools and the cohort on the server, so the first step shows complete at once.
-export default function RegisterFlow({ locale, initialUniversities, initialIntake }: { locale: Locale; initialUniversities: University[]; initialIntake: Intake | null }) {
+type Prefill = { first_name: string; last_name: string; email: string; phone: string; university_id: string };
+
+export default function RegisterFlow({ locale, initialUniversities, initialIntake, prefill = null }: { locale: Locale; initialUniversities: University[]; initialIntake: Intake | null; prefill?: Prefill | null }) {
   const t = dict(locale).register;
-  const [step, setStep] = useState(1);
+  // Back from a reminder: the details step, already filled in (school, name, email, phone).
+  const known = prefill && initialUniversities.some((u) => u.id === prefill.university_id) ? prefill : null;
+  const [step, setStep] = useState(known ? 2 : 1);
   // Each step is an entry in the browser history (?step=2…), so the back button and the iPhone back swipe
   // return to the previous step instead of leaving the form. Each step also starts at the top of the page.
   const firstRender = useRef(true);
@@ -91,9 +96,9 @@ export default function RegisterFlow({ locale, initialUniversities, initialIntak
   const [intake] = useState<Intake | null>(initialIntake);
   const [universities] = useState<University[]>(initialUniversities);
   const [query, setQuery] = useState('');
-  const [uniId, setUniId] = useState('');
+  const [uniId, setUniId] = useState(known?.university_id ?? '');
   const [notListed, setNotListed] = useState(false);
-  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '' });
+  const [form, setForm] = useState({ first_name: known?.first_name ?? '', last_name: known?.last_name ?? '', email: known?.email ?? '', phone: known?.phone ?? '' });
   const [checks, setChecks] = useState({
     terms_accepted: false,
     age_confirmed: false,
@@ -125,7 +130,19 @@ export default function RegisterFlow({ locale, initialUniversities, initialIntak
   const [emailDomain, setEmailDomain] = useState('');
   const [customEmail, setCustomEmail] = useState(false);
   const splitEmail = domains.length > 0 && !customEmail;
+  const preEmail = useRef(known?.email ?? '');
   useEffect(() => {
+    // The prefilled address keeps its own domain (or the plain field when it is not the school's).
+    const [local, domain] = preEmail.current.toLowerCase().split('@');
+    preEmail.current = '';
+    if (local && domain) {
+      if (domains.includes(domain)) {
+        setEmailDomain(domain);
+        setEmailLocal(local);
+        setCustomEmail(false);
+      } else setCustomEmail(true);
+      return;
+    }
     setEmailDomain(domains[0] ?? '');
     setCustomEmail(false);
   }, [uniId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -144,9 +161,7 @@ export default function RegisterFlow({ locale, initialUniversities, initialIntak
     setForm((f) => ({ ...f, email: value }));
   }
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return universities;
-    return universities.filter((u) => `${u.name} ${u.short_name} ${u.state}`.toLowerCase().includes(q));
+    return searchSchools(universities, query);
   }, [query, universities]);
 
   const money = (cents: number) => formatMoney(cents, locale);
@@ -252,7 +267,7 @@ export default function RegisterFlow({ locale, initialUniversities, initialIntak
                   <li key={u.id}>
                     <button type="button" aria-pressed={u.id === uniId} onClick={() => { setUniId(u.id); setQuery(u.name); }}>
                       {u.name}
-                      {u.state && <small>{u.state}</small>}
+                      <small>{[u.state, t.allCampuses].filter(Boolean).join(' · ')}</small>
                     </button>
                   </li>
                 ))}

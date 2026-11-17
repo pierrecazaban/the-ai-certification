@@ -24,7 +24,61 @@ export type University = {
   email_domains: string[];
 };
 
+// Schools of the ambassadors connected to Smart Mail (domain of their mailbox): each one is added to the
+// directory as soon as its ambassador connects (14/11). Checked at most every 10 minutes per server instance.
+const SMARTMAIL_SCHOOLS_URL = process.env.SMARTMAIL_SCHOOLS_URL ?? 'https://158-69-232-131.sslip.io/v1/porte/ecoles';
+let schoolsCheckedAt = 0;
+
+function schoolLabel(domain: string) {
+  const label = domain.split('.')[0];
+  return label.length <= 6 ? label.toUpperCase() : label.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function schoolTimezone(domain: string) {
+  if (domain.endsWith('.ca')) return 'America/Toronto';
+  if (domain.endsWith('.edu')) return 'America/New_York';
+  if (domain.endsWith('.uk')) return 'Europe/London';
+  if (domain.endsWith('.de')) return 'Europe/Berlin';
+  if (domain.endsWith('.es')) return 'Europe/Madrid';
+  if (domain.endsWith('.it')) return 'Europe/Rome';
+  return 'Europe/Paris';
+}
+
+async function addAmbassadorSchools() {
+  if (Date.now() - schoolsCheckedAt < 10 * 60_000) return;
+  schoolsCheckedAt = Date.now();
+  try {
+    const res = await fetch(SMARTMAIL_SCHOOLS_URL, { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return;
+    const { ecoles } = (await res.json()) as { ecoles?: { domaine: string; ecole: string }[] };
+    if (!Array.isArray(ecoles) || !ecoles.length) return;
+    const known = await sql('select name, short_name, email_domains from universities');
+    const domains = new Set<string>();
+    const names = new Set<string>();
+    for (const u of known) {
+      for (const d of (u.email_domains as string[]) ?? []) domains.add(String(d).toLowerCase());
+      names.add(String(u.name).toLowerCase());
+      names.add(String(u.short_name ?? '').toLowerCase());
+    }
+    const covered = (school: string) => [...domains].some((d) => d === school || d.endsWith('.' + school));
+    for (const { domaine, ecole } of ecoles) {
+      if (!domaine || !ecole || covered(ecole) || names.has(schoolLabel(ecole).toLowerCase())) continue;
+      const name = schoolLabel(ecole);
+      await sql(
+        `insert into universities (id, name, short_name, state, email_domains, timezone)
+         values ($1, $2, $3, '', $4, $5) on conflict do nothing`,
+        [randomUUID(), name, name, [domaine], schoolTimezone(ecole)],
+      );
+      domains.add(domaine);
+      names.add(name.toLowerCase());
+    }
+  } catch {
+    // Smart Mail unreachable: the directory stays as it is, nothing breaks.
+  }
+}
+
 export async function listUniversities(): Promise<University[]> {
+  await addAmbassadorSchools();
   const rows = await sql(
     `select id, name, short_name, state, email_domains from universities
      where active order by name`,
@@ -123,7 +177,6 @@ export async function startRegistration(input: StartInput) {
   if (!last) errors.last_name = 'Enter your last name.';
   if (!EMAIL_RE.test(email)) errors.email = 'Enter a valid email address.';
   if (!input.terms_accepted) errors.terms_accepted = 'Accept the program terms to continue.';
-  if (!input.age_confirmed) errors.age_confirmed = 'You must be 18 or older.';
   if (!input.independence_acknowledged) errors.independence_acknowledged = 'Tick this box to continue.';
 
   const [uni] = input.university_id
@@ -293,7 +346,7 @@ export async function registrationStatus(input: { registration_id?: string; clie
   const [uni] = r.university_id ? await sql('select name from universities where id = $1', [r.university_id]) : [];
   const [intake] = await sql('select name, starts_at from intakes where id = $1', [r.intake_id]);
   const holdOver = r.status === 'held' && new Date(r.hold_expires_at) <= new Date();
-  const [buyer] = r.user_id ? await sql('select password_hash is null as needs from users where id = $1', [r.user_id]) : [];
+  const [buyer] = r.user_id && r.created_account ? await sql(`select password_hash is null and role = 'student' as needs from users where id = $1`, [r.user_id]) : [];
   return {
     result: 'ok' as const,
     status: holdOver ? 'expired' : (r.status as string),
@@ -400,9 +453,12 @@ async function onPaid(registrationId: string) {
   if (!r) return;
 
   const locale: Locale = isLocale(r.locale) ? r.locale : DEFAULT_LOCALE;
+  // An account that already existed (admin, ambassador, earlier student) is never handed a password from the
+  // confirmation page: anyone can register with someone else's email and pay (security, 15/11).
+  const [existing] = await sql('select 1 from users where lower(email) = lower($1)', [r.email]);
   const user = await findOrCreateUser({ email: r.email, first_name: r.first_name, last_name: r.last_name, locale });
   // Claim the registration so a concurrent webhook cannot send the email twice.
-  const claimed = await sql('update registrations set user_id = $2 where id = $1 and user_id is null returning id', [r.id, user.id]);
+  const claimed = await sql('update registrations set user_id = $2, created_account = $3 where id = $1 and user_id is null returning id', [r.id, user.id, !existing]);
   if (!claimed[0]) return;
 
   const amount = new Intl.NumberFormat(LOCALES[locale].intl, {
@@ -480,7 +536,6 @@ export async function startPurchase(input: {
   if (!last) errors.last_name = 'Enter your last name.';
   if (!EMAIL_RE.test(email)) errors.email = 'Enter a valid email address.';
   if (!input.terms_accepted) errors.terms_accepted = 'Accept the terms to continue.';
-  if (!input.age_confirmed) errors.age_confirmed = 'You must be 18 or older.';
   if (Object.keys(errors).length || !program) return { result: 'invalid' as const, errors };
 
   const intake = await publicIntake();
@@ -534,7 +589,32 @@ export async function startPurchase(input: {
 /** From the confirmation page, right after paying: the buyer chooses a password and is signed in. */
 export async function passwordAfterPayment(input: { registration_id?: string; client_token?: string; password?: string }) {
   const r = await findRegistration(input.registration_id ?? '', input.client_token ?? '');
-  if (!r || r.status !== 'paid' || !r.user_id) return { result: 'not_found' as const };
+  if (!r || r.status !== 'paid' || !r.user_id || !r.created_account) return { result: 'not_found' as const };
+  const [owner] = await sql('select role from users where id = $1', [r.user_id]);
+  if (owner?.role !== 'student') return { result: 'not_found' as const };
   const user = await setFirstPassword(r.user_id, String(input.password ?? ''));
   return user ? { result: 'ok' as const, redirect: `/space?lang=${r.locale}` } : { result: 'already_set' as const };
+}
+
+/**
+ * The link of a reminder (/finish): the student comes back to the registration form with what they already
+ * filled in (school, name, email, phone), one click away from the summary and the payment.
+ */
+export async function registrationPrefill(id: string, token: string) {
+  const r = await findRegistration(id, token);
+  if (!r) return null;
+  const lang = isLocale(r.locale) ? r.locale : DEFAULT_LOCALE;
+  const confirmation = `/confirmation?ref=${encodeURIComponent(r.reference)}&id=${r.id}&t=${encodeURIComponent(r.client_token)}&lang=${lang}`;
+  const [paid] = await sql(`select 1 from registrations where lower(email) = lower($1) and status = 'paid' and program = $2`, [r.email, r.program]);
+  return {
+    locale: lang as Locale,
+    paidUrl: r.status === 'paid' ? confirmation : paid ? '/login' : null,
+    fields: {
+      first_name: String(r.first_name ?? ''),
+      last_name: String(r.last_name ?? ''),
+      email: String(r.email ?? ''),
+      phone: String(r.phone ?? ''),
+      university_id: r.university_id ? String(r.university_id) : '',
+    },
+  };
 }

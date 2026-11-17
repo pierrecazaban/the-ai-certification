@@ -40,7 +40,7 @@ export default async function AmbassadorTerms({ searchParams }: Props) {
 
       <h2>2. Who can join</h2>
       <ul>
-        <li>You must be at least 18 and give accurate information.</li>
+        <li>You must give accurate information.</li>
         <li>Each school has a single ambassador: the first person to choose it keeps it. You can hold several schools.</li>
         <li>Joining is free. You never have to buy a certification, pay a fee or reach a quota.</li>
       </ul>

@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { sql } from '../db';
 import { STUDENT_PROGRAM } from '../catalog';
 import { isLocale, type Locale } from '../locales';
-import { EXAM_PASS_RATIO, getCourse, QUIZ_PASS, type Course, type Question } from './index';
+import { EXAM_PASS_RATIO, EXAM_QUESTIONS, getCourse, QUIZ_PASS, type Course, type Question } from './index';
 
 // Where a learner stands in a full course: lessons, exercises, quizzes, exam and certificate.
 // Everything is open from the start: modules in any order, and the final exam straight away.
@@ -31,7 +31,10 @@ export type Progress = {
   certificate: { reference: string; holder_name: string; score: number; total: number; issued_at: string } | null;
 };
 
-export const examPassMark = (total: number) => Math.ceil(total * EXAM_PASS_RATIO);
+export const examPassMark = (total: number, ratio = EXAM_PASS_RATIO) => Math.ceil(total * ratio);
+
+/** Questions drawn at each exam attempt for this course. */
+export const examSize = (course: Course) => course.examQuestions ?? EXAM_QUESTIONS;
 
 /** True when the user has paid for this course. */
 export async function hasPaidAccess(userId: string, program = STUDENT_PROGRAM) {
@@ -41,8 +44,8 @@ export async function hasPaidAccess(userId: string, program = STUDENT_PROGRAM) {
 
 export async function getProgress(userId: string, userLocale: string, program = STUDENT_PROGRAM): Promise<Progress | null> {
   const locale: Locale = isLocale(userLocale) ? userLocale : 'en-us';
-  const course = getCourse(program, locale);
-  if (!course) return null;
+  const latest = getCourse(program, locale);
+  if (!latest) return null;
 
   const [lessons, exercises, quizzes, exams, certs] = await Promise.all([
     sql('select lesson_id from lesson_progress where user_id = $1', [userId]),
@@ -54,6 +57,10 @@ export async function getProgress(userId: string, userLocale: string, program = 
   const done = new Set(lessons.map((r) => r.lesson_id as string));
   const submitted = new Set(exercises.map((r) => r.exercise_id as string));
   const best = new Map(quizzes.map((r) => [r.module_id as string, Number(r.best)]));
+
+  // Every learner follows the latest version (v2 of the student course since 17/11): progress made in v1
+  // (other lesson ids) no longer counts, a certificate already earned stays valid.
+  const course = latest;
 
   const modules = course.modules.map((m, index) => {
     const lessonsDone = m.lessons.filter((l) => done.has(l.id)).length;

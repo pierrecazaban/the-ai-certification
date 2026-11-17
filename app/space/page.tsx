@@ -8,9 +8,9 @@ import { sql } from '@/lib/db';
 import { programBySlug, STUDENT_PROGRAM } from '@/lib/catalog';
 import { member } from '@/lib/i18n/member';
 import { learn } from '@/lib/i18n/learn';
-import { EXAM_QUESTIONS, hasCourse } from '@/lib/learning';
-import { examPassMark, getProgress, type Progress } from '@/lib/learning/progress';
-import { resetMyProgressAction } from '@/lib/learnActions';
+import { hasCourse } from '@/lib/learning';
+import { examPassMark, examSize, getProgress, type Progress } from '@/lib/learning/progress';
+import { resetMyProgressAction, simulatePassedExamAction } from '@/lib/learnActions';
 import { formatDate, isLocale, LOCALES, type Locale } from '@/lib/locales';
 import { localeFromSearch } from '@/lib/requestLocale';
 import { PRIVATE_SLUGS } from '@/lib/private';
@@ -126,6 +126,15 @@ export default async function SpacePage({ searchParams }: Props) {
               <button className="btn btn-sm" type="submit">Repartir de zéro</button>
             </form>
           )}
+          {/* Admin test: pass the final exam without taking it, to see the certificate. */}
+          {preview && !current?.progress.certificate && (
+            <form action={simulatePassedExamAction} className="sp-reset">
+              <span className="help">Test admin : marque l&apos;examen final comme réussi et délivre le certificat à ce nom.</span>
+              <input name="holder_first" defaultValue={user.first_name} placeholder="Prénom" required aria-label="Prénom" />
+              <input name="holder_last" defaultValue={user.last_name} placeholder="Nom" required aria-label="Nom" />
+              <button className="btn btn-sm" type="submit">Simuler examen réussi</button>
+            </form>
+          )}
         </div>
       </main>
     </div>
@@ -144,7 +153,7 @@ function CourseRows({ owned, locale, showTitle }: { owned: Owned; locale: Locale
   const l = learn(locale);
   const { program, progress } = owned;
   const base = `/space/${program}`;
-  const exam = Math.min(progress.course.exam.length, EXAM_QUESTIONS);
+  const exam = Math.min(progress.course.exam.length, examSize(progress.course));
   return (
     <section className="sp-course">
       {showTitle && (
@@ -179,7 +188,7 @@ function CourseRows({ owned, locale, showTitle }: { owned: Owned; locale: Locale
           <div className="sp-module-body">
             <span className="sp-kicker">{l.exam}</span>
             <strong>{progress.certificate ? l.certified : l.examStart}</strong>
-            <span className="sp-summary">{l.examLead(exam, examPassMark(exam))}</span>
+            <span className="sp-summary">{l.examLead(exam, examPassMark(exam, progress.course.examPass))}</span>
           </div>
           <span className="sp-go">{progress.certificate ? l.viewCertificate : '→'}</span>
         </Link>

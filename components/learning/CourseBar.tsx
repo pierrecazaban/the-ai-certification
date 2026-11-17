@@ -8,13 +8,11 @@ export default function CourseBar({ program, progress, current, l }: { program: 
   const base = `/space/${program}`;
   return (
     <nav className="course-bar" aria-label={progress.course.title}>
-      <div className="course-bar-row">
-        <Link className="course-back" href="/space">
+      <Link className="course-back" href="/space">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
           {l.back.replace(/^←\s*/, '')}
         </Link>
-        <strong className="course-bar-title">{progress.course.title}</strong>
-      </div>
+      <strong className="course-bar-title">{progress.course.title}</strong>
       <ol className="course-steps">
         {progress.course.modules.map((m, i) => {
           const done = progress.modules[i].complete;

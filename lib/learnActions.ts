@@ -2,13 +2,14 @@
 
 // Form actions of the course pages. Each one checks the session and the learner's access itself.
 import { randomUUID } from 'node:crypto';
+import { logAdmin } from './adminLog';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { currentUser } from './auth';
 import { sql } from './db';
 import { examDraw, hasCourse } from './learning';
 import { STUDENT_PROGRAM } from './catalog';
-import { certificateReference, examPassMark, getProgress, grade, hasPaidAccess } from './learning/progress';
+import { certificateReference, examPassMark, examSize, getProgress, grade, hasPaidAccess } from './learning/progress';
 
 const MIN_SUBMISSION = 40;
 
@@ -77,14 +78,18 @@ export async function submitExamAction(formData: FormData) {
   if (progress.certificate) redirect(`${base}/certificate`);
   // Unlimited attempts, one right after another.
   if (!progress.examUnlocked) redirect('/space');
-  const holder = String(formData.get('holder_name') ?? '').trim().replace(/\s+/g, ' ').slice(0, 120);
-  if (!holder) redirect(`${base}/exam?error=name`);
+  // First and last name, both required: the certificate shows the full name.
+  const part = (k: string) => String(formData.get(k) ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  const first = part('holder_first');
+  const last = part('holder_last');
+  if (!first || !last) redirect(`${base}/exam?error=name`);
+  const holder = `${first} ${last}`;
   // The same draw as the exam page showed (it depends on the attempts made before this one).
   const [{ n: attempts }] = await sql('select count(*)::int as n from exam_attempts where user_id = $1 and program = $2', [user.id, program]);
-  const exam = examDraw(progress.course.exam.length, `${user.id}:${program}:${attempts}`).map((i) => progress.course.exam[i]);
+  const exam = examDraw(progress.course.exam.length, `${user.id}:${program}:${attempts}`, examSize(progress.course)).map((i) => progress.course.exam[i]);
   const { score, chosen } = grade(exam, answersOf(formData));
   if (chosen.some((c) => c === null)) redirect(`${base}/exam?error=incomplete`);
-  const passed = score >= examPassMark(exam.length);
+  const passed = score >= examPassMark(exam.length, progress.course.examPass);
   await sql(`insert into exam_attempts (id, user_id, program, score, total, passed) values ($1, $2, $3, $4, $5, $6)`, [
     randomUUID(), user.id, program, score, exam.length, passed,
   ]);
@@ -101,9 +106,33 @@ export async function submitExamAction(formData: FormData) {
 export async function resetMyProgressAction() {
   const user = await currentUser();
   if (!user || user.role !== 'admin') redirect('/');
+  await logAdmin('Progression de test remise à zéro (vue étudiant)', '', user);
   await sql('delete from lesson_progress where user_id = $1', [user.id]);
   for (const table of ['exercise_submissions', 'quiz_attempts', 'exam_attempts', 'certificates']) {
     await sql(`delete from ${table} where user_id = $1`, [user.id]);
   }
   redirect('/space');
+}
+
+/** Admins testing the course: record a passed final exam (full marks) and issue the certificate, to see what follows. */
+export async function simulatePassedExamAction(formData: FormData) {
+  const user = await currentUser();
+  if (!user || user.role !== 'admin') redirect('/');
+  const program = STUDENT_PROGRAM;
+  const progress = await getProgress(user.id, user.locale, program);
+  if (!progress) redirect('/space');
+  const total = examSize(progress.course);
+  await logAdmin('Examen final simulé comme réussi (vue étudiant)', '', user);
+  await sql(`insert into exam_attempts (id, user_id, program, score, total, passed) values ($1, $2, $3, $4, $5, true)`, [
+    randomUUID(), user.id, program, total, total,
+  ]);
+  const part = (k: string) => String(formData.get(k) ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  const holder = [part('holder_first') || user.first_name, part('holder_last') || user.last_name].filter(Boolean).join(' ') || user.email;
+  await sql(
+    `insert into certificates (reference, user_id, program, holder_name, score, total) values ($1, $2, $3, $4, $5, $6)
+     on conflict (user_id, program) do nothing`,
+    [certificateReference(), user.id, program, holder, total, total],
+  );
+  revalidatePath('/space');
+  redirect(`/space/${program}/certificate`);
 }

@@ -44,7 +44,7 @@ export default async function CertificationPage({ params }: Props) {
               <h1>{p.title}</h1>
               <p className="lead">{p.description}</p>
               <ul className="highlights">
-                <li><strong>{p.modules.length} modules</strong><span>{lessons} lessons, about 3 hours</span></li>
+                <li><strong>{p.modules.length} modules</strong><span>{lessons} lessons, about 2 hours</span></li>
                 <li><strong>Final exam</strong><span>Earned, not given</span></li>
                 <li><strong>Verifiable certificate</strong><span>Ready for LinkedIn</span></li>
               </ul>

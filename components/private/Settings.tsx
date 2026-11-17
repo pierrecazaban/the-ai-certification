@@ -1,13 +1,12 @@
-import { saveSettingAction, testSettingAction } from '@/lib/privateActions';
-import { settingsOverview, SETTINGS } from '@/lib/settings';
+import { testSettingAction } from '@/lib/privateActions';
+import { settingsOverview } from '@/lib/settings';
 import { paymentsMode } from '@/lib/payments';
 import { emailConfigured } from '@/lib/email';
 import { siteUrl } from '@/lib/site';
 
-// Admin settings: API keys and sender address, saved encrypted, active at once. Each one can be tested.
+// Admin settings, read-only (15/11): which keys are set in Vercel, and a test for each. No key can be changed here.
 export default async function Settings({ params }: { params: Record<string, string | string[] | undefined> }) {
   const rows = await settingsOverview();
-  const saved = String(params.saved ?? '');
   const tested = String(params.test ?? '');
   const ok = params.ok === '1';
   const detail = String(params.detail ?? '');
@@ -15,11 +14,11 @@ export default async function Settings({ params }: { params: Record<string, stri
   const name = 'Stripe';
   // Payments need both: a provider to take the money, e-mail to send the buyer their confirmation.
   const payments = !mode
-    ? { tone: 'tone-warn', label: 'Off', text: 'Paste the Stripe secret key below. Until then, the payment button says payments are unavailable.' }
+    ? { tone: 'tone-warn', label: 'Off', text: 'No Stripe secret key in Vercel (STRIPE_SECRET_KEY). Until it is set there, the payment button says payments are unavailable.' }
     : !mail
       ? { tone: 'tone-warn', label: 'Blocked', text: `The ${name} key is set, but the Resend key is missing: no payment is taken while the buyer cannot receive their confirmation.` }
       : mode === 'test'
-        ? { tone: 'tone-info', label: 'Test mode', text: `Payments go through ${name} in test mode: no money is taken, and each test payment opens a real access. Replace it with the live key to sell.` }
+        ? { tone: 'tone-info', label: 'Test mode', text: `Payments go through ${name} in test mode: no money is taken, and each test payment opens a real access. Set the live key in Vercel to sell.` }
         : { tone: 'tone-ok', label: 'Live', text: `Real payments: buyers pay on ${name}’s secure page, then come back to The AI Certification with their access.` };
 
   return (
@@ -27,8 +26,8 @@ export default async function Settings({ params }: { params: Record<string, stri
       <section className="cx-card">
         <h2>Settings</h2>
         <p className="help">
-          Paste the service keys here. They are stored encrypted and apply at once, without touching the code.
-          Only the start and end of each key are shown. To change a key, just paste the new one.
+          The service keys can no longer be changed from this page: they are set only in Vercel (Project → Settings →
+          Environment Variables), then the site is redeployed. Here you only see whether each key is set, and can test it.
         </p>
       </section>
       <section className="cx-card">
@@ -40,7 +39,7 @@ export default async function Settings({ params }: { params: Record<string, stri
         <p className="help">
           In Stripe → Developers → Webhooks, the endpoint <code>{siteUrl()}/api/stripe/webhook</code> (events
           checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and
-          checkout.session.expired) grants access even if the buyer closes the page. Paste its signing secret below.
+          checkout.session.expired) grants access even if the buyer closes the page. Its signing secret is set in Vercel (STRIPE_WEBHOOK_SECRET).
         </p>
       </section>
       {rows.map((r) => (
@@ -52,43 +51,16 @@ export default async function Settings({ params }: { params: Record<string, stri
           <p className="help">{r.help}</p>
           {r.masked && (
             <p className="cx-setting-current">
-              Current: <code>{r.masked}</code> <small>({r.source === 'admin' ? 'saved here' : 'set at the host'})</small>
+              Current: <code>{r.masked}</code> <small>({r.source === 'admin' ? 'connected with Google' : 'set in Vercel'})</small>
             </p>
           )}
-          {saved === r.key && <p className="price-alert" role="status">Saved. Click “Test” to check it.</p>}
           {tested === r.key && <p className={`price-alert${ok ? ' learn-pass' : ''}`} role="status">{ok ? '✓ ' : '✗ '}{detail}</p>}
-          {/* Configured: the form stays folded away behind “Change”; still to set: shown at once. */}
-          <details className="cx-setting-edit" open={!r.source || saved === r.key || (tested === r.key && !ok)}>
-            {r.source && <summary className="btn btn-sm">Change</summary>}
-            <form action={saveSettingAction} className="cx-setting-form">
+          {r.source && (
+            <form action={testSettingAction} className="cx-setting-actions">
               <input type="hidden" name="key" value={r.key} />
-              <label className="skip" htmlFor={`v-${r.key}`}>{r.label}</label>
-              <input
-                id={`v-${r.key}`}
-                name="value"
-                type={SETTINGS[r.key].secret ? 'password' : 'text'}
-                autoComplete="off"
-                placeholder={r.masked ? 'New value…' : 'Paste the value…'}
-                required
-              />
-              <button className="btn btn-sm btn-green" type="submit">Save</button>
+              <button className="btn btn-sm" type="submit">Test</button>
             </form>
-            <div className="cx-setting-actions">
-              {r.source && (
-                <form action={testSettingAction}>
-                  <input type="hidden" name="key" value={r.key} />
-                  <button className="btn btn-sm" type="submit">Test</button>
-                </form>
-              )}
-              {r.source === 'admin' && (
-                <form action={saveSettingAction}>
-                  <input type="hidden" name="key" value={r.key} />
-                  <input type="hidden" name="clear" value="1" />
-                  <button className="linklike" type="submit">Remove</button>
-                </form>
-              )}
-            </div>
-          </details>
+          )}
         </section>
       ))}
     </>

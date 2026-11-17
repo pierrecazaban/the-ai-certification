@@ -16,6 +16,7 @@ export const ADMIN_TABS = [
   { id: 'appels', label: 'Calls' },
   { id: 'prospection', label: 'Prospection' },
   { id: 'versements', label: 'Payouts' },
+  { id: 'journal', label: 'Journal' },
 ] as const;
 
 export const TEAM_TABS = [

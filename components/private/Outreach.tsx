@@ -1,5 +1,7 @@
-import { outreachConfigAction, outreachPauseAction } from '@/lib/privateActions';
+import { outreachConfigAction, outreachDeclineAction, outreachPauseAction } from '@/lib/privateActions';
 import { budget, funnel, LIMITS, prospects, recentLog } from '@/lib/outreach';
+import OutreachLive from '@/components/private/OutreachLive';
+import OutreachVisual from '@/components/private/OutreachVisual';
 
 // /admin › Prospection: the LinkedIn plan the script on the Mac follows, and where every prospect stands.
 const STATUS: Record<string, { label: string; tone: string }> = {
@@ -9,8 +11,10 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   messaged: { label: 'Link sent', tone: 'info' },
   booked: { label: 'Call booked', tone: 'ok' },
   failed: { label: 'Failed', tone: 'muted' },
+  declined: { label: 'Refusé', tone: 'muted' },
+  withdrawn: { label: 'Invitation retirée', tone: 'muted' },
 };
-const MESSAGES: Record<string, string> = { saved: 'Plan saved: the script uses it on its next run.', paused: 'Prospection paused.', resumed: 'Prospection resumed.' };
+const MESSAGES: Record<string, string> = { declined: 'Noted: this student will never be contacted again.', saved: 'Plan saved: the script uses it on its next run.', paused: 'Prospection paused.', resumed: 'Prospection resumed.' };
 const when = (v: string | Date | null) => (v ? new Date(v).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 
 export default async function Outreach({ params }: { params: Record<string, string | string[] | undefined> }) {
@@ -21,7 +25,9 @@ export default async function Outreach({ params }: { params: Record<string, stri
   const reached = f.invited + f.accepted + f.messaged + f.booked;
 
   return (
-    <>
+    <div className="ol-layout">
+    <div className="ol-main">
+      <OutreachVisual />
       <section className="cx-card">
         <div className="cx-toolbar">
           <h2 style={{ margin: 0 }}>LinkedIn prospection</h2>
@@ -76,6 +82,15 @@ export default async function Outreach({ params }: { params: Record<string, stri
             <label htmlFor="o-note">Invitation note (Premium, 280 characters max; {'{prenom}'} and {'{ecole}'} are replaced; empty = no note)</label>
             <textarea id="o-note" name="inviteNote" rows={3} maxLength={280} defaultValue={c.inviteNote} />
           </div>
+          <div className="form-row">
+            <div className="field"><label htmlFor="o-fud">Follow-up after (days without an answer, 0 = never)</label><input id="o-fud" name="followUpAfterDays" type="number" min={0} max={30} defaultValue={c.followUpAfterDays} /></div>
+            <div className="field"><label htmlFor="o-wd">Withdraw invitations still pending after (days)</label><input id="o-wd" name="withdrawAfterDays" type="number" min={7} max={60} defaultValue={c.withdrawAfterDays} /></div>
+          </div>
+          <div className="field"><label htmlFor="o-cd">Wait before searching a school again (days)</label><input id="o-cd" name="searchCooldownDays" type="number" min={1} max={60} defaultValue={c.searchCooldownDays} /></div>
+          <div className="field">
+            <label htmlFor="o-fu">Follow-up message (sent once; {'{prenom}'}, {'{ecole}'}, {'{lien}'})</label>
+            <textarea id="o-fu" name="followUp" rows={3} defaultValue={c.followUp} />
+          </div>
           <div className="field">
             <label htmlFor="o-text">Message sent after acceptance ({'{prenom}'}, {'{ecole}'}, {'{lien}'} are replaced)</label>
             <textarea id="o-text" name="message" rows={4} defaultValue={c.message} />
@@ -89,7 +104,7 @@ export default async function Outreach({ params }: { params: Record<string, stri
         {list.length ? (
           <div style={{ overflowX: 'auto' }}>
             <table className="cx-table">
-              <thead><tr><th>Student</th><th>School</th><th>Status</th><th>Invited</th><th>Accepted</th><th>Link sent</th><th>Booking link</th></tr></thead>
+              <thead><tr><th>Student</th><th>School</th><th>Status</th><th>Invited</th><th>Accepted</th><th>Link sent</th><th>Booking link</th><th /></tr></thead>
               <tbody>
                 {list.map((p) => {
                   const s = STATUS[p.status] ?? { label: p.status, tone: 'muted' };
@@ -102,6 +117,14 @@ export default async function Outreach({ params }: { params: Record<string, stri
                       <td>{when(p.accepted_at)}</td>
                       <td>{when(p.messaged_at)}</td>
                       <td><small><a href={p.link} target="_blank" rel="noopener noreferrer">{p.link.replace(/^https:\/\//, '')}</a></small></td>
+                      <td>
+                        {p.status !== 'declined' && (
+                          <form action={outreachDeclineAction}>
+                            <input type="hidden" name="linkedin" value={p.linkedin} />
+                            <button className="btn btn-sm btn-ghost" type="submit" title="Never contact this student again">Ne plus contacter</button>
+                          </form>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -119,6 +142,8 @@ export default async function Outreach({ params }: { params: Record<string, stri
           </ul>
         ) : <p className="help">Nothing yet.</p>}
       </section>
-    </>
+    </div>
+    <OutreachLive />
+    </div>
   );
 }

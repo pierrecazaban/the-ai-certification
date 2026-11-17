@@ -7,10 +7,9 @@ import LessonBody from '@/components/learning/LessonBody';
 import { requireLearner } from '@/components/learning/learner';
 import { sql } from '@/lib/db';
 import { learn } from '@/lib/i18n/learn';
-import { QUIZ_PASS, shuffledOrder } from '@/lib/learning';
+import { lessonPhoto, moduleArt, QUIZ_PASS, shuffledOrder } from '@/lib/learning';
 import { submitExerciseAction, submitQuizAction, toggleLessonAction } from '@/lib/learnActions';
 import { formatDate, LOCALES } from '@/lib/locales';
-import { STUDENT_PROGRAM } from '@/lib/catalog';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -48,8 +47,8 @@ export default async function ModulePage({ params, searchParams }: Props) {
               <h1>{m.title}</h1>
               <p className="lead" style={{ margin: 0 }}>{m.summary}</p>
             </div>
-            {/* Illustration of the module: public/assets/course/<module id>.png */}
-            <img className="sp-hero-mascot" src={`/assets/course/${m.id}.webp`} alt="" width={200} height={200} />
+            {/* Illustration of the module (Kai), see moduleArt in lib/learning/types */}
+            <img className="sp-hero-mascot" src={moduleArt(m.id)} alt="" width={200} height={200} />
           </section>
 
           <section className="space-module">
@@ -73,8 +72,8 @@ export default async function ModulePage({ params, searchParams }: Props) {
                     <small>{l.minutes(lesson.minutes)}</small>
                   </summary>
                   {/* CC0 photo of the lesson (StockSnap), see public/images/course/CREDITS.md */}
-                  {(lesson.image || program === STUDENT_PROGRAM) && (
-                    <img className="learn-photo" src={lesson.image ?? `/images/course/${lesson.id}.webp`} alt="" width={960} height={640} loading="lazy" />
+                  {lessonPhoto(lesson) && (
+                    <img className="learn-photo" src={lessonPhoto(lesson)!} alt="" width={960} height={640} loading="lazy" />
                   )}
                   <LessonBody body={lesson.body} />
                   <form action={toggleLessonAction}>

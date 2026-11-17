@@ -1,4 +1,5 @@
 import 'server-only';
+import { logAdmin } from './adminLog';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { sql } from './db';
@@ -326,6 +327,7 @@ export async function googleConnect(code: string) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.refresh_token) return false;
   await saveSetting('GOOGLE_REFRESH_TOKEN', data.refresh_token);
+  await logAdmin('Google Agenda connecté (jeton Google enregistré)');
   return true;
 }
 

@@ -3,17 +3,17 @@
 // Form actions for the private pages. They are called by opaque ids, and every one checks the session itself.
 import { redirect } from 'next/navigation';
 import { currentUser } from './auth';
+import { describeForm, logAdmin } from './adminLog';
 import { claimSchool, decideSchoolRequest, pickedSchool, requestSchool, schoolCount, joinTeam, markPayoutPaid, releaseSchool, requestPayout, saveBankDetails } from './team';
 import { PRIVATE_SLUGS } from './private';
 import { replyToTicket, setTicketStatus } from './tickets';
-import { saveSetting, SETTINGS, type SettingKey } from './settings';
+import { type SettingKey } from './settings';
 import { testSetting } from './settingsTest';
-import { checkStripeKey, describeStripeCheck } from './stripe';
 import { setOnSale } from './visibility';
 import { resetGuestCode } from './guest';
 import { programBySlug } from './catalog';
 import { cancelBooking, deleteWindow, updateAvailability } from './calls';
-import { getConfig, saveConfig } from './outreach';
+import { getConfig, saveConfig, setStatus as setOutreachStatus } from './outreach';
 
 // Schools sit on the overview now: messages about them land there, at the schools section.
 const team = (tab: string, msg: string) =>
@@ -26,9 +26,14 @@ async function ambassador() {
   return user;
 }
 
-async function admin() {
+async function admin(action = '', formData?: FormData) {
   const user = await currentUser();
-  if (!user || user.role !== 'admin') redirect('/');
+  if (!user || user.role !== 'admin') {
+    // Someone not signed in as the admin tried an admin action: written in the journal.
+    if (action) await logAdmin(`REFUSÉ · ${action}`, describeForm(formData), user);
+    redirect('/');
+  }
+  if (action) await logAdmin(action, describeForm(formData), user);
   return user;
 }
 
@@ -63,7 +68,7 @@ export async function claimSchoolAction(formData: FormData) {
 }
 
 export async function decideSchoolRequestAction(formData: FormData) {
-  await admin();
+  await admin('decideSchoolRequestAction', formData);
   const result = await decideSchoolRequest(String(formData.get('request_id') ?? ''), formData.get('accept') === '1');
   pro('ambassadeurs', result);
 }
@@ -80,55 +85,36 @@ export async function requestPayoutAction() {
 }
 
 export async function markPayoutPaidAction(formData: FormData) {
-  await admin();
+  await admin('markPayoutPaidAction', formData);
   await markPayoutPaid(String(formData.get('payout_id') ?? ''));
   pro('versements', 'paye');
 }
 
 export async function releaseSchoolAction(formData: FormData) {
-  await admin();
+  await admin('releaseSchoolAction', formData);
   await releaseSchool(String(formData.get('university_id') ?? ''));
   pro('ambassadeurs', 'libere');
 }
 
 export async function replyTicketAction(formData: FormData) {
-  await admin();
+  await admin('replyTicketAction', formData);
   const id = String(formData.get('ticket_id') ?? '');
   await replyToTicket(id, String(formData.get('body') ?? ''));
   redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets&id=${id}&msg=envoye`);
 }
 
 export async function ticketStatusAction(formData: FormData) {
-  await admin();
+  await admin('ticketStatusAction', formData);
   const id = String(formData.get('ticket_id') ?? '');
   const status = String(formData.get('status') ?? '');
   if (status === 'open' || status === 'answered' || status === 'closed') await setTicketStatus(id, status);
   redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets&id=${id}`);
 }
 
-export async function saveSettingAction(formData: FormData) {
-  await admin();
-  const key = String(formData.get('key') ?? '') as SettingKey;
-  if (!(key in SETTINGS)) redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages`);
-  // Pasted keys often come with spaces or quotes around them.
-  const value = formData.get('clear') === '1' ? '' : String(formData.get('value') ?? '').trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
-  if (key === 'STRIPE_SECRET_KEY' && value) {
-    // A Stripe key is only saved once Stripe accepts it, so payments never break on a wrong paste.
-    const check = await checkStripeKey(value);
-    if (check.ok) await saveSetting(key, value);
-    const detail = check.ok ? `Saved. ${describeStripeCheck(check)}` : `Key not saved. ${describeStripeCheck(check)}`;
-    redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages&test=${key}&ok=${check.ok ? 1 : 0}&detail=${encodeURIComponent(detail)}`);
-  }
-  if (key === 'STRIPE_WEBHOOK_SECRET' && value && !/^whsec_[A-Za-z0-9]{20,}$/.test(value)) {
-    const detail = 'Secret not saved. A Stripe webhook signing secret starts with whsec_ (Stripe → Developers → Webhooks → your endpoint → Signing secret).';
-    redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages&test=${key}&ok=0&detail=${encodeURIComponent(detail)}`);
-  }
-  await saveSetting(key, value);
-  redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages&saved=${key}`);
-}
+// Keys are no longer changed from the admin (15/11): only in Vercel. The form and its action are gone.
 
 export async function testSettingAction(formData: FormData) {
-  const user = await admin();
+  const user = await admin('testSettingAction', formData);
   const key = String(formData.get('key') ?? '') as SettingKey;
   const result = await testSetting(key, user.email);
   redirect(`/${PRIVATE_SLUGS.admin}?tab=reglages&test=${key}&ok=${result.ok ? 1 : 0}&detail=${encodeURIComponent(result.detail)}`);
@@ -136,7 +122,7 @@ export async function testSettingAction(formData: FormData) {
 
 /** Puts a written catalogue certification on sale, or takes it off (/admin → Formation). */
 export async function courseOnSaleAction(formData: FormData) {
-  await admin();
+  await admin('courseOnSaleAction', formData);
   const program = String(formData.get('program') ?? '');
   const lang = String(formData.get('lang') ?? 'fr');
   if (programBySlug(program)) await setOnSale(program, formData.get('on_sale') === '1');
@@ -145,7 +131,7 @@ export async function courseOnSaleAction(formData: FormData) {
 
 // Calls (/admin › Calls): availability told to Claude in plain words, and the bookings.
 export async function availabilityAction(formData: FormData) {
-  await admin();
+  await admin('availabilityAction', formData);
   const text = String(formData.get('text') ?? '').trim();
   if (!text) pro('appels', 'empty');
   const result = await updateAvailability(text);
@@ -154,20 +140,20 @@ export async function availabilityAction(formData: FormData) {
 }
 
 export async function deleteWindowAction(formData: FormData) {
-  await admin();
+  await admin('deleteWindowAction', formData);
   await deleteWindow(String(formData.get('id') ?? ''));
   pro('appels', 'window-deleted');
 }
 
 export async function cancelCallAction(formData: FormData) {
-  await admin();
+  await admin('cancelCallAction', formData);
   await cancelBooking(String(formData.get('id') ?? ''));
   pro('appels', 'call-canceled');
 }
 
 // Prospection (/admin › Prospection): the plan the LinkedIn script follows.
 export async function outreachConfigAction(formData: FormData) {
-  await admin();
+  await admin('outreachConfigAction', formData);
   const num = (k: string) => Number(formData.get(k) ?? 0);
   await saveConfig({
     invitesPerDay: num('invitesPerDay'),
@@ -179,12 +165,16 @@ export async function outreachConfigAction(formData: FormData) {
     schools: String(formData.get('schools') ?? '').split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 200),
     message: String(formData.get('message') ?? '').trim().slice(0, 1500),
     inviteNote: String(formData.get('inviteNote') ?? '').trim().slice(0, 280),
+    followUp: String(formData.get('followUp') ?? '').trim().slice(0, 1000),
+    followUpAfterDays: num('followUpAfterDays'),
+    withdrawAfterDays: num('withdrawAfterDays'),
+    searchCooldownDays: num('searchCooldownDays'),
   });
   pro('prospection', 'saved');
 }
 
 export async function outreachPauseAction() {
-  await admin();
+  await admin('outreachPauseAction');
   const c = await getConfig();
   await saveConfig({ paused: !c.paused });
   pro('prospection', c.paused ? 'resumed' : 'paused');
@@ -192,7 +182,14 @@ export async function outreachPauseAction() {
 
 /** Admin: replaces the free-access invite link (the old one stops working). */
 export async function resetGuestLinkAction() {
-  await admin();
+  await admin('resetGuestLinkAction');
   await resetGuestCode();
   redirect(`/${PRIVATE_SLUGS.admin}?msg=guest-link#invite`);
+}
+
+/** “Ne plus contacter”: the student is never written to again (no invitation, message, follow-up or reply). */
+export async function outreachDeclineAction(formData: FormData) {
+  await admin('outreachDeclineAction', formData);
+  await setOutreachStatus(String(formData.get('linkedin') ?? ''), 'declined');
+  pro('prospection', 'declined');
 }

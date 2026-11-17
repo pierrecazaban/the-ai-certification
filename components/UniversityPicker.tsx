@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { searchSchools } from '@/lib/schoolSearch';
 
 type School = { id: string; name: string; state: string };
 
@@ -28,8 +29,7 @@ export default function UniversityPicker({
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState('');
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? schools.filter((s) => `${s.name} ${s.state}`.toLowerCase().includes(q)) : schools;
+    return searchSchools(schools, query);
   }, [query, schools]);
 
   return (
@@ -55,7 +55,7 @@ export default function UniversityPicker({
           <li key={s.id}>
             <button type="button" aria-pressed={s.id === chosen} onClick={() => { setChosen(s.id); setQuery(s.name); }}>
               {s.name}
-              {s.state && <small>{s.state}</small>}
+              <small>{[s.state, 'All campuses'].filter(Boolean).join(' · ')}</small>
             </button>
           </li>
         ))}

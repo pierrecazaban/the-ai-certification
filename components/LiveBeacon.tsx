@@ -14,8 +14,15 @@ export default function LiveBeacon() {
       vid = Math.random().toString(36).slice(2) + Date.now().toString(36);
       try { sessionStorage.setItem('live_vid', vid); } catch {}
     }
+    // The same id for every tab of this browser: one person counts once.
+    let pid = '';
+    try { pid = localStorage.getItem('live_pid') ?? ''; } catch {}
+    if (!pid) {
+      pid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { localStorage.setItem('live_pid', pid); } catch {}
+    }
     const send = (leave = false) => {
-      const body = JSON.stringify({ vid, path, leave });
+      const body = JSON.stringify({ vid, pid, path, leave });
       if (leave && navigator.sendBeacon) navigator.sendBeacon('/api/live', new Blob([body], { type: 'application/json' }));
       else fetch('/api/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
     };

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Landing from '@/components/Landing';
 import AdminConsole from '@/components/private/AdminConsole';
+import { logAdmin } from '@/lib/adminLog';
 import TeamConsole from '@/components/private/TeamConsole';
 import JoinPage from '@/components/private/JoinPage';
 import { currentUser, type User } from '@/lib/auth';
@@ -71,7 +72,15 @@ export default async function LocalePage({ params, searchParams }: Props) {
   if (!page && (slug === PRIVATE_SLUGS.admin || slug === PRIVATE_SLUGS.ambassador)) redirect(`/login?lang=${slug === PRIVATE_SLUGS.admin ? 'fr' : 'en-us'}`);
   if (!page) notFound();
   const query = await searchParams;
-  if (page.kind === 'admin') return <AdminConsole admin={page.user} params={query} />;
-  if (page.kind === 'team') return <TeamConsole user={page.user} params={query} />;
+  // Every admin page opened is written in the journal (/admin › Journal), with what was looked at.
+  const seen = ['tab', 'q', 'status', 'id'].filter((k) => query[k]).map((k) => `${k}=${String(query[k]).slice(0, 60)}`).join(' · ');
+  if (page.kind === 'admin') {
+    await logAdmin('Page admin ouverte', seen || 'tab=apercu', page.user);
+    return <AdminConsole admin={page.user} params={query} />;
+  }
+  if (page.kind === 'team') {
+    if (page.user.role === 'admin') await logAdmin('Vue ambassadeur ouverte', seen, page.user);
+    return <TeamConsole user={page.user} params={query} />;
+  }
   return <JoinPage code={page.code} inviterName={page.inviterName} params={query} />;
 }

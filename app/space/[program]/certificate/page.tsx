@@ -8,7 +8,7 @@ import { requireLearner } from '@/components/learning/learner';
 import { learn } from '@/lib/i18n/learn';
 import { LOCALES } from '@/lib/locales';
 import { siteUrl } from '@/lib/site';
-import Logo from '@/components/Logo';
+import Certificate from '@/components/learning/Certificate';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -53,28 +53,9 @@ export default async function CertificatePage({ params }: Props) {
             <img className="sp-hero-mascot" src="/assets/course/certified.webp" alt="" width={200} height={200} />
           </div>
 
-          <article className="certificate">
-            <div className="certificate-inner">
-              <span className="certificate-brand"><Logo height={44} /></span>
-              <span className="certificate-kicker">Certificate of completion</span>
-              <p className="certificate-has">This certifies that</p>
-              <p className="certificate-name">{cert.holder_name}</p>
-              <p className="certificate-has">{l.certHasEarned}</p>
-              <p className="certificate-title">{course.title}</p>
-              <div className="certificate-foot">
-                <div>
-                  <strong>{issuedOn}</strong>
-                  <span>{l.fieldIssue}</span>
-                </div>
-                <img className="certificate-seal" src="/assets/kai-cert.png" alt="" width={120} height={120} />
-                <div>
-                  <strong>{cert.reference}</strong>
-                  <span>{l.credentialId}</span>
-                </div>
-              </div>
-              <p className="certificate-verify">{l.certScore(cert.score, cert.total)} · {l.verifyAt} {url.replace(/^https?:\/\//, '')}</p>
-            </div>
-          </article>
+          {/* A4 landscape on paper; the page's other blocks are hidden when printing. */}
+          <style>{'@page { size: A4 landscape; margin: 10mm; }'}</style>
+          <Certificate holder={cert.holder_name} title={course.title} reference={cert.reference} issuedOn={issuedOn} verifyUrl={url} l={l} />
 
           <p className="no-print" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <PrintButton label={l.print} />

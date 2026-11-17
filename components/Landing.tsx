@@ -19,8 +19,10 @@ const SOURCES = [
 
 const Icon = {
   calendar: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>,
-  code: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4" /><path d="M4 20L20 4" /></svg>,
-  medal: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6" /><path d="M9 14.5L8 22l4-2 4 2-1-7.5" /></svg>,
+  code: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18" /><circle cx="6.5" cy="6.5" r=".6" fill="currentColor" /><circle cx="9" cy="6.5" r=".6" fill="currentColor" /><path d="M7 13h6M7 16h10" /></svg>,
+  // Certified badge with a check, same line style as the other highlights.
+  medal: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" /><path d="m9 12 2 2 4-4" /></svg>,
+  bot: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2" /><path d="M12 8V4H8" /><path d="M2 14h2M20 14h2M15 13v2M9 13v2" /></svg>,
   shield: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z" /><path d="M9 12l2 2 4-4" /></svg>,
   clock: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>,
 };
@@ -49,12 +51,11 @@ export default async function Landing({ locale }: { locale: Locale }) {
           <div className="container hero-grid" style={{ alignItems: 'start' }}>
             <div className="hero-copy">
               <div className="section-logo"><LinkedInLogo size={48} /></div>
-              <span className="eyebrow">{d.hero.eyebrow}</span>
-              <h1>{d.hero.title}</h1>
+              <h1>{d.hero.title.split(/(?<=\.)\s+/).map((l, i) => <span key={i} className="h1-ligne">{i > 0 ? ' ' : ''}{l}</span>)}</h1>
               <p className="lead">{d.hero.lead}</p>
               <ul className="highlights">
                 <li>
-                  <div className="icon">{Icon.calendar}</div>
+                  <div className="icon">{Icon.bot}</div>
                   <strong>{d.hero.modulesTitle}</strong>
                   <span>{d.hero.instant}</span>
                 </li>
@@ -64,7 +65,11 @@ export default async function Landing({ locale }: { locale: Locale }) {
                   <span>{d.hero.codeSub}</span>
                 </li>
                 <li>
-                  <div className="icon">{Icon.medal}</div>
+                  {/* LinkedIn, with the "certified" badge in its top-right corner. */}
+                  <div className="icon icon-li">
+                    <LinkedInLogo size={18} />
+                    <svg className="icon-li-badge" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" fill="#0A66C2" stroke="#fff" strokeWidth="2" /><path d="m9 12 2 2 4-4" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
                   <strong>{d.hero.certTitle}</strong>
                   <span>{d.hero.certSub}</span>
                 </li>
@@ -88,8 +93,24 @@ export default async function Landing({ locale }: { locale: Locale }) {
           <div className="container mascot-cta no-art">
             <div>
               <h2>{d.mascot.title}</h2>
-              <p className="lead" style={{ marginBottom: 28 }}>{d.mascot.lead}</p>
-              <Link className="btn btn-green" href={register}>{d.mascot.cta}</Link>
+              {/* The certificate as it shows on a LinkedIn profile (illustration). */}
+              <div className="hm-linkedin li-proof" aria-hidden="true">
+                <div className="hm-linkedin-head">
+                  <LinkedInLogo size={24} />
+                  <strong>{d.mascot.liHead}</strong>
+                  <span>{d.mascot.liExample}</span>
+                </div>
+                <div className="hm-linkedin-row">
+                  <img src="/assets/mark.svg" alt="" width={46} height={46} />
+                  <div>
+                    <strong>{d.mascot.liCert} <svg className="li-verif" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" fill="#0A66C2" /><path d="m9 12 2 2 4-4" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></strong>
+                    <span>The AI Certification</span>
+                    <small>{d.mascot.liIssued}</small>
+                    <em>{d.mascot.liShow}</em>
+                  </div>
+                </div>
+              </div>
+              <p className="lead" style={{ marginBottom: 0 }}>{d.mascot.lead}</p>
             </div>
           </div>
         </section>

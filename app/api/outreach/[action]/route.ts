@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scriptAuthorised } from '@/lib/callsApi';
-import { addProspects, budget, log, prospects, schoolCounts, setStatus } from '@/lib/outreach';
+import { addProspects, budget, log, markFollowedUp, prospects, recentlySearched, recordSearch, saveConfig, schoolCounts, setStatus } from '@/lib/outreach';
 import { draftReply } from '@/lib/outreachReply';
 import { siteUrl } from '@/lib/site';
 
@@ -17,7 +17,10 @@ type Ctx = { params: Promise<{ action: string }> };
 export async function GET(req: NextRequest, { params }: Ctx) {
   if (!(await scriptAuthorised(req))) return NextResponse.json({ error: 'unauthorised' }, { status: 401 });
   const { action } = await params;
-  if (action === 'plan') return NextResponse.json({ ...(await budget()), schoolCounts: await schoolCounts() });
+  if (action === 'plan') {
+    const b = await budget();
+    return NextResponse.json({ ...b, schoolCounts: await schoolCounts(), recentlySearched: await recentlySearched(b.config.searchCooldownDays) });
+  }
   if (action === 'queue') {
     const status = req.nextUrl.searchParams.get('status') ?? 'found';
     const limit = Math.min(200, Number(req.nextUrl.searchParams.get('limit') ?? 50) || 50);
@@ -41,8 +44,22 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       .filter((t: unknown) => t && typeof t === 'object' && typeof (t as { text?: unknown }).text === 'string')
       .map((t: { from?: string; text: string }) => ({ from: t.from === 'pierre' ? 'pierre' as const : 'student' as const, text: t.text }));
     const result = await draftReply({ firstName: String(body.firstName ?? ''), school: String(body.school ?? ''), link: String(body.link ?? `${siteUrl()}/call`), base: siteUrl(), history });
-    await log(result.needsHuman ? 'à traiter' : 'réponse auto', `${body.name ?? ''} (${body.school ?? ''}) : ${result.reason}`);
+    if (result.declined && typeof body.linkedin === 'string') await setStatus(body.linkedin, 'declined');
+    await log(result.declined ? 'refus' : result.needsHuman ? 'à traiter' : 'réponse auto', `${body.name ?? ''} (${body.school ?? ''}) : ${result.reason}`);
     return NextResponse.json(result);
+  }
+  if (action === 'followup' && typeof body?.linkedin === 'string') {
+    await markFollowedUp(body.linkedin);
+    return NextResponse.json({ ok: true });
+  }
+  if (action === 'searched' && typeof body?.school === 'string') {
+    await recordSearch(body.school, Number(body.found) || 0);
+    return NextResponse.json({ ok: true });
+  }
+  if (action === 'pause' && typeof body?.paused === 'boolean') {
+    await saveConfig({ paused: body.paused });
+    await log('info', body.paused ? 'Prospection mise en pause' : 'Prospection relancée');
+    return NextResponse.json({ ok: true, paused: body.paused });
   }
   if (action === 'log' && typeof body?.text === 'string') {
     await log(String(body.kind ?? 'info'), body.text);

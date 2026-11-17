@@ -77,9 +77,6 @@ export default async function Page({ searchParams }: Props) {
           Si tu estimes que tes droits ne sont pas respectés, tu peux saisir la CNIL (<a href="https://www.cnil.fr" target="_blank" rel="noreferrer">cnil.fr</a>).
         </p>
 
-        <h2>Âge</h2>
-        <p>Les programmes s’adressent aux personnes de 18 ans ou plus.</p>
-
         <p>Voir aussi les <Link href={`/terms${q}`}>conditions générales de vente et d’utilisation</Link>.</p>
       </LegalPage>
     );
@@ -147,9 +144,6 @@ export default async function Page({ searchParams }: Props) {
         If you think your rights are not respected, you can complain to the French data protection authority, the CNIL (
         <a href="https://www.cnil.fr" target="_blank" rel="noreferrer">cnil.fr</a>), or to the authority of your country.
       </p>
-
-      <h2>Age</h2>
-      <p>The programs are for people aged 18 or over.</p>
 
       <p>See also the <Link href={`/terms${q}`}>terms of sale and use</Link>.</p>
     </LegalPage>

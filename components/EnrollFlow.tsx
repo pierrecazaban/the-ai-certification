@@ -15,13 +15,12 @@ const ERRORS: Record<string, string> = {
   last_name: 'Enter your last name.',
   email: 'Enter a valid email address.',
   terms_accepted: 'Accept the terms to continue.',
-  age_confirmed: 'You must be 18 or older.',
 };
 
 /** Purchase of a catalogue certification: details, then payment. */
 export default function EnrollFlow({ program, title }: { program: string; title: string }) {
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', organization: '' });
-  const [checks, setChecks] = useState({ terms_accepted: false, age_confirmed: false, marketing_opt_in: false });
+  const [checks, setChecks] = useState({ terms_accepted: false, age_confirmed: true, marketing_opt_in: false });
   const [errors, setErrors] = useState<Record<string, true>>({});
   const [banner, setBanner] = useState('');
   const [busy, setBusy] = useState(false);
@@ -84,16 +83,11 @@ export default function EnrollFlow({ program, title }: { program: string; title:
       </label>
       {err('terms_accepted')}
       <label className="check">
-        <input type="checkbox" checked={checks.age_confirmed} onChange={tick('age_confirmed')} />
-        <span>I am 18 or older.</span>
-      </label>
-      {err('age_confirmed')}
-      <label className="check">
         <input type="checkbox" checked={checks.marketing_opt_in} onChange={tick('marketing_opt_in')} />
         <span>Email me about new The AI Certification certifications (optional).</span>
       </label>
       <div>
-        <button className="btn btn-green" type="submit" disabled={busy || !checks.terms_accepted || !checks.age_confirmed}>
+        <button className="btn btn-green" type="submit" disabled={busy || !checks.terms_accepted}>
           {busy ? <><Spinner />Reserving…</> : 'Continue to payment'}
         </button>
       </div>

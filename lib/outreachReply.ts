@@ -7,7 +7,7 @@ import { setting } from './settings';
 // from the same facts as the site assistant. Anything sensitive or unknown is handed to Pierre instead of answered.
 
 export type Turn = { from: 'pierre' | 'student'; text: string };
-export type ReplyResult = { reply: string; needsHuman: boolean; reason: string };
+export type ReplyResult = { reply: string; needsHuman: boolean; declined: boolean; reason: string };
 
 const PROGRAMME = `# The ambassador programme (what Pierre is recruiting for)
 - One ambassador per school. The ambassador represents The AI Certification on their campus: tells students, associations and the BDE about the AI certification.
@@ -19,7 +19,7 @@ const PROGRAMME = `# The ambassador programme (what Pierre is recruiting for)
 
 export async function draftReply(input: { firstName: string; school: string; link: string; base: string; history: Turn[] }): Promise<ReplyResult> {
   const apiKey = await setting('ANTHROPIC_API_KEY');
-  if (!apiKey) return { reply: '', needsHuman: true, reason: 'Clé Claude absente' };
+  if (!apiKey) return { reply: '', needsHuman: true, declined: false, reason: 'Clé Claude absente' };
 
   const client = new Anthropic({ apiKey });
   const conversation = input.history.slice(-12).map((t) => `${t.from === 'pierre' ? 'Pierre' : input.firstName || 'Étudiant'} : ${t.text.slice(0, 1500)}`).join('\n');
@@ -38,9 +38,10 @@ export async function draftReply(input: { firstName: string; school: string; lin
           properties: {
             reply: { type: 'string', description: 'The LinkedIn reply, in French, from Pierre. Empty if needs_human.' },
             needs_human: { type: 'boolean', description: 'true when Pierre must answer himself' },
+            declined: { type: 'boolean', description: 'true when the student says no, is not interested, or asks not to be contacted again' },
             reason: { type: 'string', description: 'One short line in French: why it needs Pierre, or what was answered' },
           },
-          required: ['reply', 'needs_human', 'reason'],
+          required: ['reply', 'needs_human', 'declined', 'reason'],
           additionalProperties: false,
         },
       },
@@ -56,18 +57,20 @@ You are not the chat bubble here. You write LinkedIn replies in the name of Pier
 - French, "tu", warm and short: 2 to 4 sentences, plain text, no list, no emoji overload (one at most). Sign nothing.
 - Answer the student's question only from the facts above. Never invent a figure, date, partnership, guarantee or promise of income.
 - When it fits, end by inviting them to book the 45-minute call on their personal link: ${input.link}
-- Set needs_human to true (and leave reply empty) when: the question is outside these facts, it is about a payment, refund, complaint, legal or personal matter, the student is upset or asks to stop, or the message is not a question you can answer safely. If they ask to stop, needs_human true with reason "demande d'arrêt".`,
+- Set needs_human to true (and leave reply empty) when: the question is outside these facts, it is about a payment, refund, complaint, legal or personal matter, the student is upset, or the message is not a question you can answer safely.
+- If the student declines in any way ("non merci", "pas intéressé", "pas le temps", "stop", "ne me contacte plus"…): declined true, and reply one short, warm line that thanks them and wishes them well, with no link and no attempt to convince them (needs_human false). If they also sound upset, leave reply empty and set needs_human true.`,
       },
     ],
     messages: [{ role: 'user', content: `Conversation LinkedIn (le dernier message est celui de l'étudiant, auquel il faut répondre) :\n\n${conversation}` }],
   });
 
-  if (response.stop_reason === 'refusal') return { reply: '', needsHuman: true, reason: 'Réponse refusée par le modèle' };
+  if (response.stop_reason === 'refusal') return { reply: '', needsHuman: true, declined: false, reason: 'Réponse refusée par le modèle' };
   const text = response.content.find((b) => b.type === 'text');
   try {
     const out = JSON.parse(text && text.type === 'text' ? text.text : '');
-    return { reply: String(out.reply ?? '').trim(), needsHuman: !!out.needs_human || !String(out.reply ?? '').trim(), reason: String(out.reason ?? '') };
+    const reply = String(out.reply ?? '').trim();
+    return { reply, needsHuman: !!out.needs_human || (!reply && !out.declined), declined: !!out.declined, reason: String(out.reason ?? '') };
   } catch {
-    return { reply: '', needsHuman: true, reason: 'Réponse illisible' };
+    return { reply: '', needsHuman: true, declined: false, reason: 'Réponse illisible' };
   }
 }

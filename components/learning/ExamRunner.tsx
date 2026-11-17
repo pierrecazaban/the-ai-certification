@@ -6,7 +6,7 @@ import { submitExamAction } from '@/lib/learnActions';
 import type { LearnDict } from '@/lib/i18n/learn';
 
 type Q = { q: string; options: { value: number; label: string }[] };
-type Text = Pick<LearnDict, 'examSeriousTitle' | 'examRules' | 'examAgree' | 'examBegin' | 'examCancelledTitle' | 'examCancelledText' | 'examWatch' | 'holderName' | 'holderHelp' | 'examSubmit' | 'retry'> & {
+type Text = Pick<LearnDict, 'examSeriousTitle' | 'examRules' | 'examAgree' | 'examBegin' | 'examCancelledTitle' | 'examCancelledText' | 'examWatch' | 'holderFirst' | 'holderLast' | 'holderHelp' | 'examSubmit' | 'retry'> & {
   question: string[];
   answerAll: string;
 };
@@ -29,7 +29,7 @@ function exitFullscreen() {
   if (!fullscreenElement()) return;
   try { (document.exitFullscreen ?? (document as FsDoc).webkitExitFullscreen)?.call(document); } catch {}
 }
-export default function ExamRunner({ program, questions, t, defaultName }: { program: string; questions: Q[]; t: Text; defaultName: string }) {
+export default function ExamRunner({ program, questions, t, defaultFirst, defaultLast }: { program: string; questions: Q[]; t: Text; defaultFirst: string; defaultLast: string }) {
   const [phase, setPhase] = useState<'rules' | 'running' | 'cancelled'>('rules');
   const [agreed, setAgreed] = useState(false);
   const [sending, setSending] = useState(false);
@@ -124,11 +124,18 @@ export default function ExamRunner({ program, questions, t, defaultName }: { pro
     >
       <input type="hidden" name="program" value={program} />
       <p className="learn-watch" role="status">{t.examWatch}</p>
-      <div className="field">
-        <label htmlFor="holder_name">{t.holderName}</label>
-        <input id="holder_name" name="holder_name" defaultValue={defaultName} required autoComplete="name" />
-        <p className="help">{t.holderHelp}</p>
+      {/* First and last name, both required: the certificate always shows the full name. */}
+      <div className="holder-names">
+        <div className="field">
+          <label htmlFor="holder_first">{t.holderFirst}</label>
+          <input id="holder_first" name="holder_first" defaultValue={defaultFirst} required autoComplete="given-name" maxLength={60} />
+        </div>
+        <div className="field">
+          <label htmlFor="holder_last">{t.holderLast}</label>
+          <input id="holder_last" name="holder_last" defaultValue={defaultLast} required autoComplete="family-name" maxLength={60} />
+        </div>
       </div>
+      <p className="help">{t.holderHelp}</p>
       <ol className="learn-questions">
         {questions.map((q, i) => (
           <li key={q.q}>

@@ -1,4 +1,5 @@
 import 'server-only';
+import { logAdmin } from './adminLog';
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -118,6 +119,7 @@ export async function passwordLogin(email: string, password: string): Promise<Us
   const ok = row?.password_hash
     ? checkPassword(password, row.password_hash)
     : adminEmails().includes(clean) && checkPassword(password, process.env.ADMIN_PASSWORD_HASH);
+  if (!ok && user.role === 'admin') await logAdmin('ÉCHEC de connexion au compte admin', 'mot de passe incorrect', user);
   return ok ? openSession(user) : null;
 }
 
@@ -153,6 +155,7 @@ async function openSession(user: User): Promise<User> {
   const secure = process.env.NODE_ENV === 'production';
   jar.set(SESSION_COOKIE, session, { httpOnly: true, secure, sameSite: 'lax', path: '/', expires });
   jar.set(MEMBER_COOKIE, '1', { httpOnly: false, secure, sameSite: 'lax', path: '/', expires });
+  if (user.role === 'admin') await logAdmin('Connexion au compte admin', `session ouverte pour ${SESSION_DAYS} jours`, user);
   return user;
 }
 

@@ -2,15 +2,13 @@ import type { Metadata } from 'next';
 import '@fontsource-variable/manrope/wght.css';
 import '@fontsource/caveat/latin-600.css'; // handwritten notes in the margins
 import './globals.css';
-import ChatWidget from '@/components/ChatWidget';
 import LiveBeacon from '@/components/LiveBeacon';
-import { setting } from '@/lib/settings';
 import { siteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'The AI Certification | Build your AI agent, get certified in 3 hours',
+  title: 'The AI Certification | Learn to master AI, get certified in 2 hours',
   description:
-    'The AI certification for students: build an agent that does a real job for you and earn a certificate employers can check. 3 modules, about 3 hours, no code.',
+    'The AI certification for students: build an agent that does a real job for you and earn a certificate employers can check. 3 modules, about 2 hours, no code.',
   icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }], apple: '/apple-touch-icon.png' },
   appleWebApp: { title: 'The AI Certification', capable: true, statusBarStyle: 'default' },
   // Static file (not app/manifest.ts) so a page can declare its own, like the admin's.
@@ -29,7 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         <LiveBeacon />
         {/* The assistant only appears once an Anthropic API key is configured. */}
-        {(await setting('ANTHROPIC_API_KEY').catch(() => undefined)) && <ChatWidget />}
+        {/* Assistant (bulle de chat) retiré du site le 14/11 : components/ChatWidget.tsx reste prêt à être remis. */}
       </body>
     </html>
   );

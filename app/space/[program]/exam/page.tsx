@@ -8,7 +8,7 @@ import { requireLearner } from '@/components/learning/learner';
 import { learn } from '@/lib/i18n/learn';
 import { examDraw, shuffledOrder } from '@/lib/learning';
 import { sql } from '@/lib/db';
-import { examPassMark } from '@/lib/learning/progress';
+import { examPassMark, examSize } from '@/lib/learning/progress';
 import { LOCALES } from '@/lib/locales';
 
 export const dynamic = 'force-dynamic';
@@ -24,10 +24,10 @@ export default async function ExamPage({ params, searchParams }: Props) {
   if (progress.certificate) redirect(`/space/${program}/certificate`);
   const { locale, course } = progress;
   const l = learn(locale);
-  // 30 questions drawn for this learner and attempt (the grading draws the same ones).
+  // Questions drawn for this learner and attempt (the grading draws the same ones): 30 in v1, 40 in v2.
   const [{ n: attempts }] = await sql('select count(*)::int as n from exam_attempts where user_id = $1 and program = $2', [user.id, program]);
-  const exam = examDraw(course.exam.length, `${user.id}:${program}:${attempts}`).map((i) => ({ ...course.exam[i], bank: i }));
-  const pass = examPassMark(exam.length);
+  const exam = examDraw(course.exam.length, `${user.id}:${program}:${attempts}`, examSize(course)).map((i) => ({ ...course.exam[i], bank: i }));
+  const pass = examPassMark(exam.length, course.examPass);
   // Options in an order of their own for this learner; only the text goes to the browser, never the answer.
   const questions = exam.map((q) => ({
     q: q.q,
@@ -57,11 +57,12 @@ export default async function ExamPage({ params, searchParams }: Props) {
           <ExamRunner
             program={program}
             questions={questions}
-            defaultName={[user.first_name, user.last_name].filter(Boolean).join(' ')}
+            defaultFirst={user.first_name ?? ''}
+            defaultLast={user.last_name ?? ''}
             t={{
               examSeriousTitle: l.examSeriousTitle, examRules: l.examRules, examAgree: l.examAgree, examBegin: l.examBegin,
               examCancelledTitle: l.examCancelledTitle, examCancelledText: l.examCancelledText, examWatch: l.examWatch,
-              holderName: l.holderName, holderHelp: l.holderHelp, examSubmit: l.examSubmit, retry: l.retry,
+              holderFirst: l.holderFirst, holderLast: l.holderLast, holderHelp: l.holderHelp, examSubmit: l.examSubmit, retry: l.retry,
               question: exam.map((_, i) => l.question(i + 1, exam.length)),
               answerAll: l.examAnswerAll(exam.length),
             }}

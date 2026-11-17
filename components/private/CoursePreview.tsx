@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import LessonBody from '@/components/learning/LessonBody';
-import { getCourse, hasCourse, lessonIdsOf, type Question } from '@/lib/learning';
+import { getCourse, hasCourse, lessonIdsOf, lessonPhoto, type Question } from '@/lib/learning';
 import { PROGRAMS, programBySlug, STUDENT_PROGRAM } from '@/lib/catalog';
 import { LOCALES, isLocale, type Locale } from '@/lib/locales';
 import { PRIVATE_SLUGS } from '@/lib/private';
@@ -123,7 +123,7 @@ export default async function CoursePreview({ params }: { params: Record<string,
               {m.lessons.map((l) => (
                 <details key={l.id} className="cx-lesson">
                   <summary>{l.title} <small>· {l.minutes} min · {l.id}</small></summary>
-                  <img className="learn-photo" src={`/images/course/${l.id}.webp`} alt="" width={960} height={640} loading="lazy" />
+                  {lessonPhoto(l) && <img className="learn-photo" src={lessonPhoto(l)!} alt="" width={960} height={640} loading="lazy" />}
                   <LessonBody body={l.body} />
                 </details>
               ))}

@@ -30,7 +30,7 @@ const MESSAGES: Record<string, string> = {
 
 const money = (cents: number, currency: string) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency, minimumFractionDigits: 2 }).format(cents / 100);
-const day = (v: string | Date | null) => (v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+const day = (v: string | Date | null) => (v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/Paris' }) : '—');
 const short = (first: string, last: string) => `${first} ${last ? `${last[0]}.` : ''}`.trim();
 const STATUS: Record<string, string> = { paid: 'Paid', held: 'Paying now', expired: 'Did not pay', canceled: 'Did not pay', failed: 'Did not pay' };
 

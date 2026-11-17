@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Header from '@/components/Header';
 import RegisterFlow, { type Intake, type University } from '@/components/RegisterFlow';
-import { listUniversities, publicIntake } from '@/lib/school';
+import { listUniversities, publicIntake, registrationPrefill } from '@/lib/school';
 import { pricingFor } from '@/lib/pricing';
 import { dict } from '@/lib/i18n';
 import { LOCALES } from '@/lib/locales';
@@ -15,7 +15,13 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function RegisterPage({ searchParams }: Props) {
   const locale = await localeFromSearch(searchParams);
-  const [universities, intake] = await Promise.all([listUniversities(), publicIntake().catch(() => null)]);
+  const sp = await searchParams;
+  const [universities, intake, pre] = await Promise.all([
+    listUniversities(),
+    publicIntake().catch(() => null),
+    // Back from a reminder (/finish): the form opens with what the student already filled in.
+    typeof sp.r === 'string' && typeof sp.t === 'string' ? registrationPrefill(sp.r, sp.t).catch(() => null) : Promise.resolve(null),
+  ]);
   // Alphabetical as people expect it: « École » with the E's, not after Z.
   universities.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base', numeric: true }));
   // Plain JSON, as the browser used to receive it from the API (dates as strings).
@@ -25,7 +31,7 @@ export default async function RegisterPage({ searchParams }: Props) {
       <Header locale={locale} minimal />
       <main id="main" className="register hero-bands">
         <div className="container">
-          <RegisterFlow locale={locale} initialUniversities={universities as University[]} initialIntake={initialIntake} />
+          <RegisterFlow locale={locale} initialUniversities={universities as University[]} initialIntake={initialIntake} prefill={pre && !pre.paidUrl ? pre.fields : null} />
         </div>
       </main>
     </div>

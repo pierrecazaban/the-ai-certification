@@ -29,7 +29,7 @@ export const PROGRAMS: Program[] = [
   {
     slug: 'ai-at-work', title: 'AI for students', area: 'Students', group: 'Artificial intelligence',
     text: 'Build an AI agent that does a real job for you, and earn a certificate employers can check.',
-    tags: ['3 modules', 'About 3 hours', 'No code', 'Funded student place'],
+    tags: ['3 modules', 'About 2 hours', 'No code', 'Funded student place'],
     description: 'Learn how AI is really used at work and build your own AI agent that performs a real task you define, without writing code.',
     outcomes: ['Know what AI can and cannot do at work', 'Write prompts that produce useful results', 'Connect AI to your documents and daily workflows', 'Build, test and fix a working AI agent'],
     modules: [

@@ -13,7 +13,7 @@ const STATUS: Record<string, { label: string; tone: string }> = {
 const CATEGORY: Record<string, string> = {
   registration: 'Registration', payment: 'Payment', access: 'Access', certificate: 'Certificate', company: 'Company / school', refund: 'Refund', payout: 'Ambassador payout', school: 'School request', other: 'Other',
 };
-const dt = (v: string | Date) => new Date(v).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const dt = (v: string | Date) => new Date(v).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
 const href = (q: string) => `/${PRIVATE_SLUGS.admin}?tab=tickets${q}`;
 
 function Badge({ status }: { status: string }) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createLoginToken, homePath, logout, passwordLogin, setPasswordWithToken, userForLogin } from '@/lib/auth';
+import { createLoginToken, currentUser, homePath, logout, passwordLogin, setPasswordWithToken, userForLogin } from '@/lib/auth';
+import { logAdmin } from '@/lib/adminLog';
 import { loginUrl, sendLoginEmail } from '@/lib/email';
 import { DEFAULT_LOCALE, isLocale } from '@/lib/locales';
 import { setting } from '@/lib/settings';
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
   const action = String(body?.action ?? '');
 
   if (action === 'logout') {
+    const who = await currentUser().catch(() => null);
+    if (who?.role === 'admin') await logAdmin('Déconnexion du compte admin', '', who);
     await logout();
     return NextResponse.json({ result: 'ok' });
   }
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
     const user = await userForLogin(email);
     let devLink: string | undefined;
     if (user) {
+      if (user.role === 'admin') await logAdmin('Lien de connexion admin demandé par email', '', user);
       const token = await createLoginToken(user.id, 30);
       await sendLoginEmail(user.email, token, isLocale(user.locale) ? user.locale : locale);
       if (process.env.NODE_ENV !== 'production' && !(await setting('RESEND_API_KEY'))) devLink = loginUrl(token, locale);
