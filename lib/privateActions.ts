@@ -4,7 +4,7 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from './auth';
 import { describeForm, logAdmin } from './adminLog';
-import { claimSchool, decideSchoolRequest, pickedSchool, requestSchool, schoolCount, joinTeam, markPayoutPaid, joinWithEmail, nameMaster, deleteShortAmbassador, removeLegend, deleteAmbassador, renameForMe, releaseSchool, requestPayout, saveBankDetails } from './team';
+import { claimSchool, decideSchoolRequest, pickedSchool, requestSchool, schoolCount, joinTeam, markPayoutPaid, joinWithEmail, nameMaster, hideInTree, showInTree, deleteShortAmbassador, removeLegend, deleteAmbassador, renameForMe, releaseSchool, requestPayout, saveBankDetails } from './team';
 import { PRIVATE_SLUGS } from './private';
 import { replyToTicket, setTicketStatus } from './tickets';
 import { type SettingKey } from './settings';
@@ -58,9 +58,22 @@ export async function deleteAmbassadorAction(formData: FormData) {
 /** Supprimer un ambassadeur court terme (19/11), depuis l'espace ambassadeur de l'admin : partout, site et Smart Mail. */
 export async function deleteShortAmbassadorAction(formData: FormData) {
   await admin('Ambassadeur court terme supprimé', formData);
+  const user = await currentUser();
   const id = Math.trunc(Number(formData.get('smartmail_id')));
-  if (!Number.isFinite(id) || id <= 0) team('overview', 'short_pending');
-  team('overview', await deleteShortAmbassador(id));
+  if (!user || !Number.isFinite(id) || id <= 0) team('overview', 'amb_refused');
+  team('overview', await deleteShortAmbassador(user!, id));
+}
+
+/** Masquer quelqu'un dans l'arbre (23/11), admin seulement : visuel, rien d'autre n'est touché. */
+export async function hideInTreeAction(formData: FormData) {
+  const user = await admin('Masqué dans l’arbre des ambassadeurs (visuel seulement)', formData);
+  team('overview', await hideInTree(user, String(formData.get('user_id') ?? '')));
+}
+
+/** Le remettre dans l'arbre. */
+export async function showInTreeAction(formData: FormData) {
+  const user = await admin('Remis dans l’arbre des ambassadeurs', formData);
+  team('overview', await showInTree(user, String(formData.get('target_id') ?? '')));
 }
 
 /** Grade Master (19/11): a Master names someone of their branch from the pyramid. */

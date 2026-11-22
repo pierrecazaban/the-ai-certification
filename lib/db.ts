@@ -406,6 +406,17 @@ alter table ambassadors add column if not exists master_at timestamptz;
 -- Compte Smart Mail lié à cet ambassadeur (23/11) : il n'apparaît plus en double dans la pyramide.
 alter table ambassadors add column if not exists smartmail_id integer;
 create table if not exists ambassador_aliases (owner_id uuid not null, target_id uuid not null, alias text not null, primary key (owner_id, target_id));
+-- Un seul système d'ambassadeurs (23/11) : celui venu par Smart Mail (sans compte sur le site) peut lui aussi être nommé
+-- Legend et renommé par celui qui regarde, comme les autres. Repris par son compte le jour où il ouvre son espace.
+alter table short_ambassadors add column if not exists master_by uuid;
+alter table short_ambassadors add column if not exists master_at timestamptz;
+create table if not exists short_aliases (owner_id uuid not null, smartmail_id integer not null, alias text not null, primary key (owner_id, smartmail_id));
+-- L'arbre des ambassadeurs n'est qu'un dessin (23/11) : en retirer quelqu'un le masque, rien d'autre. Ni son compte, ni ses
+-- envois Smart Mail, ni ses écoles, ni ses commissions ne sont touchés, et on le remet d'un clic. Les anciennes
+-- « suppressions » d'ambassadeurs Smart Mail deviennent de simples masquages (celle de l'ESSEC, faite par erreur, est annulée).
+create table if not exists tree_hidden (target_id text primary key, hidden_at timestamptz not null default now());
+insert into tree_hidden (target_id) select 'sm-' || smartmail_id from short_removed where smartmail_id <> 10 on conflict do nothing;
+delete from short_removed;
 -- Tracker des parcours (18/11) : qui a reçu le mail Smart Mail (empreinte de l'adresse seulement) et les relances.
 -- Note de l'admin sur une inscription (18/11) : « compte supprimé à sa demande », etc. Le tracker l'affiche au lieu d'un trou.
 alter table registrations add column if not exists admin_note text not null default '';
@@ -568,10 +579,22 @@ async function connect(): Promise<Query> {
     await db.waitReady;
     q = async (text, params = []) => (await db.query<Row>(text, params)).rows;
   }
+  // The structure and the seed run once per version of the site, not at every cold start (23/11): a waking server
+  // used to send some 70 statements and check every school, one by one, before answering its first page.
+  // The fingerprint covers the schema, the schools file, the admin address and the seed code itself.
+  const { createHash } = await import('node:crypto');
+  const version = createHash('sha256')
+    .update([SCHEMA, JSON.stringify(universities), process.env.ADMIN_EMAILS ?? '', seed.toString(), mergeSchool.toString()].join('\u0000'))
+    .digest('hex');
+  const applied = await q(`select value from schema_meta where key = 'schema'`).then((r) => r[0]?.value, () => undefined);
+  if (applied === version) return q;
   for (const statement of SCHEMA.split(';').map((s) => s.trim()).filter(Boolean)) {
     await q(statement);
   }
   await seed(q);
+  await q('create table if not exists schema_meta (key text primary key, value text not null)');
+  await q(`insert into schema_meta (key, value) values ('schema', $1) on conflict (key) do update set value = excluded.value`, [version]);
+  console.log('[db] schema and seed applied');
   return q;
 }
 

@@ -30,8 +30,12 @@ export async function GET(req: NextRequest) {
     try {
       // Une invitation = un nouvel ambassadeur : sans serveur déjà noté sur l'appareil, il va droit sur celui des
       // nouveaux comptes (Paris), sans passer par le premier. (Un appareil déjà connecté ailleurs y retourne seul.)
-      const known = req.cookies.get('sm_srv')?.value;
-      const server = known === 'paris' || known === 'ovh' ? known : invite ? 'paris' : 'ovh';
+      // ?srv= (page de connexion, 22/11) : le serveur où vit le compte de cette personne, donné par Smart Mail lui-même.
+      // Il prime sur ce que l'appareil avait noté : elle arrive droit sur son compte, sans détour par l'autre serveur.
+      const asked = req.nextUrl.searchParams.get('srv');
+      const remembered = req.cookies.get('sm_srv')?.value;
+      const known = asked === 'paris' || asked === 'ovh' ? undefined : remembered;
+      const server = asked === 'paris' || asked === 'ovh' ? asked : known === 'paris' || known === 'ovh' ? known : invite ? 'paris' : 'ovh';
       const base = server === 'paris' ? TOOL_PARIS : TOOL;
       const r = await fetch(`${base}/porte`, {
         method: 'POST',
@@ -45,7 +49,7 @@ export async function GET(req: NextRequest) {
         const res = NextResponse.redirect(new URL(next, req.nextUrl.origin), 302);
         res.headers.set('Cache-Control', 'no-store');
         for (const c of cookies) res.headers.append('Set-Cookie', c);
-        if (!known && server === 'paris') res.headers.append('Set-Cookie', `sm_srv=paris; Path=/; Max-Age=${400 * 86400}; SameSite=Lax; Secure`);
+        if (!known && (server === 'paris' || asked === 'ovh')) res.headers.append('Set-Cookie', `sm_srv=${server}; Path=/; Max-Age=${400 * 86400}; SameSite=Lax; Secure`);
         return res;
       }
     } catch {}

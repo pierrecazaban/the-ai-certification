@@ -331,7 +331,33 @@ export async function releaseSchool(universityId: string) {
 export type Ambassador = User;
 
 /** A Master names someone of their branch Master (19/11); the admin (Pierre et Hippolyte) may name anyone. */
+/** "sm-12" → 12 : un ambassadeur venu par Smart Mail, sans compte sur le site. */
+const shortId = (targetId: string) => (/^sm-\d{1,9}$/.test(targetId) ? Number(targetId.slice(3)) : 0);
+
+/** Cet ambassadeur Smart Mail est-il dans la branche de celui qui agit (amené par lui ou par quelqu'un en dessous de lui) ? */
+async function shortIsBelow(by: User, id: number): Promise<boolean> {
+  if (by.role === 'admin') return true;
+  const [row] = await sql(
+    `with recursive down as (
+       select user_id from ambassadors where user_id = $1
+       union select a.user_id from ambassadors a join down d on a.parent_user_id = d.user_id)
+     select 1 from short_ambassadors s join ambassadors o on o.tool_code = s.recruiter_code and s.recruiter_code <> ''
+     where s.smartmail_id = $2 and o.user_id in (select user_id from down) limit 1`,
+    [by.id, id],
+  );
+  return Boolean(row);
+}
+
 export async function nameMaster(by: User, targetId: string): Promise<'master' | 'master_refused'> {
+  const sm = shortId(targetId);
+  if (sm) {
+    if (by.role !== 'admin') {
+      const [me] = await sql('select master_by is not null as master from ambassadors where user_id = $1', [by.id]);
+      if (!me?.master || !(await shortIsBelow(by, sm))) return 'master_refused';
+    }
+    const done = await sql('update short_ambassadors set master_by = $2, master_at = now() where smartmail_id = $1 and master_by is null returning smartmail_id', [sm, by.id]);
+    return done.length ? 'master' : 'master_refused';
+  }
   if (!/^[0-9a-f-]{36}$/i.test(targetId) || targetId === by.id) return 'master_refused';
   if (by.role !== 'admin') {
     const [me] = await sql('select master_by is not null as master from ambassadors where user_id = $1', [by.id]);
@@ -349,41 +375,39 @@ export async function nameMaster(by: User, targetId: string): Promise<'master' |
   return rows.length ? 'master' : 'master_refused';
 }
 
-// Suppression d'un ambassadeur court terme (19/11) : effacé du site tout de suite, et son compte Smart Mail effacé par
-// le serveur Smart Mail (route protégée par la clé partagée des relances), retenté à chaque synchro si besoin.
-const SMARTMAIL_API = (process.env.SMARTMAIL_SCHOOLS_URL ?? 'https://158-69-232-131.sslip.io/v1/porte/ecoles').replace(/\/v1\/.*$/, '');
-
-async function deleteOnSmartMail(id: number): Promise<boolean> {
-  const { setting } = await import('./settings');
-  const key = await setting('RELANCES_API_KEY');
-  if (!key) return false;
-  try {
-    const res = await fetch(`${SMARTMAIL_API}/v1/site/ambassadeurs/${id}/supprimer`, {
-      method: 'POST', headers: { 'x-relances-key': key }, cache: 'no-store', signal: AbortSignal.timeout(15000),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+/**
+ * L'arbre n'est qu'un dessin (23/11) : en retirer quelqu'un le MASQUE, et c'est tout. Son compte, ses envois Smart Mail,
+ * ses écoles, ses commissions et le suivi de ses mails ne sont jamais touchés. `target` : l'id du compte, ou "sm-12".
+ */
+export async function hideInTree(by: User, target: string): Promise<'tree_hidden' | 'amb_refused'> {
+  if (by.role !== 'admin' || !(/^[0-9a-f-]{36}$/i.test(target) || /^sm-\d{1,9}$/.test(target)) || target === by.id) return 'amb_refused';
+  await sql('insert into tree_hidden (target_id) values ($1) on conflict do nothing', [target]);
+  return 'tree_hidden';
 }
 
-export async function deleteShortAmbassador(id: number): Promise<'short_deleted' | 'short_pending'> {
-  await sql('insert into short_removed (smartmail_id) values ($1) on conflict (smartmail_id) do update set done = false', [id]);
-  await sql('delete from short_ambassadors where smartmail_id = $1', [id]);
-  await sql('delete from mail_received where smartmail_id = $1', [id]);
-  const ok = await deleteOnSmartMail(id);
-  if (ok) await sql('update short_removed set done = true where smartmail_id = $1', [id]);
-  return ok ? 'short_deleted' : 'short_pending';
+export async function showInTree(by: User, target: string): Promise<'tree_shown' | 'amb_refused'> {
+  if (by.role !== 'admin') return 'amb_refused';
+  await sql('delete from tree_hidden where target_id = $1', [target]);
+  return 'tree_shown';
+}
+
+/** Ancien « supprimer partout » d'un ambassadeur Smart Mail : désormais un simple masquage dans l'arbre (23/11). */
+export async function deleteShortAmbassador(by: User, id: number): Promise<'tree_hidden' | 'amb_refused'> {
+  return hideInTree(by, `sm-${id}`);
 }
 
 /** Retries the Smart Mail deletions that did not go through yet (called by the Smart Mail sync). */
 export async function retryShortDeletions() {
-  const rows = await sql('select smartmail_id from short_removed where not done');
-  for (const r of rows) if (await deleteOnSmartMail(Number(r.smartmail_id))) await sql('update short_removed set done = true where smartmail_id = $1', [r.smartmail_id]);
+  // Plus rien à retenter (23/11) : le site n'efface plus jamais un compte Smart Mail. Gardé pour la synchro qui l'appelle.
 }
 
 /** The admin takes the Legend grade back (22/11). */
 export async function removeLegend(by: User, targetId: string): Promise<'unlegend' | 'master_refused'> {
+  const sm = shortId(targetId);
+  if (by.role === 'admin' && sm) {
+    const done = await sql('update short_ambassadors set master_by = null, master_at = null where smartmail_id = $1 and master_by is not null returning smartmail_id', [sm]);
+    return done.length ? 'unlegend' : 'master_refused';
+  }
   if (by.role !== 'admin' || !/^[0-9a-f-]{36}$/i.test(targetId)) return 'master_refused';
   const rows = await sql('update ambassadors set master_by = null, master_at = null where user_id = $1 and master_by is not null returning user_id', [targetId]);
   return rows.length ? 'unlegend' : 'master_refused';
@@ -396,6 +420,24 @@ export async function removeLegend(by: User, targetId: string): Promise<'unlegen
  */
 export async function deleteAmbassador(by: User, targetId: string): Promise<'amb_deleted' | 'amb_refused'> {
   if (by.role !== 'admin' || !/^[0-9a-f-]{36}$/i.test(targetId) || targetId === by.id) return 'amb_refused';
+  return removeAmbassador(targetId);
+}
+
+/**
+ * Smart Mail closed these school mailboxes' accounts (23/11): they leave the ambassador network the same way as when the
+ * admin deletes them (never an admin; an account that is also a student's simply becomes a student account again).
+ */
+export async function removeAmbassadorsByEmail(emails: string[]): Promise<Record<string, 'amb_deleted' | 'amb_refused' | 'unknown'>> {
+  const out: Record<string, 'amb_deleted' | 'amb_refused' | 'unknown'> = {};
+  for (const raw of emails.slice(0, 10)) {
+    const email = String(raw).trim().toLowerCase();
+    const [u] = await sql('select u.id from users u join ambassadors a on a.user_id = u.id where u.email = $1', [email]);
+    out[email] = u ? await removeAmbassador(String(u.id)) : 'unknown';
+  }
+  return out;
+}
+
+async function removeAmbassador(targetId: string): Promise<'amb_deleted' | 'amb_refused'> {
   const [a] = await sql(`select a.parent_user_id, u.role from ambassadors a join users u on u.id = a.user_id where a.user_id = $1`, [targetId]);
   if (!a || a.role === 'admin') return 'amb_refused';
   await sql('update ambassadors set parent_user_id = $2 where parent_user_id = $1', [targetId, a.parent_user_id ?? null]);
@@ -419,6 +461,16 @@ export async function deleteAmbassador(by: User, targetId: string): Promise<'amb
 
 /** Renames someone of one's pyramid, for oneself only (22/11). An empty name puts their own name back. */
 export async function renameForMe(by: User, targetId: string, alias: string): Promise<'renamed' | 'amb_refused'> {
+  const sm = shortId(targetId);
+  if (sm) {
+    if (!(await shortIsBelow(by, sm))) return 'amb_refused';
+    const name = alias.trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (!name) await sql('delete from short_aliases where owner_id = $1 and smartmail_id = $2', [by.id, sm]);
+    else await sql(
+      `insert into short_aliases (owner_id, smartmail_id, alias) values ($1, $2, $3)
+       on conflict (owner_id, smartmail_id) do update set alias = excluded.alias`, [by.id, sm, name]);
+    return 'renamed';
+  }
   if (!/^[0-9a-f-]{36}$/i.test(targetId) || targetId === by.id) return 'amb_refused';
   if (by.role !== 'admin') {
     const [below] = await sql(
@@ -494,7 +546,16 @@ export async function signInFromSmartMail(t: string): Promise<'ambassador' | 'st
   await ensureAmbassador(id, await parentFromToolCode(d.parrain));
   // Revenus visibles (22/11) : l'ambassadeur prend l'école de son adresse si elle est libre, pour toucher ses commissions.
   if (showsEarnings(d.email)) await claimSchoolOfEmail(id, d.email);
-  if (d.uid > 0) await sql('update ambassadors set smartmail_id = $2 where user_id = $1 and smartmail_id is null', [id, d.uid]);
+  if (d.uid > 0) {
+    await sql('update ambassadors set smartmail_id = $2 where user_id = $1 and smartmail_id is null', [id, d.uid]);
+    // Ce qu'on lui avait donné quand il n'était connu que par Smart Mail le suit sur son compte : grade Legend, noms donnés.
+    await sql(
+      `update ambassadors a set master_by = s.master_by, master_at = s.master_at from short_ambassadors s
+       where a.user_id = $1 and s.smartmail_id = $2 and a.master_by is null and s.master_by is not null`, [id, d.uid]);
+    await sql(
+      `insert into ambassador_aliases (owner_id, target_id, alias) select owner_id, $1, alias from short_aliases where smartmail_id = $2
+       on conflict (owner_id, target_id) do nothing`, [id, d.uid]);
+  }
   return (await startSession(id)) ? 'ambassador' : false;
 }
 

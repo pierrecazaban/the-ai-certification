@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import '@fontsource-variable/manrope/wght.css';
 import '@fontsource/caveat/latin-600.css'; // handwritten notes in the margins
 import './globals.css';
+import { Suspense } from 'react';
 import LiveBeacon from '@/components/LiveBeacon';
+import NavProgress from '@/components/NavProgress';
 import { siteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -24,6 +26,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
+        {/* No full-screen logo between two pages any more (23/11): the page stays, a thin bar shows the click was taken. */}
+        <Suspense fallback={null}><NavProgress /></Suspense>
         {children}
         <LiveBeacon />
         {/* The assistant only appears once an Anthropic API key is configured. */}

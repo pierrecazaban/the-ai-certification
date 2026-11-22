@@ -4,7 +4,7 @@ import { AdminHeader, TeamHeader } from '@/components/private/ConsoleHeaders';
 import type { User } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { ensureAmbassador, freeSchools, payoutBalances, RATES, showsEarnings, toolCodeOf } from '@/lib/team';
-import { claimSchoolAction, requestPayoutAction, saveBankAction } from '@/lib/privateActions';
+import { claimSchoolAction, requestPayoutAction, saveBankAction, showInTreeAction } from '@/lib/privateActions';
 import { siteUrl } from '@/lib/site';
 import UniversityPicker from '@/components/UniversityPicker';
 import NetworkPyramid, { type PyramidNode } from '@/components/private/NetworkPyramid';
@@ -30,6 +30,8 @@ const MESSAGES: Record<string, string> = {
   master: 'Made a Legend ✦',
   unlegend: 'Legend grade removed.',
   amb_deleted: 'Ambassador deleted.',
+  tree_hidden: 'Hidden from the tree. Nothing else changed: their account, mails and commissions are untouched.',
+  tree_shown: 'Back in the tree.',
   amb_refused: 'This ambassador cannot be deleted.',
   short_deleted: 'Ambassador deleted everywhere.',
   short_pending: 'Ambassador removed from the site. Their Smart Mail account will be erased as soon as Smart Mail is updated.',
@@ -304,7 +306,7 @@ type Node = Row & { children: Node[]; size: number };
  */
 async function loadTree(user: User) {
   const rows = await sql(
-    `select a.user_id as id, a.parent_user_id as parent, a.created_at, u.first_name, u.last_name, u.role,
+    `select a.user_id as id, a.parent_user_id as parent, a.created_at, u.first_name, u.last_name, u.role, lower(u.email) as email,
        a.master_by is not null as master,
        (select count(*)::int from short_ambassadors s where a.tool_code is not null and s.recruiter_code = a.tool_code and (s.active or s.sent > 0)) as shorts,
        -- L'école tenue par l'ambassadeur ; à défaut (compte ouvert depuis Smart Mail, aucune école encore prise), celle de son adresse d'école.
@@ -333,7 +335,7 @@ async function loadTree(user: User) {
   // Une seule pyramide (23/11) : les ambassadeurs d'école sans compte sur le site y figurent aussi, sous celui dont ils
   // ont tapé le code (sinon sous le sommet, pour l'admin). Ceux qui ont un compte y sont déjà, une seule fois.
   const shortRows = await sql(
-    `select s.smartmail_id, s.first_name, s.domain, s.recruiter_code, o.user_id as owner,
+    `select s.smartmail_id, s.first_name, s.domain, s.recruiter_code, o.user_id as owner, s.master_by is not null as master,
        (select u.name from universities u, unnest(u.email_domains) d
          where s.domain = lower(d) or s.domain like '%.' || lower(d) or lower(d) like '%.' || s.domain order by length(d) desc limit 1) as school
      from short_ambassadors s left join ambassadors o on o.tool_code = s.recruiter_code and s.recruiter_code <> ''
@@ -343,7 +345,9 @@ async function loadTree(user: User) {
   );
   for (const r of shortRows) {
     const leaf: Node = { id: `sm-${r.smartmail_id}`, parent: r.owner ?? null, first_name: String(r.first_name || 'Ambassador').replace(/^./, (c: string) => c.toUpperCase()),
-      last_name: '', role: 'short', schools: r.school ?? r.domain, paid: 0, master: false, shorts: 0, earned: [], children: [], size: 0 };
+      last_name: '', role: 'short', schools: r.school ?? r.domain, paid: 0, master: Boolean(r.master), shorts: 0, earned: [], children: [], size: 0,
+      // Un seul système d'ambassadeurs (23/11) : celui venu par Smart Mail commence Beginner, comme tout le monde.
+      grade: r.master ? 'master' : 'dog' };
     const owner = r.owner ? nodes.get(String(r.owner)) : null;
     if (owner) owner.children.push(leaf);
     else if (user.role === 'admin') roots.push(leaf);
@@ -354,7 +358,19 @@ async function loadTree(user: User) {
     n.grade = gradeOf({ admin: n.role === 'admin', master: Boolean(n.master), brought: n.brought });
   }
   const me = nodes.get(user.id);
-  const top = user.role === 'admin' ? roots : me?.children ?? [];
+  // Pierre et Hippolyte sont le sommet (23/11) : leurs comptes d'école (ouverts par leur messagerie, via Smart Mail) ne sont
+  // pas répétés en dessous ; ceux qu'ils ont amenés avec ces comptes se placent directement sous le sommet.
+  const isFounder = (n: Node) => FOUNDER_EMAILS.includes(String(n.email ?? '')) || FOUNDER_SMARTMAIL.includes(String(n.id));
+  // Masqués dans l'arbre par l'admin (23/11) : absents du dessin, ceux qu'ils ont amenés remontent d'un cran. Rien d'autre.
+  const hiddenIds = new Set((await sql('select target_id from tree_hidden')).map((r) => String(r.target_id)));
+  const hidden: { id: string; name: string; school: string }[] = [];
+  const prune = (list: Node[]): Node[] => list.flatMap((n) => {
+    n.children = prune(n.children);
+    if (!hiddenIds.has(String(n.id))) return [n];
+    hidden.push({ id: String(n.id), name: `${n.first_name} ${n.last_name ?? ''}`.trim(), school: String(n.schools ?? '') });
+    return n.children;
+  });
+  const top = prune(user.role === 'admin' ? roots.flatMap((n) => (isFounder(n) ? n.children : [n])) : me?.children ?? []);
   const grade = user.role === 'admin' ? ('master' as const) : me ? (me.grade as ReturnType<typeof gradeOf>) : ('dog' as const);
   const brought = Number(me?.brought ?? 0);
   // Sizes and paid students per branch (guarded against a loop in the data).
@@ -372,7 +388,8 @@ async function loadTree(user: User) {
   const sponsor = me?.parent ? nodes.get(me.parent) : null;
   // Les noms donnés par celui qui regarde, pour lui seul (22/11).
   const aliases = new Map((await sql('select target_id, alias from ambassador_aliases where owner_id = $1', [user.id])).map((r) => [String(r.target_id), String(r.alias)]));
-  return { top, total, paid, grade, brought, aliases, // Invité par le lien admin (pas de parrain enregistré) : c'est Pierre et Hippolyte qu'il voit au-dessus (20/11).
+  for (const r of await sql('select smartmail_id, alias from short_aliases where owner_id = $1', [user.id])) aliases.set(`sm-${r.smartmail_id}`, String(r.alias));
+  return { top, total, paid, grade, brought, aliases, hidden: user.role === 'admin' ? hidden : [], // Invité par le lien admin (pas de parrain enregistré) : c'est Pierre et Hippolyte qu'il voit au-dessus (20/11).
     sponsor: sponsor ? `${sponsor.first_name} ${sponsor.last_name}`.trim() : me ? ADMIN_ROOT : null };
 }
 
@@ -384,17 +401,17 @@ function NetworkTree({ user, tree, inviteUrl }: { user: User; tree: Tree; invite
     id: String(n.id),
     name: tree.aliases.get(String(n.id)) ?? `${n.first_name} ${n.last_name}`.trim(),
     realName: `${n.first_name} ${n.last_name}`.trim(),
-    canRename: !String(n.id).startsWith('sm-'),
+    canRename: true, // (23/11) aussi les ambassadeurs venus par Smart Mail
     school: n.schools ?? 'No school',
     paid: Number(n.paid),
     size: n.size,
     rate: 0,
     earned: (n.earned ?? []).map((e: { currency: string; cents: number }) => money(e.cents, e.currency)).join(' · '),
     grade: n.grade,
-    canMaster: tree.grade === 'master' && n.grade !== 'master' && !String(n.id).startsWith('sm-'),
+    canMaster: tree.grade === 'master' && n.grade !== 'master',
     // L'admin (22/11) : retirer Legend, supprimer l'ambassadeur.
     canUnlegend: admin && n.grade === 'master',
-    canDelete: admin && !String(n.id).startsWith('sm-'),
+    canDelete: admin, // (23/11) « masquer dans l'arbre » : visuel seulement, pour tout le monde
     children: n.children.map((c) => toPyramid(c, level + 1)),
   });
   const root: PyramidNode = {
@@ -411,6 +428,20 @@ function NetworkTree({ user, tree, inviteUrl }: { user: User; tree: Tree; invite
   return (
     <>
       <NetworkPyramid root={root} sponsor={admin ? null : tree.sponsor} viewerEarns={false} inviteUrl={inviteUrl} />
+      {admin && tree.hidden.length > 0 && (
+        <details className="tree-hidden">
+          <summary>Hidden from the tree ({tree.hidden.length})</summary>
+          <p className="help">Hidden people keep everything: account, mails, schools, commissions. Only the drawing leaves them out.</p>
+          <ul>
+            {tree.hidden.map((h) => (
+              <li key={h.id}>
+                <span><strong>{h.name || 'Ambassador'}</strong>{h.school ? <small> · {h.school}</small> : null}</span>
+                <form action={showInTreeAction}><input type="hidden" name="target_id" value={h.id} /><button type="submit" className="btn btn-sm btn-ghost">Show again</button></form>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </>
   );
 }
@@ -426,6 +457,9 @@ async function NetworkCard({ user, tree, inviteUrl }: { user: User; tree: Tree; 
 
 // Vue admin (18/11) : le sommet des deux arbres, c'est Pierre et Hippolyte.
 const ADMIN_ROOT = 'Pierre et Hippolyte';
+// Leurs messageries d'école dans Smart Mail (comptes 2 et 13 du premier serveur) : c'est eux, pas des ambassadeurs en dessous d'eux.
+const FOUNDER_EMAILS = (process.env.FOUNDER_EMAILS ?? 'pierre.cazaban@ieseg.fr,hippolyte.constantin@ieseg.fr').split(',').map((s) => s.trim().toLowerCase());
+const FOUNDER_SMARTMAIL = ['sm-2', 'sm-13'];
 
 /**
  * Ambassadeurs « court terme » (18/11) : ceux qu'on consomme avec des mails (comptes Smart Mail). Chacun se place sous
@@ -446,7 +480,10 @@ async function loadShort(user: User) {
     ? await sql(`select a.tool_code, a.user_id, u.first_name, u.last_name, u.role from ambassadors a join users u on u.id = a.user_id where a.tool_code = any($1::text[])`, [codes])
     : [];
   const ownerOf = new Map(owners.map((o) => [String(o.tool_code), o]));
-  const rows = admin ? all : all.filter((r) => r.recruiter_code === myCode);
+  // (Les messageries d'école de Pierre et d'Hippolyte ne sont pas des ambassadeurs sous eux-mêmes : voir FOUNDER_SMARTMAIL.)
+  const hiddenIds = new Set((await sql('select target_id from tree_hidden')).map((r) => String(r.target_id)));
+  const rows = (admin ? all : all.filter((r) => r.recruiter_code === myCode))
+    .filter((r) => !FOUNDER_SMARTMAIL.includes(`sm-${r.smartmail_id}`) && !hiddenIds.has(`sm-${r.smartmail_id}`));
   // Admin : sous le sommet directement ceux venus par le code du jour ou un code d'admin ; les autres, sous leur recruteur.
   const direct = rows.filter((r) => { const o = ownerOf.get(String(r.recruiter_code)); return !admin || !o || o.role === 'admin'; });
   const groups = admin

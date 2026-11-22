@@ -12,12 +12,14 @@ const post = (body: Record<string, string>) =>
     .then((r) => r.json())
     .catch(() => null);
 
-const WHO: Record<string, { aria: string; student: string; ambassador: string; ambLead: string; school: string; or: string }> = {
-  en: { aria: 'Who are you?', student: 'Student', ambassador: 'Ambassador', ambLead: 'Ambassadors only: sign in with your school mailbox to manage your mails to the students.', school: 'Continue with my school mailbox', or: 'or with my ambassador account' },
-  fr: { aria: 'Qui êtes-vous ?', student: 'Étudiant', ambassador: 'Ambassadeur', ambLead: 'Réservé aux ambassadeurs : connecte-toi avec la messagerie de ton école pour gérer tes mails aux étudiants.', school: 'Continuer avec la messagerie de mon école', or: 'ou avec mon compte ambassadeur' },
-  es: { aria: '¿Quién eres?', student: 'Estudiante', ambassador: 'Embajador', ambLead: 'Solo para embajadores: inicia sesión con el correo de tu escuela para gestionar tus correos a los estudiantes.', school: 'Continuar con el correo de mi escuela', or: 'o con mi cuenta de embajador' },
-  it: { aria: 'Chi sei?', student: 'Studente', ambassador: 'Ambasciatore', ambLead: 'Solo per gli ambasciatori: accedi con la casella della tua scuola per gestire le tue email agli studenti.', school: 'Continua con la casella della mia scuola', or: 'oppure con il mio account ambasciatore' },
-  de: { aria: 'Wer bist du?', student: 'Student', ambassador: 'Botschafter', ambLead: 'Nur für Botschafter: Melde dich mit dem Postfach deiner Hochschule an, um deine Mails an die Studierenden zu verwalten.', school: 'Mit dem Postfach meiner Hochschule fortfahren', or: 'oder mit meinem Botschafter-Konto' },
+// Une seule entrée (22/11) : on donne son email, le compte dit la suite (mot de passe, ou messagerie de l'école pour
+// un ambassadeur d'école). Personne ne choisit « étudiant » ou « ambassadeur ».
+const STEP: Record<string, { next: string; school: string; change: string }> = {
+  en: { next: 'Continue', school: 'Ambassador account recognised: opening the sign-in with your school mailbox…', change: 'Use another email' },
+  fr: { next: 'Continuer', school: 'Compte ambassadeur reconnu : ouverture de la connexion avec la messagerie de ton école…', change: 'Utiliser un autre email' },
+  es: { next: 'Continuar', school: 'Cuenta de embajador reconocida: abriendo el acceso con el correo de tu escuela…', change: 'Usar otro email' },
+  it: { next: 'Continua', school: 'Account ambasciatore riconosciuto: apertura dell’accesso con la casella della tua scuola…', change: 'Usa un’altra email' },
+  de: { next: 'Weiter', school: 'Botschafter-Konto erkannt: Die Anmeldung mit dem Postfach deiner Hochschule wird geöffnet…', change: 'Andere E-Mail verwenden' },
 };
 
 export default function LoginForm({ locale, expired, reset = false }: { locale: Locale; expired: boolean; reset?: boolean }) {
@@ -29,10 +31,9 @@ export default function LoginForm({ locale, expired, reset = false }: { locale: 
   const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [error, setError] = useState('');
   const [devLink, setDevLink] = useState('');
-  // Deux publics, deux entrées (22/11) : l'étudiant de la certification (email + mot de passe) et l'ambassadeur
-  // (messagerie de son école, via Smart Mail). L'étudiant est le choix par défaut : c'est lui qui arrive ici le plus souvent.
-  const [who, setWho] = useState<'student' | 'ambassador'>('student');
-  const w = WHO[String(locale).slice(0, 2)] ?? WHO.en;
+  // « id » : l'email seul ; « password » : le compte se connecte par mot de passe ; « school » : par la messagerie de l'école.
+  const [step, setStep] = useState<'id' | 'password' | 'school'>('id');
+  const s = STEP[String(locale).slice(0, 2)] ?? STEP.en;
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +41,24 @@ export default function LoginForm({ locale, expired, reset = false }: { locale: 
     // An email, or the first and last name of an account without email (Biz Dev).
     if (!email.trim() || (email.includes('@') && !EMAIL.test(email.trim()))) return setError(t.invalid);
     setState('sending');
+    if (step === 'id') {
+      const first = await post({ action: 'login_step', email });
+      if (first?.result === 'rate_limited') { setState('idle'); return setError(t.rateLimited); }
+      if (first?.step === 'school') {
+        setStep('school');
+        return window.location.assign(`/api/tool/enter?espace=1&srv=${encodeURIComponent(first.server || '')}`);
+      }
+      if (first?.step === 'link') {
+        // Compte sans mot de passe : le lien de connexion part tout seul dans sa boîte.
+        const sent = await post({ action: 'request_login', email, locale });
+        setMode('forgot');
+        setState('sent');
+        if (sent?.dev_link) setDevLink(sent.dev_link);
+        return;
+      }
+      setState('idle');
+      return setStep('password');
+    }
     const res = await post({ action: 'password_login', email, password, locale });
     if (res?.redirect) return window.location.assign(res.redirect);
     setState('idle');
@@ -99,31 +118,23 @@ export default function LoginForm({ locale, expired, reset = false }: { locale: 
         </form>
       ) : (
         <form className="form" onSubmit={signIn}>
-          <div className="login-who" role="tablist" aria-label={w.aria}>
-            <button type="button" role="tab" aria-selected={who === 'student'} className={who === 'student' ? 'on' : ''} onClick={() => setWho('student')}>{w.student}</button>
-            <button type="button" role="tab" aria-selected={who === 'ambassador'} className={who === 'ambassador' ? 'on' : ''} onClick={() => setWho('ambassador')}>{w.ambassador}</button>
-          </div>
-          {who === 'ambassador' && (
-            <>
-              {/* Ambassadeurs d'école (23/11) : connexion par leur messagerie d'école, via Smart Mail. Jamais montré à un étudiant. */}
-              <p className="help">{w.ambLead}</p>
-              <a className="btn btn-ghost login-school" href="/api/tool/enter?espace=1">{w.school}</a>
-              <p className="join-or"><span>{w.or}</span></p>
-            </>
-          )}
           <p className="help">{t.lead}</p>
           <div className="field">
             <label htmlFor="login-email">{t.identifier}</label>
-            <input id="login-email" type="text" autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input id="login-email" type="text" autoComplete="username" autoCapitalize="none" value={email}
+              onChange={(e) => { setEmail(e.target.value); if (step !== 'id') { setStep('id'); setPassword(''); setError(''); } }} />
           </div>
-          <div className="field">
-            <label htmlFor="login-password">{t.password}</label>
-            <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
+          {step === 'password' && (
+            <div className="field">
+              <label htmlFor="login-password">{t.password}</label>
+              <input id="login-password" type="password" autoComplete="current-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+          )}
+          {step === 'school' && <p className="help" role="status">{s.school}</p>}
           {error && <p className="error" role="alert">{error}</p>}
           <div>
             <button className="btn btn-green" type="submit" disabled={state === 'sending'}>
-              {state === 'sending' ? <><Spinner />{t.sending}</> : t.submit}
+              {state === 'sending' ? <><Spinner />{step === 'id' ? s.next : t.sending}</> : step === 'id' ? s.next : t.submit}
             </button>
           </div>
           <p>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createLoginToken, currentUser, homePath, logout, passwordLogin, setPasswordWithToken, userForLogin } from '@/lib/auth';
+import { createLoginToken, currentUser, homePath, loginStep, logout, passwordLogin, setPasswordWithToken, userForLogin } from '@/lib/auth';
 import { logAdmin } from '@/lib/adminLog';
 import { loginUrl, sendLoginEmail } from '@/lib/email';
 import { DEFAULT_LOCALE, isLocale } from '@/lib/locales';
@@ -55,6 +55,15 @@ export async function POST(req: NextRequest) {
       if (process.env.NODE_ENV !== 'production' && !(await setting('RESEND_API_KEY'))) devLink = loginUrl(token, locale);
     }
     return NextResponse.json({ result: 'ok', ...(devLink ? { dev_link: devLink } : {}) });
+  }
+
+  // Première étape de la connexion (22/11) : d'après le compte, mot de passe (étudiant, ambassadeur avec mot de passe)
+  // ou messagerie de l'école (ambassadeur d'école). Limité comme une tentative de connexion.
+  if (action === 'login_step') {
+    const email = String(body?.email ?? '').trim().toLowerCase();
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'local';
+    if (rateLimited(`step-ip:${ip}`, 30) || rateLimited(`step-email:${email}`, 15)) return NextResponse.json({ result: 'rate_limited' });
+    return NextResponse.json({ result: 'ok', ...(await loginStep(email)) });
   }
 
   if (action === 'password_login') {

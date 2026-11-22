@@ -14,7 +14,7 @@ export type OutreachConfig = {
   messagesPerDay: number; // messages after acceptance
   repostPerDay: number;
   schools: string[]; // order in which schools are prospected
-  perSchool: number; // first-year students to find in each school
+  perSchool: number; // 1st-to-3rd-year students to find in each school
   searchesPerDay: number; // LinkedIn people searches a day (the free account has a monthly search cap)
   message: string; // {prenom} {ecole} ({lien} still works; the message now asks where the student prefers to talk)
   inviteNote: string; // short note on the invitation (Premium); empty = no note

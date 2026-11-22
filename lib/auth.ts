@@ -19,7 +19,7 @@ export const SESSION_COOKIE = 'cfx_session';
 // Holds no secret: only tells the public header to show the "My space" button.
 export const MEMBER_COOKIE = 'cfx_member';
 // As long as course access (6 months), so learners are not signed out mid-course.
-const SESSION_DAYS = 183;
+const SESSION_DAYS = 400; // on reste connecté sur son appareil (22/11 : 183 → 400 jours, le maximum que gardent les navigateurs)
 
 // User rows without the password hash, so it never travels further than this file.
 const asUser = (row: Record<string, unknown> | undefined): User | null => {
@@ -155,6 +155,51 @@ export async function passwordLogin(email: string, password: string): Promise<Us
     : adminEmails().includes(clean) && checkPassword(password, process.env.ADMIN_PASSWORD_HASH);
   if (!ok && user.role === 'admin') await logAdmin('ÉCHEC de connexion au compte admin', 'mot de passe incorrect', user);
   return ok ? openSession(user) : null;
+}
+
+// Les deux serveurs Smart Mail (voir middleware.ts). Chacun sait répondre pour les deux ; on les interroge ensemble,
+// pour qu'un serveur lent ou en redémarrage ne fasse pas retomber un ambassadeur sur le mot de passe.
+const TOOL_SERVERS: [string, string][] = [
+  ['ovh', process.env.TOOL_URL || 'https://158-69-232-131.sslip.io'],
+  ['paris', process.env.TOOL_URL_PARIS ?? 'https://2-25-7-244.sslip.io'],
+];
+
+/** Does Smart Mail hold this address as a connected school mailbox? The server that holds it ('ovh', 'paris'), or null. */
+async function smartMailServer(email: string): Promise<string | null> {
+  const { setting } = await import('./settings');
+  const key = await setting('RELANCES_API_KEY');
+  if (!key) return null;
+  const ask = async ([name, base]: [string, string]): Promise<string> => {
+    const r = await fetch(`${base}/v1/site/connu?adresse=${encodeURIComponent(email)}`, {
+      headers: { 'x-relances-key': key }, cache: 'no-store', signal: AbortSignal.timeout(5000),
+    });
+    const d = r.ok ? await r.json() : null;
+    // Seule compte la réponse du serveur qui détient lui-même le compte (il sait s'il est encore ouvert) : ce qu'un serveur
+    // rapporte de l'autre ne dit pas si le compte a été fermé (23/11).
+    if (!d?.connu || String(d.serveur || name) !== name) throw new Error('unknown');
+    return name;
+  };
+  // La première réponse « connu » gagne ; null seulement si aucun des deux ne connaît l'adresse (ou ne répond).
+  return Promise.any(TOOL_SERVERS.map(ask)).catch(() => null);
+}
+
+/**
+ * How this identifier signs in (22/11): the accounts decide, the person never chooses "student" or "ambassador".
+ *  - 'school': the address is a school mailbox connected in Smart Mail (an ambassador, or the admin): sign-in goes through
+ *    that mailbox, no password asked. Never for a student account: a student never goes through Smart Mail.
+ *  - 'link': an account with no password yet: a sign-in link is sent to its email.
+ *  - 'password': everything else (and unknown emails: nothing is revealed about them).
+ */
+export async function loginStep(identifier: string): Promise<{ step: 'school'; server: string } | { step: 'link' } | { step: 'password' }> {
+  const clean = identifier.trim().toLowerCase();
+  if (!clean.includes('@')) return { step: 'password' };
+  const [row] = await sql('select role, password_hash from users where email = $1', [clean]);
+  if (row?.role !== 'student') {
+    const server = await smartMailServer(clean);
+    if (server) return { step: 'school', server };
+  }
+  if (row && !row.password_hash && !adminEmails().includes(clean)) return { step: 'link' };
+  return { step: 'password' };
 }
 
 /** Sets the password from a link sent by email (first sign-in or forgotten password), then signs the user in. */

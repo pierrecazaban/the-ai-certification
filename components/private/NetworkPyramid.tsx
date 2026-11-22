@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
 import GradeBadge, { GradeIcon } from '@/components/private/GradeBadge';
 import { GRADE_LABEL, GRADE_RULE, type Grade } from '@/lib/grades';
-import { deleteAmbassadorAction, nameMasterAction, removeLegendAction, renameForMeAction } from '@/lib/privateActions';
+import { hideInTreeAction, nameMasterAction, removeLegendAction, renameForMeAction } from '@/lib/privateActions';
 
 // The ambassador network drawn as a pyramid: the top person, then each row below the one who invited them.
 // SVG, so it stays sharp at any zoom. It opens on the whole pyramid (the more people, the further out), then you
@@ -69,7 +69,8 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
     const form = new FormData();
     form.set('user_id', n.id);
     setPicked(null);
-    startNaming(async () => { await (kind === 'legend' ? nameMasterAction : kind === 'unlegend' ? removeLegendAction : deleteAmbassadorAction)(form); });
+    // « delete » ne supprime plus rien (23/11) : l'arbre n'est qu'un dessin, la personne y est seulement masquée.
+    startNaming(async () => { await (kind === 'legend' ? nameMasterAction : kind === 'unlegend' ? removeLegendAction : hideInTreeAction)(form); });
   };
   const nameMaster = (n: PyramidNode) => setPicked(n);
   useEffect(() => {
@@ -258,10 +259,36 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
   };
 
   const cut = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+  // La version téléphone : une ligne par personne, ses invités en retrait dessous.
+  const listNode = (n: PyramidNode, depth: number): React.ReactNode => (
+    <li key={n.id}>
+      <button type="button" className={`pl-card${depth === 0 ? ' pl-root' : ''}${n.grade === 'master' ? ' pl-master' : ''}`}
+        onClick={() => { if (depth > 0) setPicked(n); }} aria-label={depth > 0 ? `Actions for ${n.name}` : n.name}>
+        <span className="pl-av">{(n.name.trim()[0] ?? '?').toUpperCase()}</span>
+        <span className="pl-txt"><strong>{n.name}</strong><small>{n.school}{n.size ? ` · ${n.size} below` : ''}</small></span>
+        {n.grade && <GradeBadge grade={n.grade} />}
+      </button>
+      {n.children.length > 0 && <ul>{n.children.map((c) => listNode(c, depth + 1))}</ul>}
+    </li>
+  );
   const rootX = placed[0]?.x ?? 0;
 
   return (
     <div className="py-wrap">
+      {/* Téléphone (23/11) : la pyramide en largeur devient illisible dès qu'il y a du monde sur une ligne (25 cartes de
+          front sur un écran de 360 px). Sur écran étroit, le même réseau est donc montré en liste, chaque personne sous celle
+          qui l'a amenée ; un tap ouvre la même fiche. Le dessin en pyramide reste pour les écrans larges. */}
+      <div className="py-narrow">
+        {sponsor && <p className="pl-sponsor">Invited by <strong>{sponsor}</strong></p>}
+        <ul className="pl-list">{listNode(root, 0)}</ul>
+        {invite && (
+          <button type="button" className={`pl-invite${copied ? ' is-copied' : ''}`} onClick={copyInvite}>
+            <span className="pl-plus">{copied ? '✓' : '+'}</span>
+            <span className="pl-txt"><strong>{copied ? 'Link copied!' : 'Invite someone'}</strong><small>{copied ? 'Now send it to them' : 'Tap to copy your link'}</small></span>
+          </button>
+        )}
+      </div>
+      <div className="py-wide">
       <div className="py-tools">
         <button type="button" onClick={() => zoomAt(zoom / 1.4)} aria-label="Zoom out">−</button>
         <button type="button" onClick={() => zoomAt(zoom * 1.4)} aria-label="Zoom in">+</button>
@@ -323,8 +350,8 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
               const tone = (isRoot ? 'py-root' : !viewerEarns ? 'py-node' : n.rate ? 'py-node py-earn' : 'py-node py-far') + (n.grade === 'master' ? ' py-is-master' : n.grade === 'dog' ? ' py-is-dog' : '');
               const bw = n.grade ? BADGE_W[n.grade] : 0;
               return (
-                <g key={n.id} transform={`translate(${p.x},${p.y})`} className={[(n.canMaster || n.canUnlegend || n.canDelete || n.canRename) && 'py-can-master', n.grade === 'dog' && 'py-dog-card'].filter(Boolean).join(' ') || undefined}
-                  {...(n.canMaster || n.canUnlegend || n.canDelete || n.canRename ? {
+                <g key={n.id} transform={`translate(${p.x},${p.y})`} className={[!isRoot && 'py-can-master', n.grade === 'dog' && 'py-dog-card'].filter(Boolean).join(' ') || undefined}
+                  {...(!isRoot ? {  // (23/11) toute carte s'ouvre : sa fiche, et les actions permises à celui qui regarde
                     role: 'button', tabIndex: 0, 'aria-label': `Actions for ${n.name}`,
                     onClick: () => travel.current < 8 && nameMaster(n),
                     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') nameMaster(n); },
@@ -354,6 +381,7 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
           </g>
         </svg>
       </div>
+      </div>
       {picked && (
         <div className="py-ranks" onClick={() => setPicked(null)}>
           <div className="py-ranks-card py-act-card" role="dialog" aria-modal="true" aria-label={picked.name} onClick={(e) => e.stopPropagation()}>
@@ -361,7 +389,10 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
               <strong>{picked.name}</strong>
               <button type="button" className="py-ranks-x" aria-label="Close" onClick={() => setPicked(null)}>×</button>
             </div>
-            {picked.grade && <p className="py-act-grade"><GradeBadge grade={picked.grade} /> <span>{picked.school}</span></p>}
+            {picked.grade ? <p className="py-act-grade"><GradeBadge grade={picked.grade} /> <span>{picked.school}</span></p> : <p className="py-act-grade"><span>{picked.school}</span></p>}
+            <p className="help" style={{ margin: '0 0 10px' }}>
+              {picked.paid} paid student{picked.paid === 1 ? '' : 's'}{picked.size ? ` · ${picked.size} ${picked.size === 1 ? 'person' : 'people'} below` : ''}{picked.rate ? ` · ${picked.rate} % for you${picked.earned ? ` (${picked.earned})` : ''}` : ''}
+            </p>
             {picked.canRename && (
               <form className="py-rename" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); f.set('user_id', picked.id); setPicked(null); startNaming(async () => { await renameForMeAction(f); }); }}>
                 <label htmlFor="py-alias">Name shown to you{picked.realName && picked.realName !== picked.name ? ` (their name: ${picked.realName})` : ''}</label>
@@ -371,7 +402,8 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
             <div className="py-act-list">
               {picked.canMaster && <button type="button" className="py-act py-act-legend" onClick={() => act(picked, 'legend')}>✦ Make a Legend</button>}
               {picked.canUnlegend && <button type="button" className="py-act" onClick={() => act(picked, 'unlegend')}>Remove the Legend grade</button>}
-              {picked.canDelete && <button type="button" className="py-act py-act-delete" onClick={() => act(picked, 'delete')}>Delete this ambassador</button>}
+              {picked.canDelete && <button type="button" className="py-act" onClick={() => act(picked, 'delete')}>Hide from the tree</button>}
+              {picked.canDelete && <p className="help" style={{ margin: '6px 0 0' }}>Only the drawing changes: their account, mails, schools and commissions stay as they are. You can show them again below the tree.</p>}
             </div>
           </div>
         </div>

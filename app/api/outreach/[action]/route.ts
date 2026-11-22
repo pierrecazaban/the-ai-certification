@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scriptAuthorised } from '@/lib/callsApi';
-import { addProspects, budget, log, markFollowedUp, prospects, recentlySearched, recordSearch, saveConfig, schoolCounts, firstAlert, setContact, setStatus } from '@/lib/outreach';
+import { addProspects, budget, getConfig, log, markFollowedUp, prospects, recentlySearched, recordSearch, saveConfig, schoolCounts, firstAlert, setContact, setStatus } from '@/lib/outreach';
 import { sendOutreachAlert } from '@/lib/email';
 import { draftReply } from '@/lib/outreachReply';
 import { siteUrl } from '@/lib/site';
@@ -81,6 +81,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (action === 'searched' && typeof body?.school === 'string') {
     await recordSearch(body.school, Number(body.found) || 0);
     return NextResponse.json({ ok: true });
+  }
+  // The plan's numbers, changed from the server script (22/11); getConfig clamps each one to its limit.
+  if (action === 'limits' && body && typeof body === 'object') {
+    const keys = ['invitesPerDay', 'weeklyCap', 'perSchool', 'searchesPerDay', 'withdrawAfterDays'] as const;
+    const patch = Object.fromEntries(keys.filter((k) => Number.isFinite(body[k]) && body[k] >= 0).map((k) => [k, Math.round(body[k])]));
+    if (!Object.keys(patch).length) return NextResponse.json({ error: 'nothing' }, { status: 400 });
+    await saveConfig(patch);
+    await log('info', `Réglages de la prospection modifiés : ${Object.entries(patch).map(([k, v]) => `${k} = ${v}`).join(', ')}`);
+    return NextResponse.json({ ok: true, config: await getConfig() });
   }
   if (action === 'pause' && typeof body?.paused === 'boolean') {
     await saveConfig({ paused: body.paused });
