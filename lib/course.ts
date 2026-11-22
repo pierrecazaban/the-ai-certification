@@ -4,7 +4,7 @@ import type { Locale } from './locales';
 type Lesson = { id: string; title: Record<Locale, string> };
 type Module = { id: string; title: Record<Locale, string>; lessons: Lesson[] };
 
-const L = (en: string, fr: string, es: string, it: string, de: string): Record<Locale, string> => ({ 'en-us': en, fr, es, it, de });
+const L = (en: string, fr: string, es: string, it: string, de: string): Record<Locale, string> => ({ 'en-us': en, 'en-ca': en, fr, es, it, de });
 
 export const COURSE: Module[] = [
   {

@@ -43,7 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const locale = localeFromSlug(slug);
   if (!locale) {
     const page = await privatePage(slug);
-    if (page?.kind === 'admin') {
+    // The admin's ambassador view is where the home-screen app opens (19/11): installable from there too.
+    if (page?.kind === 'admin' || (page?.kind === 'team' && page.user.role === 'admin')) {
       // Installable on its own: "Add to Home Screen" opens the admin directly, with the logo.
       return { title: 'AI Cert Admin', robots: { index: false, follow: false }, manifest: '/admin.webmanifest',
                appleWebApp: { title: 'AI Cert Admin', capable: true, statusBarStyle: 'black-translucent' } };

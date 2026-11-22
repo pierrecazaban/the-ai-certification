@@ -9,6 +9,7 @@ import { learn } from '@/lib/i18n/learn';
 import { LOCALES } from '@/lib/locales';
 import { siteUrl } from '@/lib/site';
 import Certificate from '@/components/learning/Certificate';
+import RateCertificate from '@/components/learning/RateCertificate';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -16,10 +17,12 @@ export const metadata: Metadata = { title: 'The AI Certification', robots: { ind
 const base = () => siteUrl();
 
 // The learner's certificate: printable, with a one-click "add to LinkedIn" and the fields to copy.
-type Props = { params: Promise<{ program: string }> };
+// The LinkedIn block opens once the learner has rated the course (stars required, comment free).
+type Props = { params: Promise<{ program: string }>; searchParams: Promise<{ rate?: string; rated?: string }> };
 
-export default async function CertificatePage({ params }: Props) {
+export default async function CertificatePage({ params, searchParams }: Props) {
   const { program } = await params;
+  const query = await searchParams;
   const { user, progress } = await requireLearner(program);
   const cert = progress.certificate;
   if (!cert) redirect('/space');
@@ -42,7 +45,7 @@ export default async function CertificatePage({ params }: Props) {
   return (
     <div lang={LOCALES[locale].lang}>
       <LearnerHeader user={user} locale={locale} />
-      <main id="main" className="register hero-bands bands-clip">
+      <main id="main" className="register hero-bands bands-clip sp-page">
         <div className="container" style={{ maxWidth: 900 }}>
           <div className="no-print"><CourseBar program={program} progress={progress} current="exam" l={l} /></div>
                     <div className="sp-hero sp-hero-module no-print">
@@ -61,22 +64,32 @@ export default async function CertificatePage({ params }: Props) {
             <PrintButton label={l.print} />
           </p>
 
-          <section className="space-module no-print">
+          <section id="linkedin" className="space-module no-print">
             <h2>{l.linkedinTitle}</h2>
-            <p>{l.linkedinLead}</p>
-            <p><a className="btn btn-green" href={linkedin} target="_blank" rel="noreferrer">{l.linkedinButton}</a></p>
-            <p className="help">{l.linkedinManual}</p>
-            <ol>{l.linkedinSteps.map((s) => <li key={s}>{s}</li>)}</ol>
-            <div className="summary">
-              <dl>
-                <div><dt>{l.fieldName}</dt><dd>{course.title}</dd></div>
-                <div><dt>{l.fieldOrg}</dt><dd>The AI Certification</dd></div>
-                <div><dt>{l.fieldIssue}</dt><dd>{issuedOn}</dd></div>
-                <div><dt>{l.fieldId}</dt><dd>{cert.reference}</dd></div>
-                <div><dt>{l.fieldUrl}</dt><dd>{url}</dd></div>
-              </dl>
-            </div>
-            <p className="help">{l.linkedinPost}</p>
+            {cert.rating == null ? (
+              <>
+                <p>{l.rateLead}</p>
+                <RateCertificate program={program} l={l} missing={query.rate === 'missing'} />
+              </>
+            ) : (
+              <>
+                {query.rated === '1' && <p className="help" role="status">{l.rateThanks}</p>}
+                <p>{l.linkedinLead}</p>
+                <p><a className="btn btn-green" href={linkedin} target="_blank" rel="noreferrer">{l.linkedinButton}</a></p>
+                <p className="help">{l.linkedinManual}</p>
+                <ol>{l.linkedinSteps.map((s) => <li key={s}>{s}</li>)}</ol>
+                <div className="summary">
+                  <dl>
+                    <div><dt>{l.fieldName}</dt><dd>{course.title}</dd></div>
+                    <div><dt>{l.fieldOrg}</dt><dd>The AI Certification</dd></div>
+                    <div><dt>{l.fieldIssue}</dt><dd>{issuedOn}</dd></div>
+                    <div><dt>{l.fieldId}</dt><dd>{cert.reference}</dd></div>
+                    <div><dt>{l.fieldUrl}</dt><dd>{url}</dd></div>
+                  </dl>
+                </div>
+                <p className="help">{l.linkedinPost}</p>
+              </>
+            )}
           </section>
         </div>
       </main>

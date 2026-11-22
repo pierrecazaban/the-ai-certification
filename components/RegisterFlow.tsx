@@ -267,7 +267,7 @@ export default function RegisterFlow({ locale, initialUniversities, initialIntak
                   <li key={u.id}>
                     <button type="button" aria-pressed={u.id === uniId} onClick={() => { setUniId(u.id); setQuery(u.name); }}>
                       {u.name}
-                      <small>{[u.state, t.allCampuses].filter(Boolean).join(' · ')}</small>
+                      <small>{t.allCampuses}</small>
                     </button>
                   </li>
                 ))}

@@ -25,10 +25,10 @@ export * from './types';
 
 // Full courses, by programme then language. A programme without an entry here keeps the simple lesson list.
 // Catalogue certifications are written in English, the language of the catalogue: every locale gets the same course.
-const englishOnly = (course: Course): Record<Locale, Course> => ({ 'en-us': course, fr: course, es: course, it: course, de: course });
+const englishOnly = (course: Course): Record<Locale, Course> => ({ 'en-us': course, 'en-ca': course, fr: course, es: course, it: course, de: course });
 
 const COURSES: Record<string, Record<Locale, Course>> = {
-  'student-ai': { 'en-us': studentAiEn, fr: studentAiFr, es: studentAiEs, it: studentAiIt, de: studentAiDe },
+  'student-ai': { 'en-us': studentAiEn, 'en-ca': studentAiEn, fr: studentAiFr, es: studentAiEs, it: studentAiIt, de: studentAiDe },
   chatgpt: englishOnly(chatgpt),
   claude: englishOnly(claude),
   gemini: englishOnly(gemini),
@@ -58,7 +58,7 @@ function shape(c: Course) {
 // New versions of a programme (v2 of the student course, 16/11): written language by language. A locale without
 // the new version keeps the previous one; a learner who already started a version keeps it (lib/learning/progress).
 const NEXT_VERSIONS: Record<string, Partial<Record<Locale, Course>>> = {
-  'student-ai': { fr: studentAiV2Fr, 'en-us': studentAiV2En },
+  'student-ai': { fr: studentAiV2Fr, 'en-us': studentAiV2En, 'en-ca': studentAiV2En },
 };
 
 /**

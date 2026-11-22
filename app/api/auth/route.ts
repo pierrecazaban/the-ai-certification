@@ -3,6 +3,7 @@ import { createLoginToken, currentUser, homePath, logout, passwordLogin, setPass
 import { logAdmin } from '@/lib/adminLog';
 import { loginUrl, sendLoginEmail } from '@/lib/email';
 import { DEFAULT_LOCALE, isLocale } from '@/lib/locales';
+import { sql } from '@/lib/db';
 import { setting } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,16 @@ export async function POST(req: NextRequest) {
     const who = await currentUser().catch(() => null);
     if (who?.role === 'admin') await logAdmin('Déconnexion du compte admin', '', who);
     await logout();
+    return NextResponse.json({ result: 'ok' });
+  }
+
+  // Course language chosen by the signed-in learner (components/learning/LanguageSwitch).
+  if (action === 'set_locale') {
+    const who = await currentUser().catch(() => null);
+    if (!who) return NextResponse.json({ error: 'not_signed_in' }, { status: 401 });
+    const locale = String(body?.locale ?? '');
+    if (!isLocale(locale)) return NextResponse.json({ error: 'bad_locale' }, { status: 400 });
+    await sql('update users set locale = $1 where id = $2', [locale, who.id]);
     return NextResponse.json({ result: 'ok' });
   }
 

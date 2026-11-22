@@ -8,8 +8,8 @@ import { siteUrl } from '@/lib/site';
 // Unfinished registrations (form filled, never paid) for the reminders Smart Mail sends from the school
 // ambassador's own mailbox (14/11). Read only by Smart Mail, with the shared RELANCES_API_KEY.
 
-// The Smart Mail server (its fixed IP, as seen by Vercel); a shared key, when one is set in /admin, is required too.
-const SMARTMAIL_IPS = (process.env.SMARTMAIL_IPS ?? '158.69.232.131').split(',').map((s) => s.trim());
+// The two Smart Mail servers (their fixed IPs, as seen by Vercel); a shared key, when one is set in /admin, is required too.
+const SMARTMAIL_IPS = (process.env.SMARTMAIL_IPS ?? '158.69.232.131,2.25.7.244').split(',').map((s) => s.trim());
 
 export async function relancesKeyOk(given: string | null, ip: string | null) {
   if (!ip || !SMARTMAIL_IPS.includes(ip)) return false;
@@ -31,9 +31,10 @@ export async function unfinishedRegistrations() {
        join intakes i on i.id = r.intake_id
        left join universities u on u.id = r.university_id
       where r.program = 'student-ai'
-        and r.status <> 'paid'
+        and r.status not in ('paid', 'refunded')
         and r.created_at > now() - interval '10 days'
-        and not exists (select 1 from registrations p where lower(p.email) = lower(r.email) and p.status = 'paid')
+        -- Remboursé (18/11) : comme un acheteur, on ne le relance jamais.
+        and not exists (select 1 from registrations p where lower(p.email) = lower(r.email) and p.status in ('paid', 'refunded'))
       order by lower(r.email), r.created_at desc`,
   );
   // A registration whose own cohort has closed is finished in today's cohort: its deadline is today's.

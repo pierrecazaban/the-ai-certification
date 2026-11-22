@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 // Today's Smart Mail access code, big and copyable, at the top of the admin console.
 // Without TOOL_GATE_SECRET on this site, the code is asked to the Smart Mail server itself (/tool is the
 // same origin), with the console session this browser already has (localStorage "smartmail").
-export default function ToolCode({ code: duServeur }: { code: string | null }) {
+export default function ToolCode({ code: duServeur, compact = false }: { code: string | null; compact?: boolean }) {
   const [done, setDone] = useState(false);
   const [code, setCode] = useState<string | null>(duServeur);
   const [sansSession, setSansSession] = useState(false);
@@ -36,6 +36,17 @@ export default function ToolCode({ code: duServeur }: { code: string | null }) {
     } catch {
       /* clipboard refused: the code stays readable on screen */
     }
+  }
+  if (compact) {
+    // Dans le header (18/11) : petit, à côté du réglage ; un clic copie le code.
+    return (
+      <button type="button" className={`cx-toolpill${done ? ' done' : ''}`} onClick={onCopy}
+        title={code ? 'Code Smart Mail du jour : cliquer pour copier (change à minuit, Paris)' : 'Ouvrez une fois la console Smart Mail sur cet appareil'}
+        aria-label={code ? `Code Smart Mail du jour ${code}, copier` : 'Code Smart Mail indisponible'}>
+        <span>SM</span>
+        <strong>{done ? 'Copié ✓' : code ? `${code.slice(0, 3)} ${code.slice(3)}` : sansSession ? '—' : '…'}</strong>
+      </button>
+    );
   }
   return (
     <section className="cx-toolcode" aria-label="Smart Mail code of the day">

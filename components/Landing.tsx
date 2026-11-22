@@ -27,6 +27,16 @@ const Icon = {
   clock: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>,
 };
 
+// Canadian flag, shown next to the logo on the Canada page (/canada).
+function CanadaFlag() {
+  return (
+    <svg className="flag-ca" viewBox="0 0 9600 4800" role="img" aria-label="Canada">
+      <path fill="#d52b1e" d="M0 0h2400l99 99h4602l99-99h2400v4800h-2400l-99-99h-4602l-99 99H0z" />
+      <path fill="#fff" d="M2400 0h4800v4800h-4800zm2490 4430-45-863a95 95 0 0 1 111-98l859 151-116-320a65 65 0 0 1 20-73l941-762-212-99a65 65 0 0 1-34-79l186-572-542 115a65 65 0 0 1-73-38l-105-247-423 454a65 65 0 0 1-111-57l204-1052-327 189a65 65 0 0 1-91-27l-332-652-332 652a65 65 0 0 1-91 27l-327-189 204 1052a65 65 0 0 1-111 57l-423-454-105 247a65 65 0 0 1-73 38l-542-115 186 572a65 65 0 0 1-34 79l-212 99 941 762a65 65 0 0 1 20 73l-116 320 859-151a95 95 0 0 1 111 98l-45 863z" />
+    </svg>
+  );
+}
+
 export default async function Landing({ locale }: { locale: Locale }) {
   const d = dict(locale);
   const p = pricingFor(locale);
@@ -50,7 +60,10 @@ export default async function Landing({ locale }: { locale: Locale }) {
         <section className="hero hero-bands">
           <div className="container hero-grid" style={{ alignItems: 'start' }}>
             <div className="hero-copy">
-              <div className="section-logo"><LinkedInLogo size={48} /></div>
+              <div className="section-logo">
+                <LinkedInLogo size={48} />
+                {locale === 'en-ca' && <CanadaFlag />}
+              </div>
               <h1>{d.hero.title.split(/(?<=\.)\s+/).map((l, i) => <span key={i} className="h1-ligne">{i > 0 ? ' ' : ''}{l}</span>)}</h1>
               <p className="lead">{d.hero.lead}</p>
               <ul className="highlights">

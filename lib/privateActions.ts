@@ -4,7 +4,7 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from './auth';
 import { describeForm, logAdmin } from './adminLog';
-import { claimSchool, decideSchoolRequest, pickedSchool, requestSchool, schoolCount, joinTeam, markPayoutPaid, releaseSchool, requestPayout, saveBankDetails } from './team';
+import { claimSchool, decideSchoolRequest, pickedSchool, requestSchool, schoolCount, joinTeam, markPayoutPaid, joinWithEmail, nameMaster, deleteShortAmbassador, removeLegend, deleteAmbassador, renameForMe, releaseSchool, requestPayout, saveBankDetails } from './team';
 import { PRIVATE_SLUGS } from './private';
 import { replyToTicket, setTicketStatus } from './tickets';
 import { type SettingKey } from './settings';
@@ -13,11 +13,11 @@ import { setOnSale } from './visibility';
 import { resetGuestCode } from './guest';
 import { programBySlug } from './catalog';
 import { cancelBooking, deleteWindow, updateAvailability } from './calls';
-import { getConfig, saveConfig, setStatus as setOutreachStatus } from './outreach';
+import { getConfig, markContacted, saveConfig, setStatus as setOutreachStatus } from './outreach';
 
 // Schools sit on the overview now: messages about them land there, at the schools section.
 const team = (tab: string, msg: string) =>
-  redirect(`/${PRIVATE_SLUGS.ambassador}?${tab === 'earnings' ? 'tab=earnings&' : ''}msg=${msg}${tab === 'schools' ? '#schools' : ''}`);
+  redirect(`/${PRIVATE_SLUGS.ambassador}?${tab === 'earnings' ? 'tab=earnings&' : ''}msg=${msg}${tab === 'schools' ? '#schools' : tab === 'earnings' ? '#earnings' : ''}`);
 const pro = (tab: string, msg: string) => redirect(`/${PRIVATE_SLUGS.admin}?tab=${tab}&msg=${msg}`);
 
 async function ambassador() {
@@ -37,19 +37,51 @@ async function admin(action = '', formData?: FormData) {
   return user;
 }
 
+/** Renommer quelqu'un de sa pyramide, pour soi seul (22/11). */
+export async function renameForMeAction(formData: FormData) {
+  const user = await ambassador();
+  team('overview', await renameForMe(user, String(formData.get('user_id') ?? ''), String(formData.get('alias') ?? '')));
+}
+
+/** Retirer le grade Legend (22/11), admin seulement. */
+export async function removeLegendAction(formData: FormData) {
+  const user = await admin('Grade Legend retiré', formData);
+  team('overview', await removeLegend(user, String(formData.get('user_id') ?? '')));
+}
+
+/** Supprimer un ambassadeur long terme (22/11), admin seulement. */
+export async function deleteAmbassadorAction(formData: FormData) {
+  const user = await admin('Ambassadeur supprimé', formData);
+  team('overview', await deleteAmbassador(user, String(formData.get('user_id') ?? '')));
+}
+
+/** Supprimer un ambassadeur court terme (19/11), depuis l'espace ambassadeur de l'admin : partout, site et Smart Mail. */
+export async function deleteShortAmbassadorAction(formData: FormData) {
+  await admin('Ambassadeur court terme supprimé', formData);
+  const id = Math.trunc(Number(formData.get('smartmail_id')));
+  if (!Number.isFinite(id) || id <= 0) team('overview', 'short_pending');
+  team('overview', await deleteShortAmbassador(id));
+}
+
+/** Grade Master (19/11): a Master names someone of their branch from the pyramid. */
+export async function nameMasterAction(formData: FormData) {
+  const user = await ambassador();
+  const result = await nameMaster(user, String(formData.get('user_id') ?? ''));
+  if (user.role === 'admin') await logAdmin(result === 'master' ? 'Grade Legend donné' : 'Grade Legend refusé', describeForm(formData), user);
+  team('overview', result);
+}
+
 export async function joinAction(formData: FormData) {
   const code = String(formData.get('code') ?? '');
-  const result = await joinTeam({
+  // Email personnel (23/11) : accès direct à l'espace ambassadeur, sans programmer d'envoi.
+  const result = await joinWithEmail({
     code,
-    first_name: String(formData.get('first_name') ?? ''),
-    last_name: String(formData.get('last_name') ?? ''),
     email: String(formData.get('email') ?? ''),
-    university_id: String(formData.get('university_id') ?? ''),
-    new_school: String(formData.get('new_school') ?? ''),
-    new_school_city: String(formData.get('new_school_city') ?? ''),
+    password: String(formData.get('password') ?? ''),
     terms: formData.get('terms') === 'on',
   });
-  redirect(`/${code}?${result.ok ? 'sent=1' : `error=${result.error}`}`);
+  // Signed in at once: straight to the ambassador space.
+  redirect(result.ok ? `/${PRIVATE_SLUGS.ambassador}` : `/${code}?error=${result.error}`);
 }
 
 export async function claimSchoolAction(formData: FormData) {
@@ -79,14 +111,23 @@ export async function saveBankAction(formData: FormData) {
   team('earnings', ok ? 'bank_saved' : 'bank_invalid');
 }
 
-export async function requestPayoutAction() {
+export async function requestPayoutAction(formData: FormData) {
   const user = await ambassador();
-  team('earnings', await requestPayout(user.id));
+  // Montant choisi par l'ambassadeur (22/11), « 12.50 » ou « 12,50 ».
+  const typed = String(formData.get('amount') ?? '').trim().replace(/\s/g, '').replace(',', '.');
+  const amount = /^\d+(\.\d{1,2})?$/.test(typed) ? Math.round(Number(typed) * 100) : NaN;
+  team('earnings', await requestPayout(user.id, String(formData.get('currency') ?? '').toUpperCase(), amount));
 }
 
 export async function markPayoutPaidAction(formData: FormData) {
   await admin('markPayoutPaidAction', formData);
   await markPayoutPaid(String(formData.get('payout_id') ?? ''));
+  // Depuis un ticket de demande de virement (22/11) : le ticket est clos et l'admin y revient.
+  const ticket = String(formData.get('ticket_id') ?? '');
+  if (/^[0-9a-f-]{36}$/i.test(ticket)) {
+    await setTicketStatus(ticket, 'closed');
+    redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets&id=${ticket}`);
+  }
   pro('versements', 'paye');
 }
 
@@ -108,7 +149,9 @@ export async function ticketStatusAction(formData: FormData) {
   const id = String(formData.get('ticket_id') ?? '');
   const status = String(formData.get('status') ?? '');
   if (status === 'open' || status === 'answered' || status === 'closed') await setTicketStatus(id, status);
-  redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets&id=${id}`);
+  // Retour là où le choix a été fait (21/11) : la fiche du ticket, ou la liste avec son filtre.
+  const back = String(formData.get('back') ?? `id=${id}`);
+  redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets${/^(id=[0-9a-f-]{36}|status=(open|answered|closed))$/.test(back) ? `&${back}` : ''}`);
 }
 
 // Keys are no longer changed from the admin (15/11): only in Vercel. The form and its action are gone.
@@ -185,6 +228,13 @@ export async function resetGuestLinkAction() {
   await admin('resetGuestLinkAction');
   await resetGuestCode();
   redirect(`/${PRIVATE_SLUGS.admin}?msg=guest-link#invite`);
+}
+
+/** “C’est fait” / “Remettre à contacter” on a collected contact. */
+export async function outreachContactedAction(formData: FormData) {
+  await admin('outreachContactedAction', formData);
+  await markContacted(String(formData.get('linkedin') ?? ''), formData.get('done') !== '0');
+  pro('prospection', 'contacted');
 }
 
 /** “Ne plus contacter”: the student is never written to again (no invitation, message, follow-up or reply). */

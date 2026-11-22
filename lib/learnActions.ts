@@ -136,3 +136,17 @@ export async function simulatePassedExamAction(formData: FormData) {
   revalidatePath('/space');
   redirect(`/space/${program}/certificate`);
 }
+
+/** The learner rates the course before adding the certificate to LinkedIn: 1 to 5 stars, the comment may stay empty. */
+export async function rateCertificateAction(formData: FormData) {
+  const { user, progress, program, base } = await learner(formData);
+  if (!progress.certificate) redirect(base);
+  const rating = Number(formData.get('rating'));
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) redirect(`${base}/certificate?rate=missing#linkedin`);
+  const comment = String(formData.get('comment') ?? '').trim().slice(0, 2000);
+  await sql(
+    `update certificates set rating = $3, rating_comment = $4, rated_at = now() where user_id = $1 and program = $2`,
+    [user.id, program, rating, comment],
+  );
+  redirect(`${base}/certificate?rated=1#linkedin`);
+}

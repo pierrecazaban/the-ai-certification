@@ -55,7 +55,7 @@ export default function UniversityPicker({
           <li key={s.id}>
             <button type="button" aria-pressed={s.id === chosen} onClick={() => { setChosen(s.id); setQuery(s.name); }}>
               {s.name}
-              <small>{[s.state, 'All campuses'].filter(Boolean).join(' · ')}</small>
+              <small>All campuses</small>
             </button>
           </li>
         ))}

@@ -1,8 +1,8 @@
 import 'server-only';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { sql } from './db';
-import { createLoginToken, findOrCreateUser, type User } from './auth';
-import { sendAmbassadorWelcome } from './email';
+import { createAmbassadorAccount, createNamedAccount, startSession, usernameTaken, type User } from './auth';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createTicket } from './tickets';
 
 // Commission rates in basis points (1000 = 10 %), applied to the amount the student paid.
@@ -13,7 +13,45 @@ export const RATES = {
 };
 export const AMBASSADOR_TERMS_VERSION = '2026-10-25';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Code personnel pour le tool Smart Mail (18/11, en chiffres le 19/11) : 8 chiffres, jamais confondu avec le code du
+// jour (6 chiffres). Ne commence pas par 0.
+const TOOL_CODE_RE = /^[1-9]\d{7}$/;
+function newToolCode() {
+  const b = randomBytes(8);
+  return String(1 + (b[0] % 9)) + Array.from(b.subarray(1), (x) => String(x % 10)).join('');
+}
+
+/** Le code personnel d'un ambassadeur, créé au premier besoin. */
+export async function toolCodeOf(userId: string): Promise<string> {
+  await ensureAmbassador(userId);
+  const [row] = await sql('select tool_code from ambassadors where user_id = $1', [userId]);
+  if (row?.tool_code && TOOL_CODE_RE.test(String(row.tool_code))) return String(row.tool_code);
+  // Ancien code à lettres (avant le 19/11, jamais utilisé) : remplacé par un code en chiffres.
+  if (row?.tool_code) await sql('update ambassadors set tool_code = null where user_id = $1', [userId]);
+  for (let i = 0; i < 5; i++) {
+    const [set] = await sql(
+      `update ambassadors set tool_code = $2 where user_id = $1 and tool_code is null
+       and not exists (select 1 from ambassadors where tool_code = $2) returning tool_code`,
+      [userId, newToolCode()],
+    );
+    if (set?.tool_code) return String(set.tool_code);
+    const [again] = await sql('select tool_code from ambassadors where user_id = $1', [userId]);
+    if (again?.tool_code) return String(again.tool_code);
+  }
+  throw new Error('tool code');
+}
+
+/** L'ambassadeur à qui appartient un code personnel (ou null). */
+export async function ambassadorByToolCode(code: string) {
+  const c = String(code ?? '').replace(/\s+/g, '');
+  if (!TOOL_CODE_RE.test(c)) return null;
+  const [row] = await sql(
+    `select a.user_id, u.first_name, u.last_name, u.role from ambassadors a join users u on u.id = a.user_id where a.tool_code = $1`,
+    [c],
+  );
+  return row ?? null;
+}
 
 function newInviteCode() {
   // 10 lowercase letters/digits: used as the whole invite address, e.g. /k7q2m9xa4t.
@@ -56,7 +94,7 @@ export async function freeSchools() {
   return rows.sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr', { sensitivity: 'base', numeric: true }));
 }
 
-export type JoinResult = { ok: true } | { ok: false; error: 'invalid' | 'taken' | 'exists' | 'terms' | 'school' };
+export type JoinResult = { ok: true } | { ok: false; error: 'invalid' | 'taken' | 'exists' | 'terms' | 'school' | 'password' };
 
 /**
  * The school picked in a form: a listed one, one the ambassador typed because it is missing (created, or found
@@ -67,7 +105,12 @@ export async function pickedSchool(universityId: string, newName = '', newCity =
   if (universityId === 'new') {
     const name = newName.trim().replace(/\s+/g, ' ').slice(0, 160);
     if (name.length < 3) return null;
-    const [found] = await sql('select id from universities where lower(name) = lower($1) limit 1', [name]);
+    // Same school whatever the capitals, accents or punctuation ("ieseg", "IÉSEG", "Kedge business school"):
+    // a second entry for a school already listed would show it twice.
+    const plain = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const wanted = plain(name);
+    const all = await sql('select id::text as id, name, short_name from universities');
+    const found = all.find((u) => plain(String(u.name)) === wanted || (u.short_name && plain(String(u.short_name)) === wanted));
     if (found) return { id: String(found.id) };
     const id = randomUUID();
     await sql(`insert into universities (id, name, short_name, state, email_domains, active) values ($1, $2, '', $3, '{}', true)`, [id, name, newCity.trim().slice(0, 80)]);
@@ -78,54 +121,46 @@ export async function pickedSchool(universityId: string, newName = '', newCity =
 }
 
 /** Self-service sign-up from an invite link: creates the ambassador, gives them the school, emails a sign-in link. */
+/**
+ * Biz Dev sign-up through an invite link (20/11): only a name and a password, no email and no school.
+ * The account is open at once (signed in); a school can be taken later from the ambassador space.
+ */
 export async function joinTeam(input: {
   code: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  university_id: string;
-  new_school?: string;
-  new_school_city?: string;
+  username: string;
+  password: string;
   terms: boolean;
 }): Promise<JoinResult> {
+  // Un nom d'utilisateur au lieu du prénom et du nom (22/11) : c'est aussi ce qui sert à se connecter.
   const inviter = await inviterByCode(input.code);
-  const email = input.email.trim().toLowerCase();
-  if (!inviter || !input.first_name.trim() || !input.last_name.trim() || !EMAIL_RE.test(email)) {
-    return { ok: false, error: 'invalid' };
-  }
+  const first = input.username.trim().replace(/\s+/g, ' ').slice(0, 60);
+  const last = '';
+  if (!inviter || first.length < 2 || first.includes('@')) return { ok: false, error: 'invalid' };
+  if (input.password.length < 8) return { ok: false, error: 'password' };
   if (!input.terms) return { ok: false, error: 'terms' };
+  if (await usernameTaken(first, last)) return { ok: false, error: 'exists' };
 
-  const [existing] = await sql(
-    `select a.user_id from ambassadors a join users u on u.id = a.user_id where u.email = $1`,
-    [email],
-  );
-  if (existing) return { ok: false, error: 'exists' };
-
-  const school = await pickedSchool(input.university_id, input.new_school, input.new_school_city);
-  if (!school) return { ok: false, error: 'school' };
-  if ('id' in school) {
-    const [taken] = await sql('select 1 from school_claims where university_id = $1', [school.id]);
-    if (taken) return { ok: false, error: 'taken' };
-  }
-
-  const user = await findOrCreateUser({ email, first_name: input.first_name.trim(), last_name: input.last_name.trim(), locale: 'en-us' });
-
-  // First come, first served: the school belongs to one ambassador. No school: they grow a team instead.
-  if ('id' in school) {
-    const claimed = await sql(
-      'insert into school_claims (university_id, user_id) values ($1, $2) on conflict do nothing returning university_id',
-      [school.id, user.id],
-    );
-    // Taken in the meantime: leave the account exactly as it was.
-    if (!claimed[0]) return { ok: false, error: 'taken' };
-  }
-  if (user.role === 'student') await sql(`update users set role = 'ambassador' where id = $1`, [user.id]);
-
+  const user = await createNamedAccount({ first_name: first, last_name: last, password: input.password, role: 'ambassador' });
+  if (!user) return { ok: false, error: 'exists' };  // same name taken in the meantime
   // Invited by an admin = first level, with no one above.
   await ensureAmbassador(user.id, inviter.role === 'admin' ? null : inviter.user_id);
-  const token = await createLoginToken(user.id, 7 * 24 * 60);
-  await sendAmbassadorWelcome({ to: user.email, firstName: user.first_name, token, ownerRate: RATES.owner / 100, parentRate: RATES.parent / 100, secondRate: RATES.grandparent / 100, termsVersion: AMBASSADOR_TERMS_VERSION });
   return { ok: true };
+}
+
+/** Ambassadors who see their earnings and can ask for a payout in their space (22/11): only these addresses. */
+const EARNINGS_EMAILS = ['jbejani9008@sdsu.edu'];
+export const showsEarnings = (email: string | null | undefined) => EARNINGS_EMAILS.includes(String(email ?? '').trim().toLowerCase());
+
+/** Takes the school whose email domain matches this address (sub-domains included), if nobody holds it yet. */
+async function claimSchoolOfEmail(userId: string, email: string) {
+  const domain = email.split('@')[1]?.trim().toLowerCase() ?? '';
+  if (!domain) return false;
+  const [school] = await sql(
+    `select id from universities where active
+       and exists (select 1 from unnest(email_domains) d where $1 = lower(d) or $1 like '%.' || lower(d)) limit 1`,
+    [domain],
+  );
+  return school ? claimSchool(userId, String(school.id)) : false;
 }
 
 export async function claimSchool(userId: string, universityId: string) {
@@ -224,28 +259,48 @@ export async function saveBankDetails(userId: string, holder: string, iban: stri
   return true;
 }
 
-/** Turns every owed commission into one payout request per currency. */
-export async function requestPayout(userId: string) {
-  const [amb] = await sql('select iban, iban_holder from ambassadors where user_id = $1', [userId]);
-  if (!amb?.iban) return 'no_iban';
-  const owed = await sql(
-    `select currency, sum(amount_cents)::int as cents from commissions where user_id = $1 and status = 'owed' group by currency`,
+/**
+ * What an ambassador can withdraw, per currency (22/11): everything earned (cancelled commissions aside)
+ * minus the payouts already asked for or paid. Payouts may be any amount up to that balance.
+ */
+export async function payoutBalances(userId: string) {
+  const rows = await sql(
+    `select c.currency,
+       coalesce((select sum(amount_cents) from commissions where user_id = $1 and currency = c.currency and status <> 'cancelled'), 0)::int as earned,
+       coalesce((select sum(amount_cents) from payouts where user_id = $1 and currency = c.currency and status = 'requested'), 0)::int as requested,
+       coalesce((select sum(amount_cents) from payouts where user_id = $1 and currency = c.currency and status = 'paid'), 0)::int as paid
+     from (select currency from commissions where user_id = $1 union select currency from payouts where user_id = $1) c
+     order by c.currency`,
     [userId],
   );
-  if (!owed.length) return 'nothing';
-  const lines: string[] = [];
-  for (const o of owed) {
-    const id = randomUUID();
-    await sql(
-      `insert into payouts (id, user_id, currency, amount_cents, iban, iban_holder) values ($1, $2, $3, $4, $5, $6)`,
-      [id, userId, o.currency, o.cents, amb.iban, amb.iban_holder],
-    );
-    await sql(
-      `update commissions set status = 'requested', payout_id = $3 where user_id = $1 and currency = $2 and status = 'owed'`,
-      [userId, o.currency, id],
-    );
-    lines.push(new Intl.NumberFormat('en-GB', { style: 'currency', currency: o.currency }).format(o.cents / 100));
-  }
+  return rows.map((r) => ({
+    currency: String(r.currency),
+    earned: Number(r.earned),
+    requested: Number(r.requested),
+    paid: Number(r.paid),
+    available: Math.max(0, Number(r.earned) - Number(r.requested) - Number(r.paid)),
+  }));
+}
+
+/** A payout of the amount the ambassador chose, up to what is available in that currency; a ticket in /admin. */
+export async function requestPayout(userId: string, currency: string, amountCents: number) {
+  const [amb] = await sql('select iban, iban_holder from ambassadors where user_id = $1', [userId]);
+  if (!amb?.iban) return 'no_iban';
+  const balance = (await payoutBalances(userId)).find((b) => b.currency === currency);
+  if (!balance || balance.available <= 0) return 'nothing';
+  if (!Number.isInteger(amountCents) || amountCents <= 0 || amountCents > balance.available) return 'amount';
+  // One statement checks the balance again and records the payout: two quick clicks cannot exceed it.
+  const id = randomUUID();
+  const [made] = await sql(
+    `insert into payouts (id, user_id, currency, amount_cents, iban, iban_holder)
+     select $1::uuid, $2::uuid, $3::text, $4::int, $5::text, $6::text
+     where $4::int <= coalesce((select sum(amount_cents) from commissions where user_id = $2 and currency = $3 and status <> 'cancelled'), 0)
+                - coalesce((select sum(amount_cents) from payouts where user_id = $2 and currency = $3 and status in ('requested', 'paid')), 0)
+     returning id`,
+    [id, userId, currency, amountCents, amb.iban, amb.iban_holder],
+  );
+  if (!made) return 'amount';
+  const fmt = (c: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(c / 100);
   // A ticket in /admin so the transfer is not forgotten: it is promised within 48 hours.
   const [u] = await sql('select first_name, last_name, email from users where id = $1', [userId]);
   await createTicket({
@@ -253,10 +308,10 @@ export async function requestPayout(userId: string) {
     email: u.email,
     category: 'payout',
     message: [
-      `Ambassador payout request: ${lines.join(' + ')}.`,
+      `Ambassador payout request: ${fmt(amountCents)} (balance before this request: ${fmt(balance.available)}).`,
       `Account holder: ${amb.iban_holder}`,
       `IBAN : ${amb.iban}`,
-      'Transfer within 48 hours, then mark the payout as paid in /admin → Payouts.',
+      'Transfer within 48 hours, then click “Transfer done” on this ticket.',
     ].join('\n'),
     locale: 'en-us',
     notify: false,
@@ -274,3 +329,194 @@ export async function releaseSchool(universityId: string) {
 }
 
 export type Ambassador = User;
+
+/** A Master names someone of their branch Master (19/11); the admin (Pierre et Hippolyte) may name anyone. */
+export async function nameMaster(by: User, targetId: string): Promise<'master' | 'master_refused'> {
+  if (!/^[0-9a-f-]{36}$/i.test(targetId) || targetId === by.id) return 'master_refused';
+  if (by.role !== 'admin') {
+    const [me] = await sql('select master_by is not null as master from ambassadors where user_id = $1', [by.id]);
+    if (!me?.master) return 'master_refused';
+    const [below] = await sql(
+      `with recursive down as (
+         select user_id from ambassadors where parent_user_id = $1
+         union select a.user_id from ambassadors a join down d on a.parent_user_id = d.user_id)
+       select 1 from down where user_id = $2 limit 1`,
+      [by.id, targetId],
+    );
+    if (!below) return 'master_refused';
+  }
+  const rows = await sql('update ambassadors set master_by = $2, master_at = now() where user_id = $1 and master_by is null returning user_id', [targetId, by.id]);
+  return rows.length ? 'master' : 'master_refused';
+}
+
+// Suppression d'un ambassadeur court terme (19/11) : effacé du site tout de suite, et son compte Smart Mail effacé par
+// le serveur Smart Mail (route protégée par la clé partagée des relances), retenté à chaque synchro si besoin.
+const SMARTMAIL_API = (process.env.SMARTMAIL_SCHOOLS_URL ?? 'https://158-69-232-131.sslip.io/v1/porte/ecoles').replace(/\/v1\/.*$/, '');
+
+async function deleteOnSmartMail(id: number): Promise<boolean> {
+  const { setting } = await import('./settings');
+  const key = await setting('RELANCES_API_KEY');
+  if (!key) return false;
+  try {
+    const res = await fetch(`${SMARTMAIL_API}/v1/site/ambassadeurs/${id}/supprimer`, {
+      method: 'POST', headers: { 'x-relances-key': key }, cache: 'no-store', signal: AbortSignal.timeout(15000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteShortAmbassador(id: number): Promise<'short_deleted' | 'short_pending'> {
+  await sql('insert into short_removed (smartmail_id) values ($1) on conflict (smartmail_id) do update set done = false', [id]);
+  await sql('delete from short_ambassadors where smartmail_id = $1', [id]);
+  await sql('delete from mail_received where smartmail_id = $1', [id]);
+  const ok = await deleteOnSmartMail(id);
+  if (ok) await sql('update short_removed set done = true where smartmail_id = $1', [id]);
+  return ok ? 'short_deleted' : 'short_pending';
+}
+
+/** Retries the Smart Mail deletions that did not go through yet (called by the Smart Mail sync). */
+export async function retryShortDeletions() {
+  const rows = await sql('select smartmail_id from short_removed where not done');
+  for (const r of rows) if (await deleteOnSmartMail(Number(r.smartmail_id))) await sql('update short_removed set done = true where smartmail_id = $1', [r.smartmail_id]);
+}
+
+/** The admin takes the Legend grade back (22/11). */
+export async function removeLegend(by: User, targetId: string): Promise<'unlegend' | 'master_refused'> {
+  if (by.role !== 'admin' || !/^[0-9a-f-]{36}$/i.test(targetId)) return 'master_refused';
+  const rows = await sql('update ambassadors set master_by = null, master_at = null where user_id = $1 and master_by is not null returning user_id', [targetId]);
+  return rows.length ? 'unlegend' : 'master_refused';
+}
+
+/**
+ * The admin deletes a long-term ambassador (22/11): those they invited move up under their own inviter, their schools
+ * become free, their commissions, payouts and requests go. Their account is deleted too, unless it is also a student's
+ * (a purchase, a course in progress, a certificate): then it simply becomes a student account again.
+ */
+export async function deleteAmbassador(by: User, targetId: string): Promise<'amb_deleted' | 'amb_refused'> {
+  if (by.role !== 'admin' || !/^[0-9a-f-]{36}$/i.test(targetId) || targetId === by.id) return 'amb_refused';
+  const [a] = await sql(`select a.parent_user_id, u.role from ambassadors a join users u on u.id = a.user_id where a.user_id = $1`, [targetId]);
+  if (!a || a.role === 'admin') return 'amb_refused';
+  await sql('update ambassadors set parent_user_id = $2 where parent_user_id = $1', [targetId, a.parent_user_id ?? null]);
+  await sql('update ambassadors set master_by = null where master_by = $1', [targetId]);
+  for (const t of ['school_claims', 'school_requests', 'commissions', 'payouts']) await sql(`delete from ${t} where user_id = $1`, [targetId]);
+  await sql('delete from ambassadors where user_id = $1', [targetId]);
+  await sql('delete from sessions where user_id = $1', [targetId]);
+  await sql('delete from login_tokens where user_id = $1', [targetId]);
+  const [student] = await sql(
+    `select (exists (select 1 from registrations where user_id = $1 and status in ('paid', 'refunded'))
+          or exists (select 1 from lesson_progress where user_id = $1)
+          or exists (select 1 from certificates where user_id = $1)) as yes`, [targetId]);
+  if (student?.yes) await sql(`update users set role = 'student' where id = $1`, [targetId]);
+  else {
+    for (const t of ['exercise_submissions', 'quiz_attempts', 'exam_attempts']) await sql(`delete from ${t} where user_id = $1`, [targetId]);
+    await sql('update registrations set user_id = null where user_id = $1', [targetId]);
+    await sql('delete from users where id = $1', [targetId]);
+  }
+  return 'amb_deleted';
+}
+
+/** Renames someone of one's pyramid, for oneself only (22/11). An empty name puts their own name back. */
+export async function renameForMe(by: User, targetId: string, alias: string): Promise<'renamed' | 'amb_refused'> {
+  if (!/^[0-9a-f-]{36}$/i.test(targetId) || targetId === by.id) return 'amb_refused';
+  if (by.role !== 'admin') {
+    const [below] = await sql(
+      `with recursive down as (
+         select user_id from ambassadors where parent_user_id = $1
+         union select a.user_id from ambassadors a join down d on a.parent_user_id = d.user_id)
+       select 1 from down where user_id = $2 limit 1`,
+      [by.id, targetId],
+    );
+    if (!below) return 'amb_refused';
+  }
+  const clean = alias.trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (!clean) await sql('delete from ambassador_aliases where owner_id = $1 and target_id = $2', [by.id, targetId]);
+  else await sql(
+    `insert into ambassador_aliases (owner_id, target_id, alias) values ($1, $2, $3)
+     on conflict (owner_id, target_id) do update set alias = excluded.alias`, [by.id, targetId, clean]);
+  return 'renamed';
+}
+
+// ---------------------------------------------------------------- passerelle avec Smart Mail (23/11)
+// Signée avec la clé partagée des relances (RELANCES_API_KEY), comme le reste des échanges site ↔ Smart Mail.
+async function relancesKey() {
+  const { setting } = await import('./settings');
+  return (await setting('RELANCES_API_KEY')) || '';
+}
+const b64 = (s: string) => Buffer.from(s).toString('base64url');
+
+/** A pass for /tool: opens the gate without the code of the day, and records who invited (their tool code). */
+export async function toolPass(input: { parrain?: string; espace?: boolean }) {
+  const key = await relancesKey();
+  if (!key) return null;
+  const body = b64(JSON.stringify({ parrain: input.parrain ?? '', espace: Boolean(input.espace), exp: Date.now() / 1000 + 600 }));
+  return `${body}.${createHmac('sha256', key).update(body).digest('hex')}`;
+}
+
+/** Reads the token Smart Mail signs for an ambassador who programmed their mails; null if not valid. */
+async function readSmartMailToken(t: string): Promise<{ uid: number; email: string; parrain: string } | null> {
+  const key = await relancesKey();
+  const [body, sig] = String(t || '').split('.');
+  if (!key || !body || !sig) return null;
+  const want = createHmac('sha256', key).update(body).digest('hex');
+  if (sig.length !== want.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(want))) return null;
+  try {
+    const d = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (!(Number(d.exp) > Date.now() / 1000) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(d.email))) return null;
+    return { uid: Math.trunc(Number(d.uid)), email: String(d.email).toLowerCase(), parrain: String(d.parrain || '').toUpperCase() };
+  } catch {
+    return null;
+  }
+}
+
+async function parentFromToolCode(code: string): Promise<string | null> {
+  if (!code) return null;
+  const [row] = await sql(`select a.user_id, u.role from ambassadors a join users u on u.id = a.user_id where a.tool_code = $1`, [code]);
+  return row && row.role !== 'admin' ? String(row.user_id) : null;
+}
+
+/** Signs in (and on the first time, creates) the school ambassador Smart Mail vouches for; false if the token is bad. */
+export async function signInFromSmartMail(t: string): Promise<'ambassador' | 'student' | false> {
+  const d = await readSmartMailToken(t);
+  if (!d) return false;
+  const [found] = await sql('select id, role from users where email = $1', [d.email]);
+  // Un étudiant de la certification reste un étudiant (22/11) : passé par Smart Mail par erreur (le bouton « mon école »
+  // de la page de connexion), il retrouve son espace de cours, son compte n'est jamais changé en compte ambassadeur.
+  if (found?.role === 'student') return (await startSession(String(found.id))) ? 'student' : false;
+  let id = found ? String(found.id) : '';
+  if (!found) {
+    const local = d.email.split('@')[0].split(/[._-]/)[0];
+    const u = await createAmbassadorAccount(d.email, null, local ? local.charAt(0).toUpperCase() + local.slice(1) : '');
+    if (!u) return false;
+    id = u.id;
+  }
+  await ensureAmbassador(id, await parentFromToolCode(d.parrain));
+  // Revenus visibles (22/11) : l'ambassadeur prend l'école de son adresse si elle est libre, pour toucher ses commissions.
+  if (showsEarnings(d.email)) await claimSchoolOfEmail(id, d.email);
+  if (d.uid > 0) await sql('update ambassadors set smartmail_id = $2 where user_id = $1 and smartmail_id is null', [id, d.uid]);
+  return (await startSession(id)) ? 'ambassador' : false;
+}
+
+/** Sign-up with a personal email (23/11): straight to the ambassador space, nothing to program. */
+export async function joinWithEmail(input: { code: string; email: string; password: string; terms: boolean }): Promise<JoinResult> {
+  const inviter = await inviterByCode(input.code);
+  const email = input.email.trim().toLowerCase();
+  if (!inviter || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'invalid' };
+  if (input.password.length < 8) return { ok: false, error: 'password' };
+  if (!input.terms) return { ok: false, error: 'terms' };
+  const local = email.split('@')[0].split(/[._-]/)[0];
+  const user = await createAmbassadorAccount(email, input.password, local ? local.charAt(0).toUpperCase() + local.slice(1) : '');
+  if (!user) return { ok: false, error: 'exists' };
+  await ensureAmbassador(user.id, inviter.role === 'admin' ? null : inviter.user_id);
+  await startSession(user.id);
+  return { ok: true };
+}
+
+/** The pass for an invite link's “school email” choice: the inviter's tool code goes with it. */
+export async function inviteToolPass(code: string) {
+  const inviter = await inviterByCode(code);
+  if (!inviter) return null;
+  return toolPass({ parrain: inviter.role === 'admin' ? '' : await toolCodeOf(String(inviter.user_id)) });
+}
+

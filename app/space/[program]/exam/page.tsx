@@ -38,7 +38,7 @@ export default async function ExamPage({ params, searchParams }: Props) {
   return (
     <div lang={LOCALES[locale].lang}>
       <LearnerHeader user={user} locale={locale} />
-      <main id="main" className="register hero-bands bands-clip">
+      <main id="main" className="register hero-bands bands-clip sp-page">
         <div className="container" style={{ maxWidth: 820 }}>
           <CourseBar program={program} progress={progress} current="exam" l={l} />
           <section className="sp-hero sp-hero-module">

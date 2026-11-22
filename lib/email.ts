@@ -221,3 +221,11 @@ ${button(input.meetUrl, 'Rejoindre l’appel')}
   );
   return send({ to: input.to, subject: `Ton appel avec The AI Certification : ${input.when}`, html, kind: 'call_booked', locale: 'fr' });
 }
+
+/** Prospection: tells the admin that a student gave a contact, or that a LinkedIn reply is waiting for him. */
+export async function sendOutreachAlert(input: { subject: string; lines: string[]; linkedin?: string }) {
+  const to = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim()).find(Boolean);
+  if (!to) return 'skipped';
+  const html = layout('fr', input.lines.map((l) => `<p style="font-size:15px;margin:0 0 8px;white-space:pre-line">${esc(l)}</p>`).join('') + (input.linkedin ? button(input.linkedin, 'Ouvrir le profil LinkedIn') : ''));
+  return send({ to, subject: input.subject, html, kind: 'outreach_alert', locale: 'fr' });
+}

@@ -33,7 +33,7 @@ const nextConfig = {
       { key: 'Vercel-CDN-Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=604800' },
     ];
     // Only pages that ignore the query string: the CDN does not vary on ?lang=.
-    const pages = ['/', '/school', '/ecole', '/estudios', '/studi', '/studium', '/certifications/:slug'];
+    const pages = ['/', '/school', '/canada', '/ecole', '/estudios', '/studi', '/studium', '/certifications/:slug'];
     return pages.map((source) => ({ source, headers: cdn }));
   },
 };

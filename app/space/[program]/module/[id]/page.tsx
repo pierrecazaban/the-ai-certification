@@ -38,12 +38,12 @@ export default async function ModulePage({ params, searchParams }: Props) {
   return (
     <div lang={LOCALES[locale].lang}>
       <LearnerHeader user={user} locale={locale} />
-      <main id="main" className="register hero-bands bands-clip">
+      <main id="main" className="register hero-bands bands-clip sp-page">
         <div className="container" style={{ maxWidth: 820 }}>
           <CourseBar program={program} progress={progress} current={m.id} l={l} />
           <section className="sp-hero sp-hero-module">
             <div className="sp-hero-text">
-              <span className="eyebrow">{l.module(index + 1)}</span>
+              <span className="sp-mod-kicker"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5Q13.6 10.4 22.5 12Q13.6 13.6 12 22.5Q10.4 13.6 1.5 12Q10.4 10.4 12 1.5Z" fill="currentColor" /></svg>{l.module(index + 1)}</span>
               <h1>{m.title}</h1>
               <p className="lead" style={{ margin: 0 }}>{m.summary}</p>
             </div>

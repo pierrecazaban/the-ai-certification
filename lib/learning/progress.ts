@@ -28,7 +28,7 @@ export type Progress = {
   percent: number;
   examUnlocked: boolean;
   lastExam: { score: number; total: number; passed: boolean; created_at: string } | null;
-  certificate: { reference: string; holder_name: string; score: number; total: number; issued_at: string } | null;
+  certificate: { reference: string; holder_name: string; score: number; total: number; issued_at: string; rating: number | null } | null;
 };
 
 export const examPassMark = (total: number, ratio = EXAM_PASS_RATIO) => Math.ceil(total * ratio);
@@ -52,7 +52,7 @@ export async function getProgress(userId: string, userLocale: string, program = 
     sql('select exercise_id from exercise_submissions where user_id = $1 and program = $2', [userId, program]),
     sql('select module_id, max(score)::int as best from quiz_attempts where user_id = $1 and program = $2 group by module_id', [userId, program]),
     sql('select score, total, passed, created_at from exam_attempts where user_id = $1 and program = $2 order by created_at desc limit 1', [userId, program]),
-    sql('select reference, holder_name, score, total, issued_at from certificates where user_id = $1 and program = $2', [userId, program]),
+    sql('select reference, holder_name, score, total, issued_at, rating from certificates where user_id = $1 and program = $2', [userId, program]),
   ]);
   const done = new Set(lessons.map((r) => r.lesson_id as string));
   const submitted = new Set(exercises.map((r) => r.exercise_id as string));

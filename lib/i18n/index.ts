@@ -5,7 +5,7 @@ import es from './es';
 import it from './it';
 import de from './de';
 
-const DICTS: Record<Locale, Dict> = { 'en-us': en, fr, es, it, de };
+const DICTS: Record<Locale, Dict> = { 'en-us': en, 'en-ca': en, fr, es, it, de };
 
 export function dict(locale: Locale): Dict {
   return DICTS[locale];

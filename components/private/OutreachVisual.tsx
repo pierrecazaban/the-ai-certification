@@ -8,7 +8,7 @@ type Day = { day: string; invited: number; accepted: number };
 type School = { school: string; listed: number; invited: number; accepted: number; booked: number };
 export type Data = {
   target: number; listed: number; perSchool: number; schoolOrder: string[];
-  funnel: { invited: number; accepted: number; messaged: number; booked: number; found: number };
+  funnel: { invited: number; accepted: number; messaged: number; booked: number; found: number; contact?: number };
   days: Day[]; schoolStats: School[];
 };
 
@@ -23,9 +23,10 @@ function Tip({ tip }: { tip: { x: number; y: number; text: string } | null }) {
 
 function Funnel({ d }: { d: Data }) {
   const f = d.funnel;
-  const invited = f.invited + f.accepted + f.messaged + f.booked;
+  const invited = f.invited + f.accepted + f.messaged + f.booked + (f.contact ?? 0);
   const accepted = f.accepted + f.messaged + f.booked;
-  const steps: [string, number][] = [['Listés', d.listed], ['Invités', invited], ['Acceptés', accepted], ['Lien envoyé', f.messaged + f.booked], ['Appel réservé', f.booked]];
+  // Lien envoyé et appel réservé retirés (22/11) : plus d'actualité ; la dernière étape, ce sont les contacts obtenus.
+  const steps: [string, number][] = [['Listés', d.listed], ['Invités', invited], ['Acceptés', accepted + (f.contact ?? 0)], ['Contacts', f.contact ?? 0]];
   const max = Math.max(1, d.target, d.listed);
   return (
     <div className="ov-funnel">
@@ -92,8 +93,7 @@ function Schools({ d }: { d: Data }) {
           const n = Math.min(5, Math.round((s.listed / Math.max(1, d.perSchool)) * 5));
           return (
             <span key={name} className="ov-cell" style={{ background: GOLD[n] }} aria-label={`${name} : ${s.listed} listés`}
-              onMouseMove={(e) => { const r = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect(); setTip({ x: e.clientX - r.left + 10, y: e.clientY - r.top + 14, text: `${name} · ${s.listed} listés · ${s.invited} invités · ${s.accepted} acceptés${s.booked ? ` · ${s.booked} appel(s)` : ''}` }); }}>
-              {s.booked > 0 && <b>✓</b>}
+              onMouseMove={(e) => { const r = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect(); setTip({ x: e.clientX - r.left + 10, y: e.clientY - r.top + 14, text: `${name} · ${s.listed} listés · ${s.invited} invités · ${s.accepted} acceptés` }); }}>
             </span>
           );
         })}

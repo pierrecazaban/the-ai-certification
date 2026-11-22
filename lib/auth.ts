@@ -10,6 +10,11 @@ import { PRIVATE_SLUGS } from './private';
 export type Role = 'student' | 'ambassador' | 'admin';
 export type User = { id: string; email: string; role: Role; first_name: string; last_name: string; locale: Locale };
 
+/** What the account menu shows (22/11): the email, or the username of an account created without one. */
+export const NO_EMAIL = '@no-email.invalid';
+export const shownId = (u: { email: string; first_name: string; last_name: string }) =>
+  u.email.endsWith(NO_EMAIL) ? `${u.first_name} ${u.last_name}`.trim() : u.email;
+
 export const SESSION_COOKIE = 'cfx_session';
 // Holds no secret: only tells the public header to show the "My space" button.
 export const MEMBER_COOKIE = 'cfx_member';
@@ -107,13 +112,42 @@ function checkPassword(password: string, stored: string | null | undefined) {
   return want.length === actual.length && timingSafeEqual(want, actual);
 }
 
+/** The sign-in name of an account without email: "first last", lower case, single spaces. */
+export const usernameOf = (first: string, last: string) => `${first} ${last}`.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Placeholder email of an account created without one (the column is required): .invalid never receives mail. */
+export const isPlaceholderEmail = (email: string) => email.endsWith('@no-email.invalid');
+
+/**
+ * Biz Dev account (20/11): only a name and a password, no email. Signs the person in at once.
+ * Returns null when this name is already taken.
+ */
+export async function createNamedAccount(input: { first_name: string; last_name: string; password: string; role: Role }): Promise<User | null> {
+  if (input.password.length < MIN_PASSWORD) return null;
+  const id = randomUUID();
+  const rows = await sql(
+    `insert into users (id, email, role, first_name, last_name, locale, username, password_hash)
+     values ($1, $2, $3, $4, $5, 'en-us', $6, $7) on conflict do nothing returning *`,
+    [id, `${id}@no-email.invalid`, input.role, input.first_name.trim(), input.last_name.trim(), usernameOf(input.first_name, input.last_name), hashPassword(input.password)],
+  );
+  return rows[0] ? openSession(asUser(rows[0])!) : null;
+}
+
+export async function usernameTaken(first: string, last = '') {
+  const [row] = await sql('select 1 from users where username = $1', [usernameOf(first, last)]);
+  return Boolean(row);
+}
+
 /**
  * Email and password sign-in. An admin without a password of their own can use ADMIN_PASSWORD_HASH,
  * so the first admin can sign in before any email is sent.
  */
 export async function passwordLogin(email: string, password: string): Promise<User | null> {
   const clean = email.trim().toLowerCase();
-  const user = await userForLogin(clean);
+  // No "@": the name of an account created without email (Biz Dev).
+  const user = clean.includes('@')
+    ? await userForLogin(clean)
+    : asUser((await sql('select * from users where username = $1', [clean.replace(/\s+/g, ' ')]))[0]);
   if (!user || !password) return null;
   const [row] = await sql('select password_hash from users where id = $1', [user.id]);
   const ok = row?.password_hash
@@ -140,8 +174,8 @@ export async function setFirstPassword(userId: string, password: string): Promis
 
 /** Where a signed-in user lands. */
 export function homePath(user: User, lang: Locale) {
-  if (user.role === 'admin') return `/${PRIVATE_SLUGS.admin}`;
-  if (user.role === 'ambassador') return `/${PRIVATE_SLUGS.ambassador}`;
+  // The admin lands on the ambassador view too (19/11); the admin view stays one click away.
+  if (user.role === 'admin' || user.role === 'ambassador') return `/${PRIVATE_SLUGS.ambassador}`;
   return `/space?lang=${isLocale(user.locale) ? user.locale : lang}`;
 }
 
@@ -187,3 +221,21 @@ export async function logout() {
   jar.delete(SESSION_COOKIE);
   jar.delete(MEMBER_COOKIE);
 }
+
+/** Opens a session for this user (23/11): sign-in through Smart Mail (school email). */
+export async function startSession(userId: string): Promise<User | null> {
+  const [row] = await sql('select * from users where id = $1', [userId]);
+  return row ? openSession(asUser(row)!) : null;
+}
+
+/** An ambassador account with a real email (23/11): school email (no password) or personal email (with one). */
+export async function createAmbassadorAccount(email: string, password: string | null, firstName = ''): Promise<User | null> {
+  const id = randomUUID();
+  const rows = await sql(
+    `insert into users (id, email, role, first_name, last_name, locale, password_hash) values ($1, $2, 'ambassador', $3, '', 'fr', $4)
+     on conflict (email) do nothing returning *`,
+    [id, email.trim().toLowerCase(), firstName, password ? hashPassword(password) : null],
+  );
+  return rows[0] ? asUser(rows[0]) : null;
+}
+

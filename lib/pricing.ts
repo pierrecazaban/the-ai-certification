@@ -4,7 +4,8 @@ import { LOCALES, type Currency, type Locale } from './locales';
 // Prices in cents per currency. The student pays `price`; `full` is the program price,
 // the difference is funded by The AI Certification.
 const PRICES: Record<Currency, { price: number; full: number }> = {
-  USD: { price: Number(process.env.PRICE_USD_CENTS ?? 3000), full: Number(process.env.FULL_PRICE_USD_CENTS ?? 73000) },
+  USD: { price: Number(process.env.PRICE_USD_CENTS ?? 3500), full: Number(process.env.FULL_PRICE_USD_CENTS ?? 73000) },
+  CAD: { price: Number(process.env.PRICE_CAD_CENTS ?? 5000), full: Number(process.env.FULL_PRICE_CAD_CENTS ?? 99000) },
   EUR: { price: Number(process.env.PRICE_EUR_CENTS ?? 3000), full: Number(process.env.FULL_PRICE_EUR_CENTS ?? 73000) },
 };
 

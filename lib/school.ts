@@ -314,7 +314,8 @@ export async function syncPayment(paymentId: string) {
     payment.id,
     payment.metadata?.registration_id ?? '',
   ]);
-  if (!r || r.status === 'paid') return;
+  // Remboursée (18/11) : un ancien évènement Stripe ne la repasse jamais en « payée ».
+  if (!r || r.status === 'paid' || r.status === 'refunded') return;
   if (payment.status === 'paid') {
     await sql(`update registrations set status = 'paid', paid_at = $2, payment_id = $3 where id = $1`, [
       r.id,

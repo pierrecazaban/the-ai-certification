@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { dict } from '@/lib/i18n';
 import { member } from '@/lib/i18n/member';
 import { homePath, registerPath, type Locale } from '@/lib/locales';
@@ -16,7 +16,7 @@ export function Brand({ withMark = true }: { locale?: Locale; withMark?: boolean
   );
 }
 
-export default function Header({ locale, minimal = false }: { locale: Locale; minimal?: boolean }) {
+export default function Header({ locale, minimal = false, actions }: { locale: Locale; minimal?: boolean; actions?: ReactNode }) {
   const [open, setOpen] = useState(false);
   // Shown only to people who have signed in before: nothing on the public page points to the member area.
   const [isMember, setIsMember] = useState(false);
@@ -28,6 +28,7 @@ export default function Header({ locale, minimal = false }: { locale: Locale; mi
       <header className="site-header">
         <nav className="container nav" aria-label="Main">
           <Brand locale={locale} />
+          {minimal && actions && <div className="nav-actions">{actions}</div>}
           {!minimal && (
             <>
               <Link className="btn btn-sm btn-green nav-account" href={isMember ? `/space?lang=${locale}` : `/login?lang=${locale}`}>

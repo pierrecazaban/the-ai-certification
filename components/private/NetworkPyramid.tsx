@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import CopyLink from '@/components/private/CopyLink';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react';
+import GradeBadge, { GradeIcon } from '@/components/private/GradeBadge';
+import { GRADE_LABEL, GRADE_RULE, type Grade } from '@/lib/grades';
+import { deleteAmbassadorAction, nameMasterAction, removeLegendAction, renameForMeAction } from '@/lib/privateActions';
 
 // The ambassador network drawn as a pyramid: the top person, then each row below the one who invited them.
 // SVG, so it stays sharp at any zoom. It opens on the whole pyramid (the more people, the further out), then you
 // move around by zooming (pinch, Ctrl + wheel or the buttons, around the point aimed at) and dragging. No animation.
-// A “+” under the viewer opens their invite link; whoever joins through it takes a place there.
+// A “+” under the viewer copies their invite link (19/11, with a small TAC-style celebration); whoever joins
+// through it takes a place there.
 
 export type PyramidNode = {
   id: string;
@@ -17,6 +20,17 @@ export type PyramidNode = {
   /** Commission the viewer earns on this person's school, in %, or 0. */
   rate: number;
   earned: string;
+  /** Grade (19/11), shown as a badge on top of the card. */
+  grade?: Grade;
+  /** The viewer is a Master and may name this person Master. */
+  canMaster?: boolean;
+  /** The admin may take the Legend grade back (22/11). */
+  canUnlegend?: boolean;
+  /** The admin may delete this ambassador (22/11). */
+  canDelete?: boolean;
+  /** The viewer may rename this person for themselves (22/11); realName is their own name. */
+  canRename?: boolean;
+  realName?: string;
   children: PyramidNode[];
 };
 
@@ -29,9 +43,66 @@ const MAX_ZOOM = 2.5;
 
 type Placed = { node: PyramidNode; x: number; y: number; depth: number; parent?: Placed; invite?: boolean };
 const INVITE_ID = '__invite';
+// Width of each grade badge on the cards (uppercase, 10px).
+const BADGE_W: Record<Grade, number> = { dog: 82, intermediate: 116, advanced: 92, master: 82 };
+// Little logo stars that burst from the “+” when the link is copied: [dx, dy, white].
+const SPARKS: [number, number, boolean][] = [[34, -4, false], [24, -26, true], [-2, -32, false], [-26, -22, true], [-32, 6, false], [-18, 28, true], [8, 32, false], [28, 22, true]];
 
-export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl }: { root: PyramidNode; sponsor?: string | null; viewerEarns: boolean; inviteUrl: string }) {
-  const [showInvite, setShowInvite] = useState(false);
+export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, invite = true }: { root: PyramidNode; sponsor?: string | null; viewerEarns: boolean; inviteUrl: string; invite?: boolean }) {
+  // Tap on a grade badge (19/11): the ranks, from Legend down to Beginner, the tapped one highlighted.
+  const [ranks, setRanks] = useState<Grade | null>(null);
+  useEffect(() => {
+    if (!ranks) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setRanks(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [ranks]);
+  // A Master taps someone of their branch to name them Master (19/11), after a confirmation.
+  const [naming, startNaming] = useTransition();
+  // Tap on someone (22/11): their actions in a small panel (make or unmake a Legend, delete), each confirmed.
+  const [picked, setPicked] = useState<PyramidNode | null>(null);
+  const act = (n: PyramidNode, kind: 'legend' | 'unlegend' | 'delete') => {
+    const ask = kind === 'legend' ? `Make ${n.name} a Legend?` : kind === 'unlegend' ? `Take the Legend grade back from ${n.name}?`
+      : `Delete ${n.name}? The people they invited move up one level, their schools become free.`;
+    void ask; // plus de fenêtre du navigateur (22/11) : le panneau d'actions suffit comme confirmation
+    if (naming) return;
+    const form = new FormData();
+    form.set('user_id', n.id);
+    setPicked(null);
+    startNaming(async () => { await (kind === 'legend' ? nameMasterAction : kind === 'unlegend' ? removeLegendAction : deleteAmbassadorAction)(form); });
+  };
+  const nameMaster = (n: PyramidNode) => setPicked(n);
+  useEffect(() => {
+    if (!picked) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPicked(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [picked]);
+  // Tap on “Invite someone”: the link is copied at once; `copied` counts the taps so the animation replays each time.
+  const [copied, setCopied] = useState(0);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
+  const copyInvite = async () => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      ok = true;
+    } catch {
+      // Older browsers: the hidden-field copy.
+      const t = document.createElement('textarea');
+      t.value = inviteUrl;
+      t.setAttribute('readonly', '');
+      t.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+      document.body.appendChild(t);
+      t.select();
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      t.remove();
+    }
+    if (!ok) { window.prompt('Your invite link', inviteUrl); return; }
+    setCopied((n) => n + 1);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(0), 2200);
+  };
   const top = sponsor ? H + ROW : 0; // room for “invited by” above the root
 
   const { placed, width, height } = useMemo(() => {
@@ -43,7 +114,7 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl }
       maxDepth = Math.max(maxDepth, depth);
       out.push(p);
       // The viewer's own row ends with a “+” slot: the next person they invite.
-      const children = depth === 0 ? [...n.children, { id: INVITE_ID, name: '', school: '', paid: 0, size: 0, rate: 0, earned: '', children: [] }] : n.children;
+      const children = depth === 0 && invite ? [...n.children, { id: INVITE_ID, name: '', school: '', paid: 0, size: 0, rate: 0, earned: '', children: [] }] : n.children;
       const kids = children.map((c) => place(c, depth + 1, p));
       p.x = kids.length ? (kids[0].x + kids[kids.length - 1].x) / 2 : leaf++ * (W + GAP);
       return p;
@@ -52,7 +123,7 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl }
     const w = Math.max(Math.max(leaf, 1) * (W + GAP) - GAP, W) + PAD * 2;
     const h = top + (maxDepth + 1) * (H + ROW) - ROW + PAD * 2;
     return { placed: out, width: w, height: h };
-  }, [root, top]);
+  }, [root, top, invite]);
 
   const box = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -120,11 +191,43 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl }
     return () => el.removeEventListener('wheel', onWheel);
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // One finger or the mouse drags the view, two fingers pinch to zoom.
+  // The mouse drags the view. On a touch screen (19/11) one finger scrolls as usual (the pyramid when zoomed in,
+  // otherwise the page, so the page never gets stuck on it) and two fingers pinch to zoom.
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; zoom: number } | null>(null);
   const travel = useRef(0); // how far the pointer moved: a tap opens the “+”, a drag does not
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const spread = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) travel.current = 0;
+      if (e.touches.length === 2) {
+        travel.current += 100;
+        pinch.current = { dist: spread(e.touches), zoom: zoomRef.current };
+      }
+    };
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !pinch.current) return;
+      e.preventDefault();
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const r = el.getBoundingClientRect();
+      zoomAt(pinch.current.zoom * (spread(e.touches) / pinch.current.dist), (a.clientX + b.clientX) / 2 - r.left, (a.clientY + b.clientY) / 2 - r.top);
+    };
+    const onEnd = (e: TouchEvent) => { if (e.touches.length < 2) pinch.current = null; };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    };
+  }); // eslint-disable-line react-hooks/exhaustive-deps
   const onDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return; // touch: see above
     if (pointers.current.size === 0) travel.current = 0;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
@@ -133,6 +236,7 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl }
     }
   };
   const onMove = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return;
     const prev = pointers.current.get(e.pointerId);
     const el = box.current;
     if (!prev || !el) return;
@@ -166,6 +270,11 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl }
       </div>
       <div className="py-box" ref={box} style={boxH ? { height: boxH } : undefined} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={onUp}>
         <svg width={width * zoom} height={height * zoom} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Ambassador network">
+          <defs>
+            <linearGradient id="py-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#F3D58A" /><stop offset=".5" stopColor="#D4A74C" /><stop offset="1" stopColor="#B8862B" /></linearGradient>
+            <linearGradient id="py-adv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#2B4A8C" /><stop offset="1" stopColor="#17274C" /></linearGradient>
+            <linearGradient id="py-shine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".7" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
+          </defs>
           <g transform={`translate(${PAD},${PAD})`}>
             {sponsor && (
               <g>
@@ -180,44 +289,112 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl }
               return <path key={`l-${p.node.id}`} d={`M${px},${py} V${mid} H${cx} V${p.y}`} className="py-line" />;
             })}
             {placed.filter((p) => p.invite).map((p) => (
-              <g key={INVITE_ID} transform={`translate(${p.x},${p.y})`} className="py-invite" onClick={() => travel.current < 8 && setShowInvite(true)} role="button" aria-label="Invite someone">
+              <g key={INVITE_ID} transform={`translate(${p.x},${p.y})`} className={`py-invite${copied ? ' is-copied' : ''}`}
+                onClick={() => travel.current < 8 && copyInvite()} role="button" tabIndex={0} aria-label="Copy your invite link"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyInvite(); } }}>
                 <rect width={W} height={H} rx={14} className="py-invite-box" />
-                <circle cx={24} cy={H / 2} r={14} className="py-invite-plus-c" />
-                <text x={24} y={H / 2 + 6} textAnchor="middle" className="py-invite-plus">+</text>
-                <text x={46} y={28} className="py-name">Invite someone</text>
-                <text x={46} y={45} className="py-small">Tap to copy your link</text>
+                {copied ? (
+                  <g key={copied}>
+                    <circle cx={24} cy={H / 2} r={14} className="py-invite-ripple" />
+                    <circle cx={24} cy={H / 2} r={14} className="py-invite-plus-c" />
+                    <path d={`M17.5 ${H / 2 + 0.5} L22 ${H / 2 + 5} L30.5 ${H / 2 - 4.5}`} className="py-invite-check" />
+                    <g transform={`translate(24,${H / 2})`}>
+                      {SPARKS.map(([dx, dy, alt], k) => (
+                        <path key={k} d="M0,-5 Q1,-1 5,0 Q1,1 0,5 Q-1,1 -5,0 Q-1,-1 0,-5Z" className={`py-spark${alt ? ' alt' : ''}`}
+                          style={{ ['--dx' as string]: `${dx}px`, ['--dy' as string]: `${dy}px`, animationDelay: `${k * 25}ms` }} />
+                      ))}
+                    </g>
+                    <text x={46} y={28} className="py-name">Link copied!</text>
+                    <text x={46} y={45} className="py-small">Now send it to them</text>
+                  </g>
+                ) : (
+                  <>
+                    <circle cx={24} cy={H / 2} r={14} className="py-invite-plus-c" />
+                    <text x={24} y={H / 2 + 6} textAnchor="middle" className="py-invite-plus">+</text>
+                    <text x={46} y={28} className="py-name">Invite someone</text>
+                    <text x={46} y={45} className="py-small">Tap to copy your link</text>
+                  </>
+                )}
               </g>
             ))}
             {placed.filter((p) => !p.invite).map((p) => {
               const n = p.node;
               const isRoot = p.depth === 0;
-              const tone = isRoot ? 'py-root' : !viewerEarns ? 'py-node' : n.rate ? 'py-node py-earn' : 'py-node py-far';
+              const tone = (isRoot ? 'py-root' : !viewerEarns ? 'py-node' : n.rate ? 'py-node py-earn' : 'py-node py-far') + (n.grade === 'master' ? ' py-is-master' : n.grade === 'dog' ? ' py-is-dog' : '');
+              const bw = n.grade ? BADGE_W[n.grade] : 0;
               return (
-                <g key={n.id} transform={`translate(${p.x},${p.y})`}>
-                  <title>{`${n.name}\n${n.school}\n${n.paid} paid students · ${n.size} below${n.rate ? `\n${n.rate} % for you${n.earned ? ` (${n.earned})` : ''}` : ''}`}</title>
+                <g key={n.id} transform={`translate(${p.x},${p.y})`} className={[(n.canMaster || n.canUnlegend || n.canDelete || n.canRename) && 'py-can-master', n.grade === 'dog' && 'py-dog-card'].filter(Boolean).join(' ') || undefined}
+                  {...(n.canMaster || n.canUnlegend || n.canDelete || n.canRename ? {
+                    role: 'button', tabIndex: 0, 'aria-label': `Actions for ${n.name}`,
+                    onClick: () => travel.current < 8 && nameMaster(n),
+                    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') nameMaster(n); },
+                  } : {})}>
+                  <title>{`${n.name}${n.grade ? ` · ${GRADE_LABEL[n.grade]}` : ''}\n${n.school}${n.rate ? `\n${n.rate} % for you${n.earned ? ` (${n.earned})` : ''}` : ''}${n.canMaster || n.canDelete ? '\nTap for actions' : ''}`}</title>
                   <rect width={W} height={H} rx={14} className={tone} />
                   <circle cx={24} cy={H / 2} r={14} className="py-avatar" />
                   <text x={24} y={H / 2 + 5} textAnchor="middle" className="py-initial">{(n.name.trim()[0] ?? '?').toUpperCase()}</text>
-                  <text x={46} y={24} className="py-name">{cut(n.name, isRoot ? 14 : 15)}</text>
-                  <text x={46} y={42} className="py-small">{isRoot ? cut(n.school, 20) : `${n.paid} paid · ${n.size} below`}</text>
+                  <text x={46} y={24} className="py-name" style={isRoot && n.name.length > 14 ? { fontSize: 11.5 } : undefined}>{cut(n.name, isRoot ? 22 : 15)}</text>
+                  <text x={46} y={42} className="py-small">{cut(n.school, 20)}</text>
                   {!isRoot && viewerEarns && n.rate > 0 && <text x={46} y={56} className="py-rate">{n.rate} % for you</text>}
+                  {n.grade && (
+                    // The grade, on the top edge of the card where the line from above arrives.
+                    <g transform={`translate(${(W - bw) / 2},-11)`} className={`py-gb py-gb-${n.grade}`} role="button" tabIndex={0} aria-label="See the ranks"
+                      onClick={(e) => { e.stopPropagation(); if (travel.current < 8) setRanks(n.grade!); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setRanks(n.grade!); } }}>
+                      <clipPath id={`py-gbc-${n.id}`}><rect width={bw} height={22} rx={11} /></clipPath>
+                      <rect width={bw} height={22} rx={11} className="py-gb-bg" />
+                      {n.grade === 'master' && <g clipPath={`url(#py-gbc-${n.id})`}><rect width={34} height={22} x={-40} className="py-gb-shine" /></g>}
+                      <g transform="translate(1,0)"><GradeIcon grade={n.grade} /></g>
+                      <text x={24} y={15} className="py-gb-text">{GRADE_LABEL[n.grade]}</text>
+                    </g>
+                  )}
                 </g>
               );
             })}
           </g>
         </svg>
       </div>
-      {showInvite && (
-        <div className="py-invite-pop" role="dialog" aria-label="Your invite link">
-          <div className="py-invite-card">
-            <strong>Invite someone</strong>
-            <p className="help">Send this link. When they join, they take this place in your pyramid.</p>
-            <CopyLink url={inviteUrl} shareText="Join me as an ambassador for The AI Certification:" />
-            <button type="button" className="linklike" onClick={() => setShowInvite(false)}>Close</button>
+      {picked && (
+        <div className="py-ranks" onClick={() => setPicked(null)}>
+          <div className="py-ranks-card py-act-card" role="dialog" aria-modal="true" aria-label={picked.name} onClick={(e) => e.stopPropagation()}>
+            <div className="py-ranks-head">
+              <strong>{picked.name}</strong>
+              <button type="button" className="py-ranks-x" aria-label="Close" onClick={() => setPicked(null)}>×</button>
+            </div>
+            {picked.grade && <p className="py-act-grade"><GradeBadge grade={picked.grade} /> <span>{picked.school}</span></p>}
+            {picked.canRename && (
+              <form className="py-rename" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); f.set('user_id', picked.id); setPicked(null); startNaming(async () => { await renameForMeAction(f); }); }}>
+                <label htmlFor="py-alias">Name shown to you{picked.realName && picked.realName !== picked.name ? ` (their name: ${picked.realName})` : ''}</label>
+                <div><input id="py-alias" name="alias" defaultValue={picked.name} maxLength={60} /><button type="submit" className="py-act">Save</button></div>
+              </form>
+            )}
+            <div className="py-act-list">
+              {picked.canMaster && <button type="button" className="py-act py-act-legend" onClick={() => act(picked, 'legend')}>✦ Make a Legend</button>}
+              {picked.canUnlegend && <button type="button" className="py-act" onClick={() => act(picked, 'unlegend')}>Remove the Legend grade</button>}
+              {picked.canDelete && <button type="button" className="py-act py-act-delete" onClick={() => act(picked, 'delete')}>Delete this ambassador</button>}
+            </div>
           </div>
         </div>
       )}
-      <p className="help py-hint">Pinch or Ctrl + scroll to zoom where you point, drag to move around.</p>
+      {ranks && (
+        <div className="py-ranks" onClick={() => setRanks(null)}>
+          <div className="py-ranks-card" role="dialog" aria-modal="true" aria-label="Ranks" onClick={(e) => e.stopPropagation()}>
+            <div className="py-ranks-head">
+              <strong>Ranks</strong>
+              <button type="button" className="py-ranks-x" aria-label="Close" onClick={() => setRanks(null)}>×</button>
+            </div>
+            <ol className="py-ranks-list">
+              {(['master', 'advanced', 'intermediate', 'dog'] as Grade[]).map((g) => (
+                <li key={g} className={g === ranks ? 'is-on' : undefined}>
+                  <GradeBadge grade={g} />
+                  <span>{GRADE_RULE[g]}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      )}
+      <span className="py-sr" aria-live="polite">{copied ? 'Invite link copied' : ''}</span>
     </div>
   );
 }

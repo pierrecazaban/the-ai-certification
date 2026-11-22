@@ -42,7 +42,9 @@ export default function RevenueBars({ days, currency, estimated }: { days: Reven
   const last = days.length - 1;
   const i = sel ?? last;
   const d = days[i];
-  const max = Math.max(1, ...days.map((x) => x.cents));
+  // Bars and scale after Stripe fees (19/11), like the big figure.
+  const net = (x: RevenueDay) => Math.max(0, x.cents - x.fee);
+  const max = Math.max(1, ...days.map(net));
 
   const pick = (clientX: number) => {
     const r = box.current?.getBoundingClientRect();
@@ -76,7 +78,7 @@ export default function RevenueBars({ days, currency, estimated }: { days: Reven
         <svg className="rv-sketch" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
           {days.map((x, k) => {
             const bw = (W / days.length) * 0.64, bx = (W / days.length) * (k + 0.18);
-            const bh = Math.max((x.cents / max) * H * 0.92, x.cents ? 3 : 0), by = H - bh;
+            const bh = Math.max((net(x) / max) * H * 0.92, net(x) ? 3 : 0), by = H - bh;
             if (!bh) return null;
             const seed = Number(x.key.replaceAll('-', '')) % 100000;
             return (

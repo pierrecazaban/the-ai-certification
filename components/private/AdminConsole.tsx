@@ -1,22 +1,20 @@
 import Link from 'next/link';
-import { adminLogEntries } from '@/lib/adminLog';
 import type { User } from '@/lib/auth';
 import { sql } from '@/lib/db';
+import { estimatedFee, eurCentsSql, feesSince } from '@/lib/revenue';
 import { getCourse, lessonIdsOf } from '@/lib/learning';
 import { LOCALES, isLocale } from '@/lib/locales';
 import Tickets from '@/components/private/Tickets';
+import Reviews from '@/components/private/Reviews';
 import Settings from '@/components/private/Settings';
-import Calls from '@/components/private/Calls';
 import Outreach from '@/components/private/Outreach';
 import LiveVisitors from '@/components/private/LiveVisitors';
 import CopyLink from '@/components/private/CopyLink';
 import { GUEST_PAYMENT, guestCode, guestUrl } from '@/lib/guest';
 import { ADMIN_TABS, AdminHeader } from '@/components/private/ConsoleHeaders';
 import { programBySlug } from '@/lib/catalog';
-import { decideSchoolRequestAction, markPayoutPaidAction, resetGuestLinkAction } from '@/lib/privateActions';
+import { decideSchoolRequestAction, resetGuestLinkAction } from '@/lib/privateActions';
 import { setting } from '@/lib/settings';
-import { toolCodeForAdmin } from '@/lib/toolGate';
-import ToolCode from '@/components/private/ToolCode';
 import RevenueChart from '@/components/private/RevenueChart';
 
 // Admin console, rendered by app/[locale]/page.tsx for signed-in admins only.
@@ -31,6 +29,7 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   expired: { label: 'Not paid', tone: 'muted' },
   canceled: { label: 'Not paid', tone: 'muted' },
   failed: { label: 'Not paid', tone: 'muted' },
+  refunded: { label: 'Refunded', tone: 'muted' },
 };
 // Filters of the Students table: expired, cancelled and failed are all “not paid”.
 const FILTERS: [string, string][] = [['', 'All'], ['paid', 'Paid'], ['guest', 'Guests'], ['unpaid', 'Not paid'], ['certified', 'Certified']];
@@ -75,14 +74,10 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
             {!id && <SchoolRequests msg={String(params.msg ?? '')} />}
             <Tickets id={id} status={statusFilter} />
           </>
+        ) : tab === 'avis' ? (
+          <Reviews stars={String(params.stars ?? '')} />
         ) : tab === 'prospection' ? (
           <Outreach params={params} />
-        ) : tab === 'appels' ? (
-          <Calls params={params} />
-        ) : tab === 'versements' ? (
-          <Payouts />
-        ) : tab === 'journal' ? (
-          <AdminJournal />
         ) : tab === 'reglages' ? (
           <Settings params={params} />
         ) : (
@@ -101,9 +96,14 @@ const NOT_TEST = `coalesce(payment_id, '') not like 'mock\\_%' and coalesce(paym
 
 async function Overview({ name, msg }: { name: string; msg: string }) {
   const invite = await guestCode();
-  const revenue = await sql(
-    `select currency, sum(amount_cents)::int as cents, count(*)::int as n from registrations where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST} group by currency order by currency`,
+  // One figure in euros (19/11): sales in other currencies are converted (lib/revenue.ts), after Stripe fees.
+  const [revenue] = await sql(
+    `select coalesce(sum(${await eurCentsSql()}), 0)::int as cents, count(*)::int as n,
+       extract(epoch from min(coalesce(paid_at, created_at)))::bigint as since
+     from registrations where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST}`,
   );
+  const realFees = revenue.n ? await feesSince(Number(revenue.since) - 13 * 3600) : 0;
+  const fees = realFees ?? estimatedFee(revenue.cents, revenue.n);
   const [counts] = await sql(`
     select
       count(*) filter (where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}')::int as paid,
@@ -127,25 +127,13 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
     where ${BOUGHT} group by 1 order by 2 desc, 1`);
   const conversion = counts.total ? Math.round((counts.paid / counts.total) * 100) : 0;
 
-  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' });
 
   return (
     <>
-      <ToolCode code={await toolCodeForAdmin()} />
-      <section className="cx-welcome">
-        <div>
-          <span className="cx-kicker">{today}</span>
-          <h1>Hello{name ? ` ${name}` : ''}, here is where The AI Certification stands.</h1>
-          <p>{counts.paid} paid registration{counts.paid === 1 ? '' : 's'} · {counts.held} payment{counts.held === 1 ? '' : 's'} in progress</p>
-        </div>
-        <img src="/assets/kai-laptop.png" alt="" width={150} height={150} />
-      </section>
       <div className="cx-kpis">
         <LiveVisitors />
-        {revenue.length === 0 && <Kpi label="Revenue" value="€0" />}
-        {revenue.map((r) => (
-          <Kpi key={r.currency} label={`Revenue (${r.currency})`} value={money(r.cents, r.currency)} sub={`${r.n} sale${r.n === 1 ? '' : 's'}`} />
-        ))}
+        <Kpi label="Revenue after Stripe fees" value={money(revenue.cents - fees, 'EUR')}
+          sub={`${revenue.n} sale${revenue.n === 1 ? '' : 's'} · ${money(fees, 'EUR')} fees${realFees === null ? ' (est.)' : ''}`} />
         <Kpi label="Paid registrations" value={String(counts.paid)} sub={`${conversion} % of registrations started`} />
         <Kpi label="Certificates issued" value={String(certs.n)} />
         <Kpi label="Guests (free access)" value={String(counts.guests)} sub="Signed up through the invite link" />
@@ -366,7 +354,6 @@ async function SchoolRequests({ msg }: { msg: string }) {
 
   return (
     <>
-      {notice[msg] && <p className="price-alert" role="status">{notice[msg]}</p>}
       {requests.length > 0 && (
         <section className="cx-card">
           <h2>School requests <small>({requests.length})</small></h2>
@@ -377,7 +364,7 @@ async function SchoolRequests({ msg }: { msg: string }) {
               <tbody>
                 {requests.map((r) => (
                   <tr key={r.id}>
-                    <td><strong>{r.first_name} {r.last_name}</strong><small>{r.email}</small></td>
+                    <td><strong>{r.first_name} {r.last_name}</strong><small>{String(r.email).endsWith('@no-email.invalid') ? 'Biz Dev · no email' : r.email}</small></td>
                     <td>{r.holds ?? '—'}</td>
                     <td>{r.school ? <>{r.school}{r.state && <small>{r.state}</small>}</> : <>{r.new_name} <small>New school{r.new_city ? ` · ${r.new_city}` : ''}</small></>}</td>
                     <td>
@@ -397,47 +384,6 @@ async function SchoolRequests({ msg }: { msg: string }) {
   );
 }
 
-async function Payouts() {
-  const rows = await sql(
-    `select p.*, u.first_name, u.last_name, u.email from payouts p join users u on u.id = p.user_id
-     order by (p.status = 'requested') desc, p.requested_at desc limit 500`,
-  );
-  return (
-    <section className="cx-card">
-      <h2>Payouts <small>({rows.filter((r) => r.status === 'requested').length} to pay)</small></h2>
-      <p className="help">Make the transfer from your bank (within 48 hours), then mark the request as paid: its commissions become “paid”.</p>
-      <div className="cx-scroll">
-        <table className="cx-table">
-          <thead><tr><th>Requested</th><th>Ambassador</th><th className="num">Amount</th><th>Holder · IBAN</th><th>Status</th></tr></thead>
-          <tbody>
-            {rows.map((p) => (
-              <tr key={p.id}>
-                <td>{dt(p.requested_at)}</td>
-                <td><strong>{p.first_name} {p.last_name}</strong><small>{p.email}</small></td>
-                <td className="num">{money(p.amount_cents, p.currency)}</td>
-                <td>{p.iban_holder}<small>{p.iban}</small></td>
-                <td>
-                  {p.status === 'paid' ? (
-                    <span className="cx-badge tone-ok">Paid {dt(p.paid_at)}</span>
-                  ) : (
-                    <form action={markPayoutPaidAction}>
-                      <input type="hidden" name="payout_id" value={p.id} />
-                      <button className="btn btn-sm btn-green" type="submit">Mark as paid</button>
-                    </form>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && <tr><td colSpan={5} className="empty">No payout request.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-
-
 /** Journal of the admin (15/11): who signed in, from where, what was opened and done. Most recent first. */
 function device(ua: string) {
   const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
@@ -445,30 +391,3 @@ function device(ua: string) {
   return [os, nav].filter(Boolean).join(' · ') || '—';
 }
 
-async function AdminJournal() {
-  const rows = await adminLogEntries(400);
-  const when = (d: string) => new Date(d).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const alert = (a: string) => /ÉCHEC|REFUSÉ/.test(a);
-  return (
-    <section className="cx-card">
-      <h2>Journal de l’admin</h2>
-      <p className="help">Chaque connexion au compte admin (et chaque tentative ratée), chaque page ouverte et chaque action, avec l’adresse IP, le lieu approximatif et l’appareil. Les 400 dernières lignes, la plus récente en haut. Aucune clé ni mot de passe n’y est écrit.</p>
-      <div className="cx-scroll">
-      <table className="cx-table">
-        <thead><tr><th>Quand (Paris)</th><th>Quoi</th><th>Détail</th><th>Depuis</th></tr></thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} style={alert(String(r.action)) ? { background: '#FDECEC' } : undefined}>
-              <td style={{ whiteSpace: 'nowrap' }}>{when(String(r.at))}</td>
-              <td><strong>{String(r.action)}</strong></td>
-              <td><small>{String(r.detail)}</small></td>
-              <td><small>{String(r.ip) || '—'}{r.place ? ` · ${String(r.place)}` : ''}<br />{device(String(r.ua))}</small></td>
-            </tr>
-          ))}
-          {rows.length === 0 && <tr><td className="empty" colSpan={4}>Rien pour l’instant.</td></tr>}
-        </tbody>
-      </table>
-      </div>
-    </section>
-  );
-}

@@ -6,8 +6,9 @@ const en = {
   mySpace: 'My space',
   login: {
     title: 'Access my space',
-    lead: 'Sign in with your email and password.',
+    lead: 'Sign in with your email (or your first and last name) and your password.',
     email: 'Email',
+    identifier: 'Email or username',
     password: 'Password',
     submit: 'Sign in',
     sending: 'Signing in…',
@@ -76,8 +77,9 @@ const fr: MemberDict = {
   mySpace: 'Mon espace',
   login: {
     title: 'Accéder à mon espace',
-    lead: 'Connecte-toi avec ton email et ton mot de passe.',
+    lead: 'Connecte-toi avec ton email (ou ton prénom et ton nom) et ton mot de passe.',
     email: 'Email',
+    identifier: "Email ou nom d'utilisateur",
     password: 'Mot de passe',
     submit: 'Se connecter',
     sending: 'Connexion…',
@@ -146,6 +148,7 @@ const es: MemberDict = {
     title: 'Acceder a mi espacio',
     lead: 'Inicia sesión con tu email y tu contraseña.',
     email: 'Email',
+    identifier: 'Email o nombre de usuario',
     password: 'Contraseña',
     submit: 'Iniciar sesión',
     sending: 'Conectando…',
@@ -214,6 +217,7 @@ const it: MemberDict = {
     title: 'Accedi al mio spazio',
     lead: 'Accedi con la tua email e la tua password.',
     email: 'Email',
+    identifier: 'Email o nome utente',
     password: 'Password',
     submit: 'Accedi',
     sending: 'Accesso…',
@@ -282,6 +286,7 @@ const de: MemberDict = {
     title: 'Zu meinem Bereich',
     lead: 'Melde dich mit deiner E-Mail und deinem Passwort an.',
     email: 'E-Mail',
+    identifier: 'E-Mail oder Benutzername',
     password: 'Passwort',
     submit: 'Anmelden',
     sending: 'Anmeldung…',
@@ -344,7 +349,7 @@ const de: MemberDict = {
   },
 };
 
-const MEMBER: Record<Locale, MemberDict> = { 'en-us': en, fr, es, it, de };
+const MEMBER: Record<Locale, MemberDict> = { 'en-us': en, 'en-ca': en, fr, es, it, de };
 
 export function member(locale: Locale): MemberDict {
   return MEMBER[locale];

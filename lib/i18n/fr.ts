@@ -186,7 +186,7 @@ const fr: Dict = {
     search: 'Cherche ton école ou université',
     searchPlaceholder: 'ex. EDHEC, NYU, Audencia',
     universities: 'Écoles et universités',
-    allCampuses: 'Tous campus',
+    allCampuses: 'Tous les campus',
     noMatch: (q: string) => `Aucun établissement ne correspond à « ${q} ».`,
     narrow: (n: number) => `Continue à taper pour affiner la liste (${n} établissements).`,
     notListed: 'Mon école n’est pas dans la liste',

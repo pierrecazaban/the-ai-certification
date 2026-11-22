@@ -50,7 +50,6 @@ export default function AccountMenu({
     <div className={`cx-menu${light ? ' is-light' : ''}`} ref={ref}>
       <button type="button" className="cx-menu-button" aria-expanded={open} aria-haspopup="menu" aria-label={`${role} : ${email}`} onClick={() => setOpen(!open)}>
         <span className="cx-avatar" aria-hidden="true">{initial}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
       </button>
       {open && (
         <div className="cx-menu-card" role="menu">

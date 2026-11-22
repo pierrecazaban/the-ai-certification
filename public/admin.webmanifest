@@ -3,7 +3,7 @@
   "name": "The AI Certification · Admin",
   "short_name": "AI Cert Admin",
   "description": "Admin console: sales, Smart Mail code of the day and console.",
-  "start_url": "/admin",
+  "start_url": "/ambassador",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F7F8FA",

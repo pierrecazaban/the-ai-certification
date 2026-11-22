@@ -117,6 +117,9 @@ create table if not exists lesson_progress (
 
 alter table registrations add column if not exists user_id uuid;
 alter table users add column if not exists password_hash text;
+-- Biz Dev accounts (20/11): name + password, no email. The name (lower case) is the sign-in identifier.
+alter table users add column if not exists username text;
+create unique index if not exists users_username on users (username) where username is not null;
 
 -- Catalogue purchases: no university, a programme slug instead of the student programme.
 alter table registrations alter column university_id drop not null;
@@ -124,6 +127,8 @@ alter table registrations add column if not exists program text not null default
 alter table registrations add column if not exists organization text not null default '';
 -- Set when the payment created the buyer's account (15/11): only then may the confirmation page set its first password.
 alter table registrations add column if not exists created_account boolean not null default false;
+-- A paid sale in another currency, in euro cents as Stripe credited it (19/11): the admin counts all revenue in euros.
+alter table registrations add column if not exists eur_cents integer;
 
 -- Journal of the admin (15/11): sign-ins, failed attempts, pages opened, actions. Shown in /admin › Journal.
 create table if not exists admin_log (
@@ -350,6 +355,10 @@ create table if not exists outreach_config (
 alter table outreach_prospects add column if not exists declined_at timestamptz;
 alter table outreach_prospects add column if not exists followed_up_at timestamptz;
 alter table outreach_prospects add column if not exists withdrawn_at timestamptz;
+-- The student gave a way to reach them outside LinkedIn (Instagram, WhatsApp, phone…): Pierre carries on there.
+alter table outreach_prospects add column if not exists contact text not null default '';
+alter table outreach_prospects add column if not exists contact_at timestamptz;
+alter table outreach_prospects add column if not exists contacted_at timestamptz;
 create table if not exists outreach_school_search (
   school text primary key,
   searched_at timestamptz not null default now(),
@@ -369,7 +378,53 @@ alter table live_visitors add column if not exists pid text;
 create table if not exists guest_invite (
   id integer primary key,
   code text not null
-)
+);
+
+-- Ambassadeurs « court terme » (18/11) : ceux qu'on consomme avec des mails, comptes Smart Mail envoyés par le
+-- serveur Smart Mail (/api/smartmail/ambassadors). Aucune adresse d'élève ici : seulement des totaux.
+create table if not exists short_ambassadors (
+  smartmail_id integer primary key,
+  first_name text not null default '',
+  domain text not null default '',
+  sent integer not null default 0,
+  buyers integer not null default 0,
+  active boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+-- Qui a fait venir l'ambassadeur court terme : le code personnel tapé à l'entrée du tool (18/11).
+alter table short_ambassadors add column if not exists recruiter_code text not null default '';
+-- Ambassadeurs court terme supprimés depuis l'espace ambassadeur (19/11) : la synchro Smart Mail ne les remet plus,
+-- et la suppression du compte Smart Mail est retentée tant qu'elle n'a pas abouti (done).
+create table if not exists short_removed (smartmail_id integer primary key, removed_at timestamptz not null default now(), done boolean not null default false);
+-- Code personnel de chaque ambassadeur (18/11) : il ouvre le tool Smart Mail comme le code du jour, sans expirer,
+-- et rattache la personne à lui comme ambassadeur court terme.
+alter table ambassadors add column if not exists tool_code text unique;
+-- Grade Master (19/11): who named this ambassador Master, and when. Other grades are computed (lib/grades.ts).
+alter table ambassadors add column if not exists master_by uuid references users(id);
+alter table ambassadors add column if not exists master_at timestamptz;
+-- Nom qu'un ambassadeur donne à quelqu'un de sa pyramide, visible par lui seul (22/11).
+-- Compte Smart Mail lié à cet ambassadeur (23/11) : il n'apparaît plus en double dans la pyramide.
+alter table ambassadors add column if not exists smartmail_id integer;
+create table if not exists ambassador_aliases (owner_id uuid not null, target_id uuid not null, alias text not null, primary key (owner_id, target_id));
+-- Tracker des parcours (18/11) : qui a reçu le mail Smart Mail (empreinte de l'adresse seulement) et les relances.
+-- Note de l'admin sur une inscription (18/11) : « compte supprimé à sa demande », etc. Le tracker l'affiche au lieu d'un trou.
+alter table registrations add column if not exists admin_note text not null default '';
+create table if not exists mail_received (
+  email_hash text primary key,
+  received_at timestamptz not null,
+  smartmail_id integer not null default 0
+);
+create table if not exists reminders (
+  registration_id text not null,
+  step integer not null,
+  sent_at timestamptz not null,
+  ok boolean not null,
+  primary key (registration_id, step)
+);
+-- Note du certificat (22/11), demandée avant le bouton LinkedIn. Le commentaire n'est pas obligatoire.
+alter table certificates add column if not exists rating smallint;
+alter table certificates add column if not exists rating_comment text not null default '';
+alter table certificates add column if not exists rated_at timestamptz
 `;
 
 /** Moves everything attached to school `from` onto school `into`, then deletes `from`. No-op once done. */
@@ -425,6 +480,22 @@ async function seed(q: Query) {
   // Its registrations, waitlist rows, requests and claim move over, then the entry is removed. Paid sales that
   // moved get their commissions once the database is ready (recordCommissions is idempotent).
   await mergeSchool(q, 'd1fdfd3e-d78c-5ef8-916d-13f6baabd02b', '826a2869-d10b-49e0-a6fa-1a525f42523d');
+  // One entry per school, all campuses together (21/11): the entries that named a single campus (ECE Lyon,
+  // EM Lyon Paris, KEDGE Marseille, IÉSEG Lille…) or repeated a school under another name are merged into the school.
+  for (const [campus, school] of [
+    ['fc941576-28c3-5145-aecd-6f49cdcfef15', '798eec0b-ef1d-41dc-98bb-872dbe857c1c'],
+    ['0a2e73e0-0b5a-5427-8ff5-44d319b87a5e', 'd5f25c47-3b8e-491a-b721-3ba5a2a72523'],
+    ['affeb3b1-a6f3-538a-8a89-7ef4b9ff4109', '831e374a-f072-44fa-9c51-f838b56fafab'],
+    ['74bb25fb-3341-5d1e-b1ef-0c47847ecfd6', '57f06641-1a90-4222-af07-9631ff572687'],
+    ['473bd5d6-b746-5eb4-88ed-8ff9eafad93a', '7a6a5b54-32c3-4d88-bd1d-160b155e20a9'],
+    ['319a049a-262f-565d-ac75-d0e501aff2f4', '5490c8e0-9271-419e-820c-e67d5d751220'],
+    ['790b1c75-8336-59c7-9aa8-b5dec865d693', '6259d2c9-9a06-4e12-9c73-e704abb1879a'],
+    ['d6033a85-2330-5473-a49e-a42e35e2aa2a', '85ddfc3f-cec5-4372-9f17-3c62e35f3efb'],
+    ['c4ff0abd-ed85-48e3-a5c4-12c1144f9b95', 'aaca2deb-5c28-4922-95b5-f2a0bdd9a077'],
+  ]) await mergeSchool(q, campus, school);
+  // No school shows a campus as its city any more ("All campuses", "Tous campus"), and names typed by hand get their capitals.
+  await q(`update universities set state = '' where state ilike '%campus%'`);
+  await q(`update universities set name = 'Université Toulouse Capitole' where name = 'Université toulouse capitole'`);
 
   // The admin account is shown as “Pierre” (ambassador view, invite pages).
   // The old test account (test@test.test) is removed with what hangs on it. Its registrations, if any, stay as

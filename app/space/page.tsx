@@ -1,3 +1,4 @@
+import { shownId } from '@/lib/auth';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -67,23 +68,27 @@ export default async function SpacePage({ searchParams }: Props) {
         user={user}
         locale={locale}
       />
-      <main id="main" className="register hero-bands bands-clip">
+      <main id="main" className="register hero-bands bands-clip sp-page">
         <div className="container" style={{ maxWidth: 900 }}>
           {current && nextStep ? (
             <section className={`sp-hero${preview || ambassador ? ' is-console' : ''}`}>
               <div className="sp-hero-text">
+                <span className="sp-accent" aria-hidden="true" />
                 <span className="eyebrow">{current.progress.course.title}</span>
                 <h1>{t.hello(user.first_name || '').replace(/\s+$/, '')}</h1>
                 <div className="sp-progress">
                   <div className="space-bar"><span style={{ width: `${current.progress.percent}%` }} /></div>
                   <span>{l.overall(current.progress.percent)}</span>
                 </div>
-                <p className="sp-hero-cta">
-                  <Link className="btn btn-green" href={nextStep.href}>{nextStep.label} →</Link>
-                </p>
               </div>
               <img className="sp-hero-mascot" src={current.progress.certificate ? '/assets/course/certified.webp' : '/assets/course/welcome.webp'} alt="" width={190} height={190} />
-              {!preview && !ambassador && <div className="sp-account"><AccountMenu name={user.first_name} email={user.email} role={t.title} signOut={t.logout} light /></div>}
+              <p className="sp-hero-cta">
+                <Link className="btn sp-cta" href={nextStep.href}>
+                  <svg className="sp-cta-play" width="18" height="20" viewBox="0 0 18 20" aria-hidden="true"><path d="M2 1.5v17l15-8.5z" fill="currentColor" /></svg>
+                  <span>{nextStep.label}</span>
+                </Link>
+              </p>
+              {!preview && !ambassador && <div className="sp-account"><AccountMenu name={user.first_name} email={shownId(user)} role={t.title} signOut={t.logout} light /></div>}
             </section>
           ) : (
             <div className="space-head">
@@ -91,7 +96,7 @@ export default async function SpacePage({ searchParams }: Props) {
                 <span className="eyebrow">{t.title}</span>
                 <h1>{t.hello(user.first_name || '')}</h1>
               </div>
-              {!preview && !ambassador && <AccountMenu name={user.first_name} email={user.email} role={t.title} signOut={t.logout} light />}
+              {!preview && !ambassador && <AccountMenu name={user.first_name} email={shownId(user)} role={t.title} signOut={t.logout} light />}
             </div>
           )}
 
@@ -149,6 +154,11 @@ function stepOf({ program, progress }: Owned, l: ReturnType<typeof learn>) {
   return { href: `${base}/exam`, label: l.examStart };
 }
 
+// Flèche des cartes de module (22/11, nouveau style de l'espace élève).
+function Chevron() {
+  return <svg className="sp-chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>;
+}
+
 function CourseRows({ owned, locale, showTitle }: { owned: Owned; locale: Locale; showTitle: boolean }) {
   const l = learn(locale);
   const { program, progress } = owned;
@@ -179,7 +189,7 @@ function CourseRows({ owned, locale, showTitle }: { owned: Owned; locale: Locale
                   <span>{l.lessonCount(st.lessonsDone, st.lessonsTotal)} · {l.exercise} {st.exerciseDone ? '✓' : '–'} · {l.quiz} {st.quizBest !== null ? l.score(st.quizBest, m.quiz.length) : '–'}</span>
                 </div>
               </div>
-              <span className="sp-go">{st.complete ? l.review : st.lessonsDone ? l.continue : l.start} →</span>
+              <span className="sp-go"><span className="sp-go-text">{st.complete ? l.review : st.lessonsDone ? l.continue : l.start}</span><Chevron /></span>
             </Link>
           );
         })}
@@ -190,7 +200,7 @@ function CourseRows({ owned, locale, showTitle }: { owned: Owned; locale: Locale
             <strong>{progress.certificate ? l.certified : l.examStart}</strong>
             <span className="sp-summary">{l.examLead(exam, examPassMark(exam, progress.course.examPass))}</span>
           </div>
-          <span className="sp-go">{progress.certificate ? l.viewCertificate : '→'}</span>
+          <span className="sp-go">{progress.certificate && <span className="sp-go-text">{l.viewCertificate}</span>}<Chevron /></span>
         </Link>
       </div>
     </section>

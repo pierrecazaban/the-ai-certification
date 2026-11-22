@@ -2,6 +2,7 @@
 // plus a dictionary in lib/i18n/.
 export const LOCALES = {
   'en-us': { slug: 'school', lang: 'en', intl: 'en-US', currency: 'USD', symbol: '$', label: 'English (US)', example: 'New York, United States' },
+  'en-ca': { slug: 'canada', lang: 'en', intl: 'en-CA', currency: 'CAD', symbol: 'CA$', label: 'English (Canada)', example: 'Montréal, Canada' },
   fr: { slug: 'ecole', lang: 'fr', intl: 'fr-FR', currency: 'EUR', symbol: '€', label: 'Français', example: 'Paris, France' },
   es: { slug: 'estudios', lang: 'es', intl: 'es-ES', currency: 'EUR', symbol: '€', label: 'Español', example: 'Madrid, España' },
   it: { slug: 'studi', lang: 'it', intl: 'it-IT', currency: 'EUR', symbol: '€', label: 'Italiano', example: 'Milano, Italia' },

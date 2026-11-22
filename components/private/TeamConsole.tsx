@@ -1,14 +1,14 @@
-import Link from 'next/link';
-import CopyLink from '@/components/private/CopyLink';
-import { AdminHeader, TEAM_TABS, TeamHeader } from '@/components/private/ConsoleHeaders';
+import DeleteShortButton from '@/components/private/DeleteShortButton';
+import { gradeOf } from '@/lib/grades';
+import { AdminHeader, TeamHeader } from '@/components/private/ConsoleHeaders';
 import type { User } from '@/lib/auth';
 import { sql } from '@/lib/db';
-import { ensureAmbassador, freeSchools, RATES } from '@/lib/team';
+import { ensureAmbassador, freeSchools, payoutBalances, RATES, showsEarnings, toolCodeOf } from '@/lib/team';
 import { claimSchoolAction, requestPayoutAction, saveBankAction } from '@/lib/privateActions';
-import { PRIVATE_SLUGS } from '@/lib/private';
 import { siteUrl } from '@/lib/site';
 import UniversityPicker from '@/components/UniversityPicker';
 import NetworkPyramid, { type PyramidNode } from '@/components/private/NetworkPyramid';
+import ShortInvite from '@/components/private/ShortInvite';
 
 // Ambassador space, rendered by app/[locale]/page.tsx for signed-in ambassadors only. Server-rendered, no client code.
 type Params = Record<string, string | string[] | undefined>;
@@ -24,8 +24,16 @@ const MESSAGES: Record<string, string> = {
   bank_saved: 'Bank details saved.',
   bank_invalid: 'Check the account holder and the IBAN.',
   ok: 'Payout requested. The funds are sent to your bank account within 48 hours.',
-  nothing: 'Nothing to pay out yet.',
+  nothing: 'Nothing available to withdraw yet.',
+  amount: 'Choose an amount above zero and no higher than what is available.',
   no_iban: 'Add your bank details first.',
+  master: 'Made a Legend ✦',
+  unlegend: 'Legend grade removed.',
+  amb_deleted: 'Ambassador deleted.',
+  amb_refused: 'This ambassador cannot be deleted.',
+  short_deleted: 'Ambassador deleted everywhere.',
+  short_pending: 'Ambassador removed from the site. Their Smart Mail account will be erased as soon as Smart Mail is updated.',
+  master_refused: 'Only a Legend can make someone of their branch a Legend.',
 };
 
 const money = (cents: number, currency: string) =>
@@ -37,113 +45,39 @@ const STATUS: Record<string, string> = { paid: 'Paid', held: 'Paying now', expir
 export default async function TeamConsole({ user, params }: { user: User; params: Params }) {
   const amb = await ensureAmbassador(user.id);
   // Schools, students and the team now sit on the overview; their old addresses lead there.
-  const tab = params.tab === 'earnings' ? 'earnings' : 'overview';
+  // Plus aucun montant dans l'espace ambassadeur (18/11) : l'onglet Earnings ramène à l'aperçu.
+  const tab = 'overview';
   const msg = MESSAGES[String(params.msg ?? '')];
   const inviteUrl = `${BASE()}/${amb.invite_code}`;
-  const href = (t: string) => `/${PRIVATE_SLUGS.ambassador}?tab=${t}`;
 
   return (
     <div className="cx" lang="en">
       {user.role === 'admin' ? (
         <>
-          {/* An admin looking at the ambassador space keeps the /admin header, with the ambassador sections below. */}
+          {/* An admin looking at the ambassador space keeps the /admin header (no tab bar: one section only, 19/11). */}
           <AdminHeader admin={user} view="ambassador" />
-          <div className="cx-header cx-subheader">
-            <nav className="container cx-tabs" aria-label="Ambassador sections">
-              {TEAM_TABS.map((t) => <Link key={t.id} href={href(t.id)} aria-current={tab === t.id ? 'page' : undefined}>{t.label}</Link>)}
-            </nav>
-          </div>
         </>
       ) : (
         <TeamHeader user={user} tab={tab} />
       )}
       <main id="main" className="container cx-main">
-        {msg && <p className="price-alert" role="status">{msg}</p>}
         {tab === 'overview' && <Overview user={user} inviteUrl={inviteUrl} />}
-        {tab === 'earnings' && <Earnings userId={user.id} amb={amb} />}
+        {/* Revenus, IBAN et demande de virement (22/11) : seulement pour les ambassadeurs de showsEarnings. */}
+        {showsEarnings(user.email) && (
+          <div id="earnings">
+            {msg && <p className="price-alert" role="status">{msg}</p>}
+            <Earnings userId={user.id} amb={amb} />
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
 async function Overview({ user, inviteUrl }: { user: User; inviteUrl: string }) {
-  const userId = user.id;
+  // Espace ambassadeur (20/11) : uniquement le réseau, comme sur la session de Pierre.
   const tree = await loadTree(user);
-  const [own] = await sql(
-    `select count(*) filter (where r.status = 'paid')::int as paid, count(*)::int as total
-     from registrations r join school_claims c on c.university_id = r.university_id where c.user_id = $1`,
-    [userId],
-  );
-  const owed = await sql(
-    `select currency, sum(amount_cents)::int as cents from commissions where user_id = $1 and status = 'owed' group by currency`,
-    [userId],
-  );
-  const [schools] = await sql('select count(*)::int as n from school_claims where user_id = $1', [userId]);
-  // What matters most: the money. Ambassadors see what they earned (cancelled commissions aside); the admin sees
-  // what the network's students paid.
-  const earned = await sql(
-    `select currency, sum(amount_cents)::int as cents from commissions where user_id = $1 and status in ('owed', 'requested', 'paid') group by currency`,
-    [userId],
-  );
-  const sales = user.role === 'admin'
-    ? await sql(`select r.currency, sum(r.amount_cents)::int as cents from registrations r join school_claims c on c.university_id = r.university_id where r.status = 'paid' group by r.currency`)
-    : [];
-  const sum = (rows: Row[]) => rows.filter((r) => r.cents > 0).map((r) => money(r.cents, r.currency)).join(' · ') || money(0, 'EUR');
-  const admin = user.role === 'admin';
-  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' });
-  return (
-    <>
-      <section className="cx-welcome">
-        <div>
-          <span className="cx-kicker">{today}</span>
-          <h1>Hello {user.first_name || 'there'}!</h1>
-          <p className="cx-money">
-            <strong>{admin ? sum(sales) : sum(earned)}</strong>
-            <span>{admin ? 'paid by the students of the network' : 'earned so far'}</span>
-          </p>
-          {!admin && <p className="cx-money-sub">{sum(owed)} ready to be paid out to you</p>}
-          <p>{tree.total} ambassador{tree.total === 1 ? '' : 's'} in your network · {tree.paid} paid student{tree.paid === 1 ? '' : 's'}</p>
-        </div>
-        <img className="cx-welcome-money" src="/assets/kai-sitting.webp" alt="" width={190} height={190} />
-      </section>
-      <NetworkTree user={user} tree={tree} inviteUrl={inviteUrl} />
-      <InviteCard inviteUrl={inviteUrl} />
-      <div className="cx-kpis">
-        <div className="cx-kpi"><span>{admin ? 'Ambassadors in the network' : 'Your network'}</span><strong>{tree.total}</strong><small>{tree.top.length} invited directly</small></div>
-        <div className="cx-kpi"><span>Paid students in {admin ? 'the network' : 'your network'}</span><strong>{tree.paid}</strong></div>
-        {!admin && <div className="cx-kpi"><span>Your schools</span><strong>{schools.n}</strong><small>{own.paid} paid of {own.total} started</small></div>}
-        {!admin && (
-          <div className="cx-kpi">
-            <span>Owed to you</span>
-            <strong>{owed.length ? owed.map((o) => money(o.cents, o.currency)).join(' · ') : money(0, 'EUR')}</strong>
-          </div>
-        )}
-      </div>
-      <div id="schools" className="cx-anchor"><Schools userId={userId} /></div>
-      <div id="students" className="cx-anchor"><Students userId={userId} /></div>
-      {!admin && (
-        <section className="cx-card">
-          <h2>How you earn</h2>
-          <ul className="checklist">
-            <li>{RATES.owner / 100} % of every payment from a student of your schools. Students are matched to you by their school.</li>
-            <li>{RATES.parent / 100} % of every payment at the schools of the ambassadors you invited.</li>
-            <li>{RATES.grandparent / 100} % at the schools of the ambassadors they invited. Nothing further down, but you see your whole network.</li>
-            <li>A refund cancels the commission on that payment.</li>
-          </ul>
-        </section>
-      )}
-    </>
-  );
-}
-
-function InviteCard({ inviteUrl }: { inviteUrl: string }) {
-  return (
-    <section className="cx-card">
-      <h2>Invite an ambassador</h2>
-      <p className="help">Send this link to anyone: they pick their school (or add it, or take none and grow a team) and start right away.</p>
-      <CopyLink url={inviteUrl} shareText="Join me as an ambassador for The AI Certification:" />
-    </section>
-  );
+  return <NetworkCard user={user} tree={tree} inviteUrl={inviteUrl} />;
 }
 
 async function Schools({ userId }: { userId: string }) {
@@ -188,7 +122,7 @@ async function Schools({ userId }: { userId: string }) {
             <>
               <p className="help">
                 {mine.length === 0
-                  ? `Pick the school you represent: you earn ${RATES.owner / 100} % of every sale there. ${free.length} schools are still free.`
+                  ? `Pick the school you represent. ${free.length} schools are still free.`
                   : 'Each ambassador holds one school. To represent another one, send a request: The AI Certification reviews it and gives you the school if it is still free.'}
               </p>
               <form className="form" action={claimSchoolAction}>
@@ -225,18 +159,17 @@ async function Students({ userId }: { userId: string }) {
       <h2>{rows.length} student{rows.length === 1 ? '' : 's'}</h2>
       <div className="cx-scroll">
         <table className="cx-table">
-          <thead><tr><th>Student</th><th>School</th><th>Registered</th><th>Status</th><th className="num">Your share</th></tr></thead>
+          <thead><tr><th>Student</th><th>School</th><th>Registered</th><th>Status</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
                 <td><strong>{short(r.first_name, r.last_name)}</strong>{!r.mine && <small>via {r.via}</small>}</td>
                 <td>{r.school}</td>
                 <td>{day(r.created_at)}</td>
-                <td><span className={`cx-badge tone-${r.status === 'paid' ? 'ok' : r.status === 'held' ? 'warn' : 'muted'}`}>{STATUS[r.status] ?? r.status}{r.status === 'paid' ? ` ${money(r.amount_cents, r.currency)}` : ''}</span></td>
-                <td className="num">{r.earned != null ? money(r.earned, r.currency) : '—'}</td>
+                <td><span className={`cx-badge tone-${r.status === 'paid' ? 'ok' : r.status === 'held' ? 'warn' : 'muted'}`}>{STATUS[r.status] ?? r.status}</span></td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={5} className="empty">No student yet.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={4} className="empty">No student yet.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -245,10 +178,8 @@ async function Students({ userId }: { userId: string }) {
 }
 
 async function Earnings({ userId, amb }: { userId: string; amb: Record<string, any> }) {
-  const totals = await sql(
-    `select currency, status, sum(amount_cents)::int as cents from commissions where user_id = $1 group by currency, status`,
-    [userId],
-  );
+  // Balance per currency (22/11): earned minus payouts asked for or paid; the ambassador withdraws any amount of it.
+  const balances = await payoutBalances(userId);
   const lines = await sql(
     `select cm.*, r.first_name, r.last_name, r.amount_cents as paid_cents, u.name as school
      from commissions cm join registrations r on r.id = cm.registration_id join universities u on u.id = r.university_id
@@ -256,16 +187,19 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
     [userId],
   );
   const payouts = await sql('select * from payouts where user_id = $1 order by requested_at desc', [userId]);
-  const sum = (status: string) =>
-    totals.filter((t) => t.status === status).map((t) => money(t.cents, t.currency)).join(' · ') || money(0, 'EUR');
-  const hasOwed = totals.some((t) => t.status === 'owed' && t.cents > 0);
+  // Zero is shown in the ambassador's own currency (a US school earns in dollars), euros when nothing yet.
+  const zero = money(0, balances[0]?.currency ?? 'EUR');
+  const sum = (k: 'available' | 'requested' | 'paid') =>
+    balances.filter((b) => b[k] > 0).map((b) => money(b[k], b.currency)).join(' · ') || zero;
+  const withdrawable = balances.filter((b) => b.available > 0);
+  const first = withdrawable[0];
   const iban = String(amb.iban ?? '');
   const maskedIban = iban ? `${iban.slice(0, 4)} •••• •••• ${iban.slice(-4)}` : '';
 
   return (
     <>
       <div className="cx-kpis">
-        <div className="cx-kpi"><span>Owed to you</span><strong>{sum('owed')}</strong></div>
+        <div className="cx-kpi"><span>Available</span><strong>{sum('available')}</strong></div>
         <div className="cx-kpi"><span>Payout requested</span><strong>{sum('requested')}</strong></div>
         <div className="cx-kpi"><span>Paid to you</span><strong>{sum('paid')}</strong></div>
       </div>
@@ -273,15 +207,33 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
       <section className="cx-card cx-payout">
         <div className="cx-payout-main">
           <span className="eyebrow">Your payout</span>
-          <strong className="cx-payout-amount">{sum('owed')}</strong>
+          <strong className="cx-payout-amount">{sum('available')}</strong>
           <p className="help">
-            Ask whenever you have something owed: we send the funds to your bank account by transfer within 48 hours.
+            Choose how much to withdraw, up to what is available: we send it to your bank account by transfer within 48 hours.
           </p>
-          <form action={requestPayoutAction}>
-            <button className="btn btn-green" type="submit" disabled={!hasOwed || !iban}>Ask for my payout</button>
-          </form>
+          {iban && first ? (
+            <form action={requestPayoutAction} className="form cx-payout-form">
+              <div className="field">
+                <label htmlFor="p-amount">Amount to withdraw{withdrawable.length === 1 ? ` (${first.currency})` : ''}</label>
+                <div className="cx-payout-row">
+                  <input id="p-amount" name="amount" type="number" inputMode="decimal" min="0.01" step="0.01"
+                    max={(first.available / 100).toFixed(2)} defaultValue={(first.available / 100).toFixed(2)} required />
+                  {withdrawable.length > 1 ? (
+                    <select name="currency" aria-label="Currency" defaultValue={first.currency}>
+                      {withdrawable.map((b) => <option key={b.currency} value={b.currency}>{b.currency} · up to {money(b.available, b.currency)}</option>)}
+                    </select>
+                  ) : (
+                    <input type="hidden" name="currency" value={first.currency} />
+                  )}
+                </div>
+              </div>
+              <div><button className="btn btn-green" type="submit">Ask for this payout</button></div>
+            </form>
+          ) : (
+            <div><button className="btn btn-green" type="button" disabled>Ask for a payout</button></div>
+          )}
           {!iban && <p className="help">Add your bank account first.</p>}
-          {iban && !hasOwed && <p className="help">Nothing owed right now: commissions appear as soon as a student pays.</p>}
+          {iban && !first && <p className="help">Nothing available right now: commissions appear as soon as a student pays.</p>}
         </div>
         <div className="cx-payout-bank">
           <h3>Bank account</h3>
@@ -291,20 +243,14 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
               <code>{maskedIban}</code>
             </div>
           )}
-          <details className="cx-setting-edit" open={!iban}>
-            {iban && <summary className="btn btn-sm">Change</summary>}
-            <form className="form" action={saveBankAction}>
-              <div className="field">
-                <label htmlFor="b-holder">Account holder</label>
-                <input id="b-holder" name="holder" defaultValue={amb.iban_holder ?? ''} autoComplete="name" required />
-              </div>
-              <div className="field">
-                <label htmlFor="b-iban">IBAN</label>
-                <input id="b-iban" name="iban" defaultValue={iban} placeholder="FR76 3000 6000 0112 3456 7890 189" required />
-              </div>
-              <div><button className="btn btn-sm" type="submit">Save bank account</button></div>
-            </form>
-          </details>
+          {iban ? (
+            <details className="cx-setting-edit">
+              <summary className="btn btn-sm">Change</summary>
+              <BankForm holder={amb.iban_holder ?? ''} iban={iban} />
+            </details>
+          ) : (
+            <BankForm holder="" iban="" />
+          )}
         </div>
       </section>
 
@@ -313,7 +259,7 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
         <p className="help">{RATES.owner / 100} % on students of your schools, {RATES.parent / 100} % at the schools of the ambassadors you invited, {RATES.grandparent / 100} % one level below them.</p>
         <div className="cx-scroll">
           <table className="cx-table">
-            <thead><tr><th>Date</th><th>Student</th><th>Payment</th><th>Your share</th><th className="num">Amount</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>Student</th><th>Payment</th><th>Your share</th><th className="num">Amount</th></tr></thead>
             <tbody>
               {lines.map((l) => (
                 <tr key={l.id}>
@@ -322,10 +268,9 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
                   <td>{money(l.paid_cents, l.currency)}</td>
                   <td>{l.rate_bp / 100} %{l.level === 2 ? ' (your invitee)' : l.level === 3 ? ' (2nd level)' : ''}</td>
                   <td className="num">{money(l.amount_cents, l.currency)}</td>
-                  <td>{l.status === 'owed' ? 'Owed' : l.status === 'requested' ? 'Requested' : l.status === 'paid' ? 'Paid' : 'Cancelled'}</td>
                 </tr>
               ))}
-              {lines.length === 0 && <tr><td colSpan={6} className="empty">No commission yet.</td></tr>}
+              {lines.length === 0 && <tr><td colSpan={5} className="empty">No commission yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -360,7 +305,15 @@ type Node = Row & { children: Node[]; size: number };
 async function loadTree(user: User) {
   const rows = await sql(
     `select a.user_id as id, a.parent_user_id as parent, a.created_at, u.first_name, u.last_name, u.role,
-       (select string_agg(un.name, ', ' order by un.name) from school_claims c join universities un on un.id = c.university_id where c.user_id = a.user_id) as schools,
+       a.master_by is not null as master,
+       (select count(*)::int from short_ambassadors s where a.tool_code is not null and s.recruiter_code = a.tool_code and (s.active or s.sent > 0)) as shorts,
+       -- L'école tenue par l'ambassadeur ; à défaut (compte ouvert depuis Smart Mail, aucune école encore prise), celle de son adresse d'école.
+       coalesce(
+         (select string_agg(un.name, ', ' order by un.name) from school_claims c join universities un on un.id = c.university_id where c.user_id = a.user_id),
+         (select un.name from universities un, unnest(un.email_domains) d
+           where split_part(lower(u.email), '@', 2) = lower(d) or split_part(lower(u.email), '@', 2) like '%.' || lower(d)
+              or lower(d) like '%.' || split_part(lower(u.email), '@', 2)
+           order by length(d) desc limit 1)) as schools,
        (select count(*)::int from registrations r join school_claims c on c.university_id = r.university_id where c.user_id = a.user_id and r.status = 'paid') as paid
      from ambassadors a join users u on u.id = a.user_id order by a.created_at`,
   );
@@ -377,8 +330,33 @@ async function loadTree(user: User) {
     if (n.parent && nodes.has(n.parent)) nodes.get(n.parent)!.children.push(n);
     else if (user.role === 'admin' && n.role !== 'admin') roots.push(n);
   }
+  // Une seule pyramide (23/11) : les ambassadeurs d'école sans compte sur le site y figurent aussi, sous celui dont ils
+  // ont tapé le code (sinon sous le sommet, pour l'admin). Ceux qui ont un compte y sont déjà, une seule fois.
+  const shortRows = await sql(
+    `select s.smartmail_id, s.first_name, s.domain, s.recruiter_code, o.user_id as owner,
+       (select u.name from universities u, unnest(u.email_domains) d
+         where s.domain = lower(d) or s.domain like '%.' || lower(d) or lower(d) like '%.' || s.domain order by length(d) desc limit 1) as school
+     from short_ambassadors s left join ambassadors o on o.tool_code = s.recruiter_code and s.recruiter_code <> ''
+     where (s.active or s.sent > 0)
+       and not exists (select 1 from short_removed x where x.smartmail_id = s.smartmail_id)
+       and not exists (select 1 from ambassadors a where a.smartmail_id = s.smartmail_id)`,
+  );
+  for (const r of shortRows) {
+    const leaf: Node = { id: `sm-${r.smartmail_id}`, parent: r.owner ?? null, first_name: String(r.first_name || 'Ambassador').replace(/^./, (c: string) => c.toUpperCase()),
+      last_name: '', role: 'short', schools: r.school ?? r.domain, paid: 0, master: false, shorts: 0, earned: [], children: [], size: 0 };
+    const owner = r.owner ? nodes.get(String(r.owner)) : null;
+    if (owner) owner.children.push(leaf);
+    else if (user.role === 'admin') roots.push(leaf);
+  }
+  // Grades (19/11): people brought = ambassadors invited directly + Smart Mail ambassadors who entered your code.
+  for (const n of nodes.values()) {
+    n.brought = n.children.length; // les ambassadeurs d'école sont maintenant dans children (23/11)
+    n.grade = gradeOf({ admin: n.role === 'admin', master: Boolean(n.master), brought: n.brought });
+  }
   const me = nodes.get(user.id);
   const top = user.role === 'admin' ? roots : me?.children ?? [];
+  const grade = user.role === 'admin' ? ('master' as const) : me ? (me.grade as ReturnType<typeof gradeOf>) : ('dog' as const);
+  const brought = Number(me?.brought ?? 0);
   // Sizes and paid students per branch (guarded against a loop in the data).
   const seen = new Set<string>();
   const measure = (n: Node): [number, number] => {
@@ -392,7 +370,10 @@ async function loadTree(user: User) {
   let total = 0, paid = 0;
   for (const n of top) { const [s2, p2] = measure(n); total += 1 + s2; paid += p2; }
   const sponsor = me?.parent ? nodes.get(me.parent) : null;
-  return { top, total, paid, sponsor: sponsor ? `${sponsor.first_name} ${sponsor.last_name}`.trim() : me ? 'The AI Certification' : null };
+  // Les noms donnés par celui qui regarde, pour lui seul (22/11).
+  const aliases = new Map((await sql('select target_id, alias from ambassador_aliases where owner_id = $1', [user.id])).map((r) => [String(r.target_id), String(r.alias)]));
+  return { top, total, paid, grade, brought, aliases, // Invité par le lien admin (pas de parrain enregistré) : c'est Pierre et Hippolyte qu'il voit au-dessus (20/11).
+    sponsor: sponsor ? `${sponsor.first_name} ${sponsor.last_name}`.trim() : me ? ADMIN_ROOT : null };
 }
 
 type Tree = Awaited<ReturnType<typeof loadTree>>;
@@ -401,38 +382,133 @@ function NetworkTree({ user, tree, inviteUrl }: { user: User; tree: Tree; invite
   const admin = user.role === 'admin';
   const toPyramid = (n: Node, level: number): PyramidNode => ({
     id: String(n.id),
-    name: `${n.first_name} ${n.last_name}`.trim(),
+    name: tree.aliases.get(String(n.id)) ?? `${n.first_name} ${n.last_name}`.trim(),
+    realName: `${n.first_name} ${n.last_name}`.trim(),
+    canRename: !String(n.id).startsWith('sm-'),
     school: n.schools ?? 'No school',
     paid: Number(n.paid),
     size: n.size,
-    rate: admin ? 0 : LEVEL_RATE(level) / 100,
+    rate: 0,
     earned: (n.earned ?? []).map((e: { currency: string; cents: number }) => money(e.cents, e.currency)).join(' · '),
+    grade: n.grade,
+    canMaster: tree.grade === 'master' && n.grade !== 'master' && !String(n.id).startsWith('sm-'),
+    // L'admin (22/11) : retirer Legend, supprimer l'ambassadeur.
+    canUnlegend: admin && n.grade === 'master',
+    canDelete: admin && !String(n.id).startsWith('sm-'),
     children: n.children.map((c) => toPyramid(c, level + 1)),
   });
   const root: PyramidNode = {
     id: user.id,
-    name: user.first_name || 'You',
+    name: admin ? ADMIN_ROOT : user.first_name || 'You',
     school: admin ? 'The AI Certification' : 'You',
     paid: tree.paid,
     size: tree.total,
     rate: 0,
     earned: '',
+    grade: tree.grade,
     children: tree.top.map((n) => toPyramid(n, 1)),
   };
   return (
-    <section className="cx-card tm-card">
-      <div className="cx-toolbar">
-        <h2 style={{ margin: 0 }}>{admin ? 'Ambassador network' : 'Your network'}</h2>
-        <span className="cx-badge tone-ok">{tree.total} ambassador{tree.total === 1 ? '' : 's'} · {tree.paid} paid student{tree.paid === 1 ? '' : 's'}</span>
+    <>
+      <NetworkPyramid root={root} sponsor={admin ? null : tree.sponsor} viewerEarns={false} inviteUrl={inviteUrl} />
+    </>
+  );
+}
+
+/**
+ * Long et court terme dans une seule carte (19/11) : deux onglets, chacun avec son nombre et une phrase qui dit la
+ * différence. Bascule en CSS (boutons radio), sans JavaScript : le long terme est ouvert d'abord.
+ */
+async function NetworkCard({ user, tree, inviteUrl }: { user: User; tree: Tree; inviteUrl: string }) {
+  // Une seule pyramide (23/11) : plus d'onglets Biz Dev / Ambassadors.
+  return <NetworkTree user={user} tree={tree} inviteUrl={inviteUrl} />;
+}
+
+// Vue admin (18/11) : le sommet des deux arbres, c'est Pierre et Hippolyte.
+const ADMIN_ROOT = 'Pierre et Hippolyte';
+
+/**
+ * Ambassadeurs « court terme » (18/11) : ceux qu'on consomme avec des mails (comptes Smart Mail). Chacun se place sous
+ * l'ambassadeur dont il a tapé le code personnel à l'entrée du tool ; sans code personnel (code du jour), sous le sommet.
+ * Un ambassadeur ne voit que les siens ; l'admin voit tout, sous Pierre et Hippolyte.
+ */
+async function loadShort(user: User) {
+  const admin = user.role === 'admin';
+  const myCode = await toolCodeOf(user.id);
+  const all = await sql(
+    `select s.smartmail_id, s.first_name, s.domain, s.sent, s.buyers, s.updated_at, s.recruiter_code,
+       (select u.name from universities u, unnest(u.email_domains) d
+         where s.domain = lower(d) or s.domain like '%.' || lower(d) or lower(d) like '%.' || s.domain order by length(d) desc limit 1) as school
+     from short_ambassadors s where (s.active or s.sent > 0) and not exists (select 1 from short_removed x where x.smartmail_id = s.smartmail_id) order by s.buyers desc, s.sent desc`,
+  );
+  const codes = [...new Set(all.map((r) => String(r.recruiter_code)).filter(Boolean))];
+  const owners = codes.length
+    ? await sql(`select a.tool_code, a.user_id, u.first_name, u.last_name, u.role from ambassadors a join users u on u.id = a.user_id where a.tool_code = any($1::text[])`, [codes])
+    : [];
+  const ownerOf = new Map(owners.map((o) => [String(o.tool_code), o]));
+  const rows = admin ? all : all.filter((r) => r.recruiter_code === myCode);
+  // Admin : sous le sommet directement ceux venus par le code du jour ou un code d'admin ; les autres, sous leur recruteur.
+  const direct = rows.filter((r) => { const o = ownerOf.get(String(r.recruiter_code)); return !admin || !o || o.role === 'admin'; });
+  const groups = admin
+    ? [...new Set(rows.map((r) => String(r.recruiter_code)))]
+        .map((c) => ownerOf.get(c)).filter((o): o is Record<string, any> => Boolean(o) && o!.role !== 'admin')
+        .map((o) => ({ owner: o, list: rows.filter((r) => r.recruiter_code === o.tool_code) }))
+    : [];
+  return { rows, direct, groups, myCode };
+}
+
+function ShortTree({ user, short }: { user: User; short: Awaited<ReturnType<typeof loadShort>> }) {
+  const admin = user.role === 'admin';
+  const { direct, groups, myCode } = short;
+  const capital = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Ambassador');
+  const card = (r: Record<string, any>) => (
+    <li key={r.smartmail_id} className="st-node">
+      <span className="st-av">{capital(String(r.first_name))[0]}</span>
+      <div><strong>{capital(String(r.first_name))}</strong><small>{r.school ?? r.domain}</small></div>
+      {admin && <DeleteShortButton id={Number(r.smartmail_id)} name={capital(String(r.first_name))} />}
+    </li>
+  );
+  return (
+    <>
+      <div className="st-tree">
+        <div className="st-node st-root">
+          <span className="st-av">{(admin ? 'P' : (user.first_name || 'Y')[0]).toUpperCase()}</span>
+          <div><strong>{admin ? ADMIN_ROOT : user.first_name || 'You'}</strong></div>
+        </div>
+        <ul>
+          {/* Le code à donner, en premier pour qu'on le voie tout de suite (22/11). */}
+          <ShortInvite code={myCode} />
+          {groups.map((g) => (
+            <li key={g.owner.user_id} className="st-group">
+              <div className="st-node st-owner">
+                <span className="st-av">{String(g.owner.first_name || '?')[0].toUpperCase()}</span>
+                <div><strong>{`${g.owner.first_name} ${g.owner.last_name}`.trim()}</strong><small>Biz Dev · {g.list.length} ambassador{g.list.length === 1 ? '' : 's'}</small></div>
+              </div>
+              <ul>{g.list.map(card)}</ul>
+            </li>
+          ))}
+          {direct.map(card)}
+        </ul>
       </div>
-      <p className="help">
-        {admin
-          ? 'Everyone, under the person who invited them. Ambassadors invited from this space start a new branch.'
-          : `You earn ${RATES.parent / 100} % at the schools of the people you invited and ${RATES.grandparent / 100} % one level below. You see everyone further down too.`}
-      </p>
-      <NetworkPyramid root={root} sponsor={admin ? null : tree.sponsor} viewerEarns={!admin} inviteUrl={inviteUrl} />
-    </section>
+    </>
   );
 }
 
 const LEVEL_RATE = (level: number) => (level === 1 ? RATES.parent : level === 2 ? RATES.grandparent : 0);
+
+// Bank account form: shown directly while no IBAN is saved, behind "Change" afterwards.
+function BankForm({ holder, iban }: { holder: string; iban: string }) {
+  return (
+    <form className="form" action={saveBankAction}>
+      <div className="field">
+        <label htmlFor="b-holder">Account holder</label>
+        <input id="b-holder" name="holder" defaultValue={holder} autoComplete="name" required />
+      </div>
+      <div className="field">
+        <label htmlFor="b-iban">IBAN</label>
+        <input id="b-iban" name="iban" defaultValue={iban} placeholder="FR76 3000 6000 0112 3456 7890 189" required />
+      </div>
+      <div><button className="btn btn-sm" type="submit">Save bank account</button></div>
+    </form>
+  );
+}

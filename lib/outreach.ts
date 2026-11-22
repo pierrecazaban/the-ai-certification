@@ -16,7 +16,7 @@ export type OutreachConfig = {
   schools: string[]; // order in which schools are prospected
   perSchool: number; // first-year students to find in each school
   searchesPerDay: number; // LinkedIn people searches a day (the free account has a monthly search cap)
-  message: string; // {prenom} {ecole} {lien}
+  message: string; // {prenom} {ecole} ({lien} still works; the message now asks where the student prefers to talk)
   inviteNote: string; // short note on the invitation (Premium); empty = no note
   followUpAfterDays: number; // one reminder when the student has not answered the message (0 = never)
   followUp: string; // {prenom} {ecole} {lien}
@@ -37,12 +37,12 @@ export const DEFAULT_CONFIG: OutreachConfig = {
   schools: ["HEC Paris", "Audencia", "KEDGE Business School", "Grenoble École de Management (GEM)", "TBS Education", "Rennes School of Business", "Montpellier Business School", "ICN Business School", "EM Strasbourg", "BSB – Burgundy School of Business", "EM Normandie", "Excelia", "ESC Clermont Business School", "IMT Business School", "Brest Business School", "ESC Pau Business School", "Y Schools", "INSEEC Grande École", "PSB Paris School of Business", "ISC Paris", "EDC Paris Business School", "ESCE", "IPAG Business School", "EBS Paris", "ESDES", "ISTEC", "ICD Business School", "IDRAC Business School", "ESG", "ISG", "EMLV – De Vinci", "ESLSCA", "Albert School", "MBway", "ESGCI", "PPA Business School", "IFAG", "ISEG", "ESAM", "Université Paris Dauphine-PSL", "IAE Paris-Sorbonne Business School", "IAE Gustave Eiffel", "ISM-IAE Versailles Saint-Quentin", "IAE Paris-Saclay", "iaelyon", "IAE Aix-Marseille", "IAE Bordeaux", "IAE Lille", "TSM – Toulouse School of Management", "IAE Nantes", "Grenoble IAE", "MOMA – Montpellier Management", "IAE Nice", "IAE Caen", "IAE Rouen Normandie", "IAE Tours", "IAE Poitiers", "IGR-IAE Rennes", "IAE Brest", "IAE Bretagne Sud", "IAE Dijon", "IAE Besançon", "IAE Metz", "IAE Nancy", "IAE Savoie Mont Blanc", "IAE Saint-Étienne", "IAE Clermont Auvergne", "IAE La Rochelle", "IAE Pau-Bayonne", "IAE Amiens", "IAE Limoges", "IAE Orléans", "IAE Valenciennes", "IAE Toulon", "IAE Perpignan", "IAE Corse", "IAE Réunion", "EMD Business School", "ESCD 3A", "ISCID-CO", "American Business School Paris", "Schiller International University", "Ascencia Business School", "PSTB – Paris School of Technology & Business", "ISEFAC Bachelor", "EIML Paris", "Sup de Luxe", "Vatel", "Euridis Business School", "ECEMA", "NEGOSUP", "ESPI", "IPAC Bachelor Factory", "ESARC Évolution", "EGC – réseau des écoles de gestion et de commerce (CCI)", "Institut Paul Bocuse", "ESTA", "École de Management de la Sorbonne (Paris 1)", "Faculté d'Économie et de Gestion d'Aix-Marseille", "IAE Le Mans"],
   perSchool: 5,
   searchesPerDay: 20,
-  inviteNote: 'Bonjour {prenom}, je cherche LA personne qui représentera The AI Certification à {ecole} : un ambassadeur par école, 10 % de commission sur les ventes. Je t’envoie les détails si tu acceptes !',
+  inviteNote: 'Bonjour {prenom}, on a lancé une certification IA à mettre sur LinkedIn et sur son CV. On la développe avec un réseau d’ambassadeurs (Polytechnique, ESSEC, ESCP et 25 autres) et {ecole} nous intéresse particulièrement. Je t’explique tout en 5 min si tu acceptes !',
   followUpAfterDays: 4,
-  followUp: 'Hello {prenom}, je me permets de relancer : la place d’ambassadeur à {ecole} est toujours ouverte. Si ça te tente, 45 min suffisent pour tout t’expliquer : {lien}',
+  followUp: 'Bonjour {prenom}, je me permets de te relancer : {ecole} nous intéresse toujours pour notre réseau d’ambassadeurs. 5 min suffisent pour tout t’expliquer, donne-moi juste le contact qui t’arrange (WhatsApp, Insta, Teams ou autre) et on s’appelle rapidement.',
   withdrawAfterDays: 21,
   searchCooldownDays: 7,
-  message: 'Merci pour l’ajout {prenom} ! On cherche LA personne qui représentera The AI Certification à {ecole} : un seul ambassadeur par école, 10 % de commission sur les ventes. On est déjà à l’ESCP, l’EDHEC et emlyon. Ça te dit d’en parler 45 min ? Choisis ton créneau ici : {lien}',
+  message: 'Bonjour {prenom}, on a lancé une certification IA qui permet aux étudiants de prouver leurs compétences en la mettant sur LinkedIn et sur leur CV. Pour la développer, on se base sur un réseau d’ambassadeurs, on les cherche dans toutes les écoles de commerce et d’ingé. On a déjà Polytechnique, l’ESSEC, l’ESCP et 25 autres. {ecole} nous intéresse particulièrement. En plus, être ambassadeur, tu pourras le valoriser comme compétence. J’aimerais t’expliquer tout ça en 5 min : donne-moi le contact qui te convient pour qu’on puisse s’appeler rapidement, Teams, WhatsApp, Insta ou autre, là où t’es le plus à l’aise.',
 };
 
 const clamp = (n: unknown, max: number, def: number) => Math.max(0, Math.min(max, Math.round(Number(n)) || 0)) || (Number(n) === 0 ? 0 : def);
@@ -113,7 +113,7 @@ export async function addProspects(list: ProspectIn[]) {
 }
 
 export type Prospect = { linkedin: string; name: string; first_name: string; school: string; headline: string; token: string | null; status: string;
-  found_at: string; invited_at: string | null; accepted_at: string | null; messaged_at: string | null; booked_at: string | null; error: string; link: string };
+  found_at: string; invited_at: string | null; accepted_at: string | null; messaged_at: string | null; booked_at: string | null; error: string; link: string; contact: string; contact_at: string | null; contacted_at: string | null };
 
 export async function prospects(status: string | null, limit = 200): Promise<Prospect[]> {
   const rows = status
@@ -133,6 +133,31 @@ export async function setStatus(linkedinUrl: string, status: string, error = '')
     `update outreach_prospects set status = $2, error = $3${col ? `, ${col} = coalesce(${col}, now())` : ''} where linkedin = $1 and (status <> all($4) or $2 = any($4))`,
     [linkedin, status, error.slice(0, 300), FINAL],
   );
+}
+
+/** The student gave a way to reach them (Instagram, WhatsApp, phone…): kept, and the prospect moves to “contact”. */
+export async function setContact(linkedinUrl: string, contact: string) {
+  await sql(
+    `update outreach_prospects set status = 'contact', contact = $2, contact_at = coalesce(contact_at, now()) where linkedin = $1 and status <> all($3)`,
+    [normaliseLinkedin(linkedinUrl), contact.trim().slice(0, 200), FINAL],
+  );
+}
+
+/** Students who gave a contact, the ones still to call first. */
+export async function contacts(): Promise<Prospect[]> {
+  const rows = await sql(`select * from outreach_prospects where contact <> '' order by (contacted_at is not null), contact_at desc limit 200`);
+  return rows.map((r) => ({ ...(r as Omit<Prospect, 'link'>), link: r.token ? `${siteUrl()}/call?t=${r.token}` : `${siteUrl()}/call` }));
+}
+
+/** How many gave a contact and have not been called yet (the red dot of the admin). */
+export async function toContactCount() {
+  const [r] = await sql(`select count(*)::int as n from outreach_prospects where contact <> '' and contacted_at is null and status <> 'declined'`);
+  return r.n as number;
+}
+
+/** Pierre called (or wrote to) the student on the contact they gave; `done = false` puts them back in the list to call. */
+export async function markContacted(linkedinUrl: string, done = true) {
+  await sql(`update outreach_prospects set contacted_at = ${done ? 'coalesce(contacted_at, now())' : 'null'} where linkedin = $1`, [normaliseLinkedin(linkedinUrl)]);
 }
 
 /** The follow-up went out (the student stays “messaged”). */
@@ -159,6 +184,14 @@ export async function log(kind: string, text: string) {
   await sql('insert into outreach_log (id, kind, text) values ($1, $2, $3)', [randomUUID(), kind.slice(0, 30), text.slice(0, 500)]);
 }
 
+/** True the first time in `hours` hours for this kind of alert (and remembers it): one e-mail, not one per run. */
+export async function firstAlert(kind: string, hours: number) {
+  const [r] = await sql(`select count(*)::int as n from outreach_log where kind = $1 and at > now() - make_interval(hours => $2::int)`, [kind, hours]);
+  if (r.n > 0) return false;
+  await log(kind, 'Alerte envoyée par e-mail');
+  return true;
+}
+
 export async function recentLog(limit = 40) {
   return sql('select kind, text, at from outreach_log order by at desc limit $1', [limit]);
 }
@@ -168,7 +201,7 @@ export async function funnel() {
   const by = Object.fromEntries(rows.map((r) => [r.status, r.n]));
   return {
     found: by.found ?? 0, invited: by.invited ?? 0, accepted: by.accepted ?? 0, messaged: by.messaged ?? 0,
-    booked: by.booked ?? 0, failed: by.failed ?? 0, declined: by.declined ?? 0, withdrawn: by.withdrawn ?? 0, total: rows.reduce((s, r) => s + r.n, 0),
+    booked: by.booked ?? 0, contact: by.contact ?? 0, failed: by.failed ?? 0, declined: by.declined ?? 0, withdrawn: by.withdrawn ?? 0, total: rows.reduce((s, r) => s + r.n, 0),
   };
 }
 
