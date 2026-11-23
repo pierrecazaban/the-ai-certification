@@ -1143,6 +1143,66 @@ a.learn-card:hover { transform: translateY(-2px); border-color: var(--green-dark
   .sp-hero-module { padding: 24px 20px; }
 }
 .learn-photo { display: block; width: 100%; height: auto; max-height: 320px; object-fit: cover; border-radius: 14px; margin: 12px 0 4px; }
+/* Widgets animés des leçons v2 (23/11, components/learning/LessonFigure) : vidéo un peu plus petite que son dessin
+   sur ordinateur (78 %, jamais plus haute que 58 % de l'écran). Un appui l'ouvre en grand sur fond flouté ; boutons
+   Rejouer et Agrandir sous le dessin (ils ne cachent jamais rien). Couleurs : bleu et jaune des modules (le jaune
+   d'or #F5B82E de Pace.module.css, pas l'ambre des boutons, jugé trop orange), comme les vidéos elles-mêmes
+   (palette alignée le 23/11, voir ~/Sauvegardes/illustrations-cours-v2/palette.py). */
+.lf-wrap { margin: 14px auto 16px; width: min(100%, calc(var(--fw) * .78), calc(58vh * var(--ar))); }
+.lf-wrap.lf-fill { width: 100%; }
+.lf { position: relative; display: block; aspect-ratio: var(--ar); width: 100%;
+  border-radius: 18px; overflow: hidden; background: var(--cream);
+  box-shadow: 0 0 0 1px var(--line), 0 12px 28px -18px rgba(23, 39, 76, .35);
+  cursor: zoom-in; -webkit-tap-highlight-color: transparent; isolation: isolate; }
+.lf:focus-visible { outline: 3px solid #F5B82E; outline-offset: 3px; }
+.lf video, .lf img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.lf-bar { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+/* Widget étroit : la barre peut dépasser de la largeur du dessin, centrée dessous. */
+.lf-wrap .lf-bar { width: max-content; min-width: 100%; position: relative; left: 50%; transform: translateX(-50%); }
+.lf-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--green); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background .2s, color .2s; -webkit-tap-highlight-color: transparent; }
+.lf-btn svg { width: 15px; height: 15px; flex: none; }
+.lf-btn { flex: none; white-space: nowrap; }
+.lf-btn:hover { background: #EAEFF8; color: var(--navy); }
+.lf-btn.is-on { background: #FFF3D1; color: var(--navy); }
+.lf-recap { margin: 28px auto 10px; width: min(100%, 460px, calc(62vh * var(--ar))); }
+.lf-tab { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px 9px 14px; border-radius: 14px 14px 0 0;
+  background: var(--navy); color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .02em; }
+.lf-tab svg { width: 14px; height: 14px; color: #F5B82E; }
+.lf-recap .lf-wrap { margin-top: 0; }
+.lf-recap .lf { border-top-left-radius: 0; }
+.lf-box { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 14px;
+  background: rgba(13, 22, 48, .42); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15);
+  animation: lfFade .25s ease both; }
+.lf-box-inner { width: min(96vw, calc((100dvh - 110px) * var(--ar)), 1600px); animation: lfZoom .35s cubic-bezier(.22, .9, .3, 1) both; }
+.lf-box-inner video, .lf-box-inner img { display: block; width: 100%; height: auto; border-radius: 20px; background: var(--cream);
+  box-shadow: 0 30px 90px -24px rgba(0, 0, 0, .55); }
+.lf-box-bar { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+.lf-pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, .92); color: var(--navy); font: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .4); transition: transform .2s; }
+.lf-pill svg { width: 17px; height: 17px; }
+.lf-pill:hover { transform: translateY(-1px); }
+.lf-pill.is-on { background: #F5B82E; }
+@keyframes lfFade { from { opacity: 0; } }
+@keyframes lfZoom { from { opacity: 0; transform: scale(.94); } }
+@media (max-width: 640px) {
+  /* Sur téléphone, un widget prend au plus 42 % de l'écran en hauteur (un appui l'ouvre en grand), mais jamais
+     moins de la moitié de la taille de son dessin : un schéma très haut reste lisible au lieu de rétrécir. */
+  .lf-wrap { margin: 12px auto 14px;
+    width: max(min(100%, calc(var(--fw) * .72), calc(42vh * var(--ar))), min(100%, calc(var(--fw) * .5)));
+    width: max(min(100%, calc(var(--fw) * .72), calc(42svh * var(--ar))), min(100%, calc(var(--fw) * .5))); }
+  .lf-recap { margin-top: 22px; width: max(min(100%, calc(44vh * var(--ar))), min(100%, 280px));
+    width: max(min(100%, calc(44svh * var(--ar))), min(100%, 280px)); }
+  .lf { border-radius: 14px; }
+  /* Boutons plus faciles à toucher, centrés sous le dessin. */
+  .lf-bar { justify-content: center; gap: 8px; margin-top: 6px; }
+  .lf-btn { padding: 10px 14px; font-size: 14px; }
+  .lf-box { padding: 8px; }
+  .lf-box-inner { width: min(100%, calc((100dvh - 96px) * var(--ar))); }
+}
+@media (prefers-reduced-motion: reduce) { .lf-box, .lf-box-inner { animation: none; } }
 
 /* Carousel blocks: compact rows (logo, title and line, arrow) so the row stays short on every screen. */
 .hm-carousel .hm-block { padding: 18px; gap: 10px; }
@@ -2647,4 +2707,35 @@ html.chat-open { overflow: hidden; }
 .tree-hidden ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .tree-hidden li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tree-hidden small { color: var(--muted); }
+/* Dernière étape Trustpilot sur la page du certificat (23/11) : minimal, vert foncé. */
+.tp-card { text-align: center; background: #063D2B; border-radius: 18px; padding: 20px 24px 26px; margin: 0 0 20px; }
+.tp-dog { display: block; width: 130px; height: auto; margin: -8px auto 6px; }
+.tp-card h2 { margin: 0 0 18px; font-size: 20px; line-height: 1.3; color: #fff; }
+.tp-btn { display: inline-block; background: #00B67A; color: #fff; font-weight: 800; font-size: 16px; text-decoration: none;
+  padding: 13px 28px; border-radius: 999px; }
+.tp-btn:hover { background: #00a06c; color: #fff; }
+.tp-quote { position: relative; background: #fff; color: #10342A; text-align: left; border-radius: 14px; padding: 14px 16px 14px 40px;
+  margin: 0 auto 18px; max-width: 460px; font-size: 14.5px; line-height: 1.5; font-style: italic;
+  overflow-wrap: anywhere; }
+.tp-quote-mark { position: absolute; left: 12px; top: 4px; font-size: 34px; line-height: 1; color: #00B67A; font-style: normal; font-family: Georgia, serif; }
+.tp-copied { margin: 12px 0 0; font-size: 13px; font-weight: 700; color: #9FD8C3; }
+.tp-wait { margin: 14px 0 0; font-size: 13px; color: #9FD8C3; }
+.tp-ok { text-align: center; color: #063D2B; font-weight: 700; background: #E4F4EC; border-radius: 12px; padding: 12px; margin: 0 0 16px; }
+.tp-locked { display: none; }
+@media (max-width: 640px) {
+  .tp-card { padding: 20px 16px; border-radius: 16px; }
+  .tp-card h2 { font-size: 18px; margin-bottom: 14px; }
+  .tp-btn { font-size: 15px; padding: 12px 22px; }
+  .tp-quote { font-size: 14px; }
+}
+
+/* Note des certifiés en bas de la page étudiants (23/11) : centrée, sans motif décoratif au-dessus, sans bande visible
+   quand il n y a pas encore d avis. */
+main > section.rating-band { padding: 0; }
+main > section.rating-band::before { content: none; }
+main > section.rating-band:has(.hero-rating) { padding: 6px 0 34px; }
+.hero-rating { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 0; font-size: 16px; color: var(--muted); }
+.hero-rating strong { color: var(--navy); font-size: 18px; }
+.hero-stars { color: #D9DEE8; letter-spacing: 2px; font-size: 22px; line-height: 1; }
+.hero-stars .on { color: #E2A93B; }
 

@@ -3,6 +3,7 @@ import Header from './Header';
 import Footer from './Footer';
 import AgentDemo from './AgentDemo';
 import PriceCard from './PriceCard';
+import CourseRating from './CourseRating';
 import { LinkedInLogo } from './HomeChrome';
 import { publicIntake } from '@/lib/school';
 import { pricingFor } from '@/lib/pricing';
@@ -249,6 +250,13 @@ export default async function Landing({ locale }: { locale: Locale }) {
                 </details>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Tout en bas de la page : la note des certifiés, visible ici et déclarée à Google (étoiles dans les résultats). */}
+        <section className="rating-band">
+          <div className="container">
+            <CourseRating locale={locale} name={d.meta.title} description={d.meta.description} path={`/${LOCALES[locale].slug}`} priceCents={p.priceCents} currency={p.currency} />
           </div>
         </section>
       </main>

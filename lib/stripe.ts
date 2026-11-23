@@ -163,6 +163,26 @@ export async function stripeBalance(id: string): Promise<{ amount: number; curre
   return bt ? { amount: bt.amount, currency: bt.currency } : null;
 }
 
+/**
+ * Money really kept (23/11), read from Stripe itself: live session complete and paid, charge succeeded, nothing
+ * refunded, no dispute. The site only hears about payments, not about refunds made in the Stripe dashboard, so its own
+ * "paid" is not enough before writing to someone as a client.
+ */
+export async function stripePaidAndKept(id: string): Promise<boolean> {
+  if (!STRIPE_SESSION_RE.test(id) || !id.startsWith('cs_live_')) return false;
+  type Charge = { status?: string; paid?: boolean; refunded?: boolean; amount_refunded?: number; disputed?: boolean };
+  const s = await call<StripeSession & { payment_intent?: { status?: string; latest_charge?: Charge | string | null } | string | null }>(
+    `/checkout/sessions/${encodeURIComponent(id)}?expand[]=payment_intent.latest_charge`,
+  );
+  const pi = s.payment_intent && typeof s.payment_intent === 'object' ? s.payment_intent : null;
+  const charge = pi?.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+  return Boolean(
+    s.livemode && s.status === 'complete' && s.payment_status === 'paid' && s.metadata?.app === STRIPE_APP &&
+      pi?.status === 'succeeded' && charge && charge.status === 'succeeded' && charge.paid &&
+      !charge.refunded && !charge.amount_refunded && !charge.disputed,
+  );
+}
+
 export function isStripeUrl(href: string) {
   try {
     const { protocol, hostname } = new URL(href);

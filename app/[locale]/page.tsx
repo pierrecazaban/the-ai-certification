@@ -12,6 +12,8 @@ import { PRIVATE_SLUGS } from '@/lib/private';
 import { inviterByCode } from '@/lib/team';
 
 export const dynamic = 'force-dynamic';
+// The admin's « Relancer les non-certifiés » button sends for up to 45 s in one request (23/11).
+export const maxDuration = 60;
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -56,9 +58,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: meta.title,
     description: meta.description,
     alternates: {
-      languages: Object.fromEntries(
-        (Object.keys(LOCALES) as Locale[]).map((l) => [LOCALES[l].intl, `/${LOCALES[l].slug}`]),
-      ),
+      // (23/11) L'adresse officielle de la page (sans ?lang= ni autre paramètre), et la version par défaut entre les langues.
+      canonical: `/${LOCALES[locale].slug}`,
+      languages: {
+        ...Object.fromEntries((Object.keys(LOCALES) as Locale[]).map((l) => [LOCALES[l].intl, `/${LOCALES[l].slug}`])),
+        'x-default': '/school',
+      },
     },
   };
 }

@@ -406,14 +406,13 @@ alter table ambassadors add column if not exists master_at timestamptz;
 -- Compte Smart Mail lié à cet ambassadeur (23/11) : il n'apparaît plus en double dans la pyramide.
 alter table ambassadors add column if not exists smartmail_id integer;
 create table if not exists ambassador_aliases (owner_id uuid not null, target_id uuid not null, alias text not null, primary key (owner_id, target_id));
--- Un seul système d'ambassadeurs (23/11) : celui venu par Smart Mail (sans compte sur le site) peut lui aussi être nommé
--- Legend et renommé par celui qui regarde, comme les autres. Repris par son compte le jour où il ouvre son espace.
+-- Ambassadeurs venus par Smart Mail, sans compte sur le site (23/11) : grade Legend et nom donné, comme les autres.
+-- (Pas d apostrophe dans ces commentaires : le schéma est découpé sur les points-virgules puis envoyé tel quel.)
 alter table short_ambassadors add column if not exists master_by uuid;
 alter table short_ambassadors add column if not exists master_at timestamptz;
 create table if not exists short_aliases (owner_id uuid not null, smartmail_id integer not null, alias text not null, primary key (owner_id, smartmail_id));
--- L'arbre des ambassadeurs n'est qu'un dessin (23/11) : en retirer quelqu'un le masque, rien d'autre. Ni son compte, ni ses
--- envois Smart Mail, ni ses écoles, ni ses commissions ne sont touchés, et on le remet d'un clic. Les anciennes
--- « suppressions » d'ambassadeurs Smart Mail deviennent de simples masquages (celle de l'ESSEC, faite par erreur, est annulée).
+-- Arbre des ambassadeurs (23/11) : en retirer une personne la masque, rien de plus. Son compte, ses envois Smart Mail,
+-- ses commissions restent intacts, et on la remet en un clic. Les anciennes suppressions deviennent des masquages.
 create table if not exists tree_hidden (target_id text primary key, hidden_at timestamptz not null default now());
 insert into tree_hidden (target_id) select 'sm-' || smartmail_id from short_removed where smartmail_id <> 10 on conflict do nothing;
 delete from short_removed;
@@ -435,7 +434,48 @@ create table if not exists reminders (
 -- Note du certificat (22/11), demandée avant le bouton LinkedIn. Le commentaire n'est pas obligatoire.
 alter table certificates add column if not exists rating smallint;
 alter table certificates add column if not exists rating_comment text not null default '';
-alter table certificates add column if not exists rated_at timestamptz
+alter table certificates add column if not exists rated_at timestamptz;
+-- Relance « finissez votre formation » (23/11) : une ligne par adresse, posée avant l'envoi, pour n'écrire qu'une fois.
+create table if not exists finish_nudges (
+  email text primary key,
+  registration_id uuid,
+  status text not null default 'sending',
+  sent_at timestamptz not null default now()
+);
+-- Rappels de paiement par e-mail Kai (23/11), à la place des relances Smart Mail : une ligne par adresse et par étape
+-- (1 = inscription commencée et pas payée, 2 = veille de la clôture), posée avant l'envoi. Table à part de « reminders »,
+-- que Smart Mail réécrit à chaque synchronisation.
+create table if not exists kai_reminders (
+  email text not null,
+  step integer not null,
+  registration_id text not null,
+  sent_at timestamptz not null default now(),
+  ok boolean not null default false,
+  primary key (email, step)
+);
+-- Rappel de paiement automatique (23/11). control = groupe témoin : la personne remplit toutes les conditions mais on ne
+-- lui écrit pas, pour mesurer ce que le rappel rapporte vraiment.
+alter table kai_reminders add column if not exists control boolean not null default false;
+-- Adresses qui ont cliqué « ne plus recevoir de rappel » dans un mail de relance.
+create table if not exists relance_stops (email text primary key, at timestamptz not null default now());
+-- Dernier passage de chaque horloge (serveur OVH, serveur de Paris) qui déclenche les rappels automatiques.
+create table if not exists relance_heartbeat (source text primary key, at timestamptz not null default now());
+-- Journal des passages où quelque chose est parti ou a été retenu, et des alertes envoyées à l'admin (source « alerte:… »).
+create table if not exists relance_runs (
+  id uuid primary key,
+  at timestamptz not null default now(),
+  source text not null,
+  sent integer not null default 0,
+  failed integer not null default 0,
+  skipped integer not null default 0,
+  control integer not null default 0,
+  why text not null default ''
+);
+-- Écran Trustpilot du certificat (23/11), affiché seulement après une note de 5 étoiles : première fois où il a été vu,
+-- premier clic sur le bouton qui ouvre Trustpilot, nombre de clics. Un clic ne prouve pas qu'un avis a été déposé.
+alter table certificates add column if not exists tp_shown_at timestamptz;
+alter table certificates add column if not exists tp_clicked_at timestamptz;
+alter table certificates add column if not exists tp_clicks integer not null default 0
 `;
 
 /** Moves everything attached to school `from` onto school `into`, then deletes `from`. No-op once done. */

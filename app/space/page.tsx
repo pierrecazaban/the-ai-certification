@@ -11,6 +11,8 @@ import { member } from '@/lib/i18n/member';
 import { learn } from '@/lib/i18n/learn';
 import { hasCourse } from '@/lib/learning';
 import { examPassMark, examSize, getProgress, type Progress } from '@/lib/learning/progress';
+import { dailyGoal } from '@/lib/learning/pace';
+import { PaceGoal } from '@/components/learning/PaceBlocks';
 import { resetMyProgressAction, simulatePassedExamAction } from '@/lib/learnActions';
 import { formatDate, isLocale, LOCALES, type Locale } from '@/lib/locales';
 import { localeFromSearch } from '@/lib/requestLocale';
@@ -61,6 +63,8 @@ export default async function SpacePage({ searchParams }: Props) {
   // The hero leads to the next step of the first course not finished yet.
   const current = owned.find((o) => !o.progress.certificate) ?? owned[0];
   const nextStep = current ? stepOf(current, l) : null;
+  // Rythme conseillé (23/11) : l'objectif d'aujourd'hui, tant que le certificat n'est pas obtenu.
+  const today = current && !current.progress.certificate ? await dailyGoal(user.id, current.progress) : null;
 
   return (
     <div lang={LOCALES[locale].lang}>
@@ -80,6 +84,7 @@ export default async function SpacePage({ searchParams }: Props) {
                   <div className="space-bar"><span style={{ width: `${current.progress.percent}%` }} /></div>
                   <span>{l.overall(current.progress.percent)}</span>
                 </div>
+                {today && <PaceGoal locale={locale} {...today} modules={current.progress.course.modules.length} />}
               </div>
               <img className="sp-hero-mascot" src={current.progress.certificate ? '/assets/course/certified.webp' : '/assets/course/welcome.webp'} alt="" width={190} height={190} />
               <p className="sp-hero-cta">

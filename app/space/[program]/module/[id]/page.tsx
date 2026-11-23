@@ -3,13 +3,14 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LearnerHeader } from '@/components/private/ConsoleHeaders';
 import CourseBar from '@/components/learning/CourseBar';
-import LessonBody from '@/components/learning/LessonBody';
 import { requireLearner } from '@/components/learning/learner';
 import { sql } from '@/lib/db';
 import { learn } from '@/lib/i18n/learn';
-import { lessonPhoto, moduleArt, QUIZ_PASS, shuffledOrder } from '@/lib/learning';
+import { moduleArt, QUIZ_PASS, shuffledOrder } from '@/lib/learning';
+import LessonContent from '@/components/learning/LessonContent';
 import { submitExerciseAction, submitQuizAction, toggleLessonAction } from '@/lib/learnActions';
 import { formatDate, LOCALES } from '@/lib/locales';
+import { PaceNext } from '@/components/learning/PaceBlocks';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -71,11 +72,8 @@ export default async function ModulePage({ params, searchParams }: Props) {
                     <span>{lesson.title}</span>
                     <small>{l.minutes(lesson.minutes)}</small>
                   </summary>
-                  {/* CC0 photo of the lesson (StockSnap), see public/images/course/CREDITS.md */}
-                  {lessonPhoto(lesson) && (
-                    <img className="learn-photo" src={lessonPhoto(lesson)!} alt="" width={960} height={640} loading="lazy" />
-                  )}
-                  <LessonBody body={lesson.body} />
+                  {/* Photo (v1) or animated widgets and recap (v2), in the learner's language: components/learning/LessonContent. */}
+                  <LessonContent lesson={lesson} locale={locale} />
                   <form action={toggleLessonAction}>
                     <input type="hidden" name="program" value={program} />
                     <input type="hidden" name="lesson" value={lesson.id} />
@@ -159,7 +157,12 @@ export default async function ModulePage({ params, searchParams }: Props) {
             )}
           </section>
 
-          {state.complete && (
+          {/* Rythme conseillé (23/11) : module fini, on pousse à enchaîner tout de suite. */}
+          {state.complete && !progress.certificate && (
+            <PaceNext locale={locale} toExam={!next} modulesLeft={progress.modules.filter((x) => !x.complete).length}
+              href={next ? `/space/${program}/module/${next.id}` : `/space/${program}/exam`} label={next ? l.nextModule : l.toExam} />
+          )}
+          {state.complete && progress.certificate && (
             <p style={{ textAlign: 'center' }}>
               {next ? (
                 <Link className="btn btn-green" href={`/space/${program}/module/${next.id}`}>{l.nextModule}</Link>

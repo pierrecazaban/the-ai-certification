@@ -9,6 +9,7 @@ import { currentUser } from './auth';
 import { sql } from './db';
 import { examDraw, hasCourse } from './learning';
 import { STUDENT_PROGRAM } from './catalog';
+import { RATING_COMMENT_MIN } from './rating';
 import { certificateReference, examPassMark, examSize, getProgress, grade, hasPaidAccess } from './learning/progress';
 
 const MIN_SUBMISSION = 40;
@@ -137,13 +138,36 @@ export async function simulatePassedExamAction(formData: FormData) {
   redirect(`/space/${program}/certificate`);
 }
 
-/** The learner rates the course before adding the certificate to LinkedIn: 1 to 5 stars, the comment may stay empty. */
+/**
+ * The Trustpilot screen of the certificate page (shown after a 5-star rating only): notes that it was seen, or that its
+ * button was clicked (23/11). Called from the browser, changes nothing else and never redirects. A click says the
+ * learner opened Trustpilot, not that a review was posted there.
+ */
+export async function trustpilotEventAction(formData: FormData) {
+  const program = String(formData.get('program') ?? '');
+  const event = String(formData.get('event') ?? '');
+  const user = await currentUser();
+  if (!user || !hasCourse(program)) return;
+  if (event === 'click') {
+    await sql(
+      `update certificates set tp_clicks = tp_clicks + 1, tp_clicked_at = coalesce(tp_clicked_at, now()), tp_shown_at = coalesce(tp_shown_at, now())
+        where user_id = $1 and program = $2 and rating = 5`,
+      [user.id, program],
+    );
+  } else if (event === 'shown') {
+    await sql(`update certificates set tp_shown_at = coalesce(tp_shown_at, now()) where user_id = $1 and program = $2 and rating = 5`, [user.id, program]);
+  }
+}
+
+/** The learner rates the course before adding the certificate to LinkedIn: 1 to 5 stars and a review of at least 25 characters. */
 export async function rateCertificateAction(formData: FormData) {
   const { user, progress, program, base } = await learner(formData);
   if (!progress.certificate) redirect(base);
   const rating = Number(formData.get('rating'));
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) redirect(`${base}/certificate?rate=missing#linkedin`);
   const comment = String(formData.get('comment') ?? '').trim().slice(0, 2000);
+  // Counted without the padding: 25 spaces are not a review.
+  if (comment.replace(/\s+/g, ' ').length < RATING_COMMENT_MIN) redirect(`${base}/certificate?rate=short#linkedin`);
   await sql(
     `update certificates set rating = $3, rating_comment = $4, rated_at = now() where user_id = $1 and program = $2`,
     [user.id, program, rating, comment],

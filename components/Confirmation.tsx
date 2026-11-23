@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { PacePlan } from '@/components/learning/PaceBlocks';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -20,7 +21,7 @@ type Status = {
   summary?: { name: string; email: string; university: string | null; certification?: string | null; organization?: string | null; starts_at: string; currency: string; amount_cents: number };
 };
 
-export default function Confirmation({ locale }: { locale: Locale }) {
+export default function Confirmation({ locale, studentModules = 0 }: { locale: Locale; studentModules?: number }) {
   const t = dict(locale).confirmation;
   const params = useSearchParams();
   const id = params.get('id') ?? '';
@@ -89,6 +90,8 @@ export default function Confirmation({ locale }: { locale: Locale }) {
         <ol className="numbered" style={{ marginTop: 24 }}>
           {t.next.map((line) => <li key={line}>{line}</li>)}
         </ol>
+        {/* Rythme conseillé (23/11) : le plan jour par jour, pour le cours étudiant. */}
+        {!s.certification && studentModules > 0 && <PacePlan locale={locale} modules={studentModules} />}
         {data.needs_password ? (
           <FirstPassword locale={locale} id={id} token={token} />
         ) : (

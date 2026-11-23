@@ -1,0 +1,67 @@
+/* Rythme conseillé (23/11), dans le style de l'espace élève : cartes blanches très arrondies, ombre douce, accents dorés
+   (dégradé #F8C64A → #F2AE1E), pastilles « Module » bleu pâle, carte bleu nuit avec Kai pour la fin de module.
+   Fichier à part de globals.css. */
+
+/* ---------- Le plan (après le paiement) ---------- */
+.plan { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 20px; align-items: center; margin: 26px 0 4px;
+  padding: 26px 28px 24px; background: #fff; border: 1px solid #EEF1F6; border-radius: 26px; box-shadow: 0 24px 50px -32px rgba(23, 39, 76, .35);
+  overflow: hidden; text-align: left; }
+.plan::before { content: ''; position: absolute; right: -50px; top: -60px; width: 240px; height: 240px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, rgba(214, 224, 244, .9), rgba(214, 224, 244, 0) 70%); pointer-events: none; }
+.plan > * { position: relative; }
+.accent { display: block; width: 44px; height: 3px; border-radius: 2px; background: #F5B82E; margin-bottom: 12px; }
+.kicker { display: block; color: #6B7590; letter-spacing: .24em; font-weight: 700; font-size: 11.5px; text-transform: uppercase; }
+.plan h2 { margin: 8px 0 6px; font-size: clamp(22px, 3vw, 28px); letter-spacing: -.5px; color: var(--navy); }
+.lead { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
+.mascot { grid-column: 2; grid-row: 1; width: 120px; height: auto; filter: drop-shadow(0 14px 14px rgba(23, 39, 76, .12)); }
+.days { grid-column: 1 / -1; list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 12px; }
+.dayRow { position: relative; display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 14px; }
+.dayRow + .dayRow::before { content: ''; position: absolute; left: 20px; top: -13px; height: 14px; border-left: 2px dashed #E3C77E; }
+.dayNum { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; font-size: 17px; color: #17274C;
+  background: linear-gradient(180deg, #FCD24F, #F5B021); box-shadow: 0 10px 18px -12px rgba(242, 174, 30, .9), inset 0 1px 0 rgba(255, 255, 255, .5); }
+.dayBody { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.dayLabel { font-weight: 800; color: var(--navy); margin-right: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; background: #E9EEFA; color: #1F3A75; border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 700; }
+.pillExam { background: linear-gradient(135deg, #22346A, #17274C); color: #fff; }
+.pillExam .star { color: #FBC531; }
+
+/* ---------- L'objectif du jour (en haut de l'espace) ---------- */
+.goal { margin: 16px 0 0; max-width: 420px; }
+.goalHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.goalCount { font-weight: 700; font-size: 14px; color: var(--navy); }
+.segments { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.segment { height: 10px; border-radius: 999px; background: #E8EBF2; overflow: hidden; }
+.segmentOn { background: linear-gradient(90deg, #F8C64A, #F2AE1E); }
+.goalHint { margin: 8px 0 0; color: #6B7590; font-size: 13px; line-height: 1.45; }
+.badge { display: inline-flex; align-items: center; gap: 6px; background: #E6F5EC; color: #1E7A45; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; font-weight: 800; }
+
+/* ---------- Fin de module : enchaîner ---------- */
+.next { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 24px; margin: 30px 0 10px;
+  padding: 30px 34px; border-radius: 28px; background: linear-gradient(135deg, #22346A, #17274C); color: #fff; overflow: hidden;
+  box-shadow: 0 30px 60px -34px rgba(23, 39, 76, .7); }
+.next::before { content: ''; position: absolute; right: -40px; bottom: -80px; width: 260px; height: 260px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 197, 49, .28), rgba(251, 197, 49, 0) 65%); pointer-events: none; }
+.next > * { position: relative; }
+.nextKicker { display: inline-flex; align-items: center; gap: 8px; color: #E3BC63; font-weight: 800; letter-spacing: .14em; font-size: 12.5px; text-transform: uppercase; }
+.next h2 { margin: 10px 0 8px; color: #fff; font-size: clamp(24px, 3.2vw, 32px); letter-spacing: -.5px; }
+.next p { margin: 0; color: #C9D6EE; font-size: 15.5px; line-height: 1.55; max-width: 520px; }
+.nextMascot { width: 150px; height: auto; filter: drop-shadow(0 16px 18px rgba(0, 0, 0, .25)); }
+.cta { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 14px; margin-top: 14px; padding: 15px 26px; border-radius: 999px;
+  font-weight: 800; font-size: 16px; color: #17274C; text-decoration: none; background: linear-gradient(180deg, #FCD24F, #F5B021);
+  box-shadow: 0 14px 28px -14px rgba(242, 174, 30, .9), inset 0 1px 0 rgba(255, 255, 255, .5); }
+.cta:hover { filter: brightness(1.04); color: #17274C; }
+
+@media (max-width: 640px) {
+  .plan { padding: 22px 18px 20px; border-radius: 22px; grid-template-columns: minmax(0, 1fr) 84px; }
+  .mascot { width: 84px; }
+  .pill { font-size: 12.5px; padding: 4px 10px; }
+  .next { grid-template-columns: minmax(0, 1fr) 96px; padding: 24px 20px; border-radius: 24px; }
+  .nextMascot { width: 96px; }
+  .next p { font-size: 15px; }
+  .cta { justify-self: stretch; justify-content: center; }
+  /* Dans la carte d'accueil, la colonne du texte est étroite (Kai à droite) : rien ne passe à la ligne. */
+  .goalHead { gap: 4px 8px; flex-wrap: wrap; justify-content: flex-start; }
+  .goal .kicker { letter-spacing: .12em; font-size: 10.5px; white-space: nowrap; }
+  .goalCount, .badge { white-space: nowrap; font-size: 12.5px; }
+  .badge { padding: 3px 8px; }
+}

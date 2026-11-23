@@ -13,6 +13,7 @@ import { SITE_DOMAIN } from '@/lib/site';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/' },
   title: 'The AI Certification | Prove what you can do with AI',
   description:
     'The AI Certification designs and delivers online AI certifications for companies, schools, students and associations: ChatGPT, Claude, Copilot, prompting, automation, agents and more. A real exam, and a certificate anyone can verify.',
@@ -76,6 +77,12 @@ export default async function Home() {
   const isAvailable = await onSaleChecker();
   return (
     <>
+      {/* (23/11) Qui est derrière le site, pour Google : nom, adresse, logo. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        '@context': 'https://schema.org', '@type': 'EducationalOrganization', name: 'The AI Certification',
+        url: 'https://the-ai-certification.com', logo: 'https://the-ai-certification.com/icon-512.png',
+        description: 'Online AI certifications for students, schools and companies: a real exam and a certificate anyone can verify.',
+      }) }} />
       <SiteHeader />
 
       <main id="main">

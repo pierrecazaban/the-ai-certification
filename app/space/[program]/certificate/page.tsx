@@ -7,9 +7,10 @@ import PrintButton from '@/components/learning/PrintButton';
 import { requireLearner } from '@/components/learning/learner';
 import { learn } from '@/lib/i18n/learn';
 import { LOCALES } from '@/lib/locales';
-import { siteUrl } from '@/lib/site';
+import { siteUrl, SITE_DOMAIN } from '@/lib/site';
 import Certificate from '@/components/learning/Certificate';
 import RateCertificate from '@/components/learning/RateCertificate';
+import CertifyFinish from '@/components/learning/CertifyFinish';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -69,26 +70,39 @@ export default async function CertificatePage({ params, searchParams }: Props) {
             {cert.rating == null ? (
               <>
                 <p>{l.rateLead}</p>
-                <RateCertificate program={program} l={l} missing={query.rate === 'missing'} />
+                <RateCertificate program={program} l={l} missing={query.rate === 'missing'} short={query.rate === 'short'} />
               </>
             ) : (
-              <>
-                {query.rated === '1' && <p className="help" role="status">{l.rateThanks}</p>}
-                <p>{l.linkedinLead}</p>
-                <p><a className="btn btn-green" href={linkedin} target="_blank" rel="noreferrer">{l.linkedinButton}</a></p>
-                <p className="help">{l.linkedinManual}</p>
-                <ol>{l.linkedinSteps.map((s) => <li key={s}>{s}</li>)}</ol>
-                <div className="summary">
-                  <dl>
-                    <div><dt>{l.fieldName}</dt><dd>{course.title}</dd></div>
-                    <div><dt>{l.fieldOrg}</dt><dd>The AI Certification</dd></div>
-                    <div><dt>{l.fieldIssue}</dt><dd>{issuedOn}</dd></div>
-                    <div><dt>{l.fieldId}</dt><dd>{cert.reference}</dd></div>
-                    <div><dt>{l.fieldUrl}</dt><dd>{url}</dd></div>
-                  </dl>
-                </div>
-                <p className="help">{l.linkedinPost}</p>
-              </>
+(() => {
+                const linkedinBlock = (
+                  <>
+                    <p>{l.linkedinLead}</p>
+                    <p><a className="btn btn-green" href={linkedin} target="_blank" rel="noreferrer">{l.linkedinButton}</a></p>
+                    <p className="help">{l.linkedinManual}</p>
+                    <ol>{l.linkedinSteps.map((step) => <li key={step}>{step}</li>)}</ol>
+                    <div className="summary">
+                      <dl>
+                        <div><dt>{l.fieldName}</dt><dd>{course.title}</dd></div>
+                        <div><dt>{l.fieldOrg}</dt><dd>The AI Certification</dd></div>
+                        <div><dt>{l.fieldIssue}</dt><dd>{issuedOn}</dd></div>
+                        <div><dt>{l.fieldId}</dt><dd>{cert.reference}</dd></div>
+                        <div><dt>{l.fieldUrl}</dt><dd>{url}</dd></div>
+                      </dl>
+                    </div>
+                    <p className="help">{l.linkedinPost}</p>
+                  </>
+                );
+                const tp = { title: l.trustpilotTitle, button: l.trustpilotButton, copyBtn: l.trustpilotCopyBtn, copied: l.trustpilotCopied, wait: l.trustpilotWait, thanks: l.trustpilotThanks };
+                return (
+                  <>
+                    {query.rated === '1' && <p className="help" role="status">{l.rateThanks}</p>}
+                    {/* Étape Trustpilot (avant LinkedIn) seulement pour une note de 5/5 (23/11, choix de l'owner informé des modalités). */}
+                    {Number(cert.rating) === 5
+                      ? <CertifyFinish t={tp} domain={SITE_DOMAIN} comment={cert.rating_comment ?? ''} program={program}>{linkedinBlock}</CertifyFinish>
+                      : linkedinBlock}
+                  </>
+                );
+              })()
             )}
           </section>
         </div>

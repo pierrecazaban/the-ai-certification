@@ -1,9 +1,11 @@
 import { rateCertificateAction } from '@/lib/learnActions';
 import type { LearnDict } from '@/lib/i18n/learn';
+import { RATING_COMMENT_MIN } from '@/lib/rating';
 
-// Asked before the "add to LinkedIn" block: a 1-5 star rating (required) and a comment (may stay empty).
+// Asked before the "add to LinkedIn" block: a 1-5 star rating and a review of at least 25 characters, both required
+// (23/11: the comment could stay empty, and most did).
 // The stars are radio buttons: listed 5 → 1 and shown reversed, so CSS can light up a star and those before it.
-export default function RateCertificate({ program, l, missing }: { program: string; l: LearnDict; missing: boolean }) {
+export default function RateCertificate({ program, l, missing, short }: { program: string; l: LearnDict; missing: boolean; short: boolean }) {
   return (
     <form action={rateCertificateAction} className="form rate-form">
       <input type="hidden" name="program" value={program} />
@@ -22,7 +24,9 @@ export default function RateCertificate({ program, l, missing }: { program: stri
       {missing && <p className="error" role="alert">{l.rateMissing}</p>}
       <div className="field">
         <label htmlFor="rate-comment">{l.rateComment}</label>
-        <textarea id="rate-comment" name="comment" rows={3} maxLength={2000} placeholder={l.rateCommentPlaceholder} />
+        <textarea id="rate-comment" name="comment" rows={3} required minLength={RATING_COMMENT_MIN} maxLength={2000} placeholder={l.rateCommentPlaceholder} aria-describedby="rate-comment-help" />
+        <p className="help" id="rate-comment-help">{l.rateCommentHelp(RATING_COMMENT_MIN)}</p>
+        {short && <p className="error" role="alert">{l.rateShort(RATING_COMMENT_MIN)}</p>}
       </div>
       <div><button className="btn btn-green" type="submit">{l.rateSubmit}</button></div>
     </form>

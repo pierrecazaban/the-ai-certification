@@ -14,7 +14,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const p = programBySlug((await params).slug);
   if (!p) return {};
-  return { title: `${p.title} certification | The AI Certification`, description: p.description };
+  return { title: `${p.title} certification | The AI Certification`, description: p.description, alternates: { canonical: `/certifications/${p.slug}` } };
 }
 
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });

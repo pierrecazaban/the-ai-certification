@@ -23,8 +23,6 @@ const team = `/${PRIVATE_SLUGS.ambassador}`;
 const pro = `/${PRIVATE_SLUGS.admin}`;
 
 /** /admin header. `view` marks where the admin is: the console itself, the student view or the ambassador view. */
-const APP_START = `try{if(location.pathname==='${pro}'&&!location.search)location.replace('${team}')}catch(e){}`;
-
 export function AdminHeader({ admin, tab, view = 'pro', actions }: { admin: User; tab?: string; view?: 'pro' | 'student' | 'ambassador'; actions?: ReactNode }) {
   const views = [
     { href: pro, label: 'Admin view', id: 'pro' },
@@ -33,9 +31,8 @@ export function AdminHeader({ admin, tab, view = 'pro', actions }: { admin: User
   ];
   return (
     <header className="cx-header cx-header-admin">
-      {/* The admin always lands on the ambassador view (19/11): opening or refreshing /admin (the app included) leads
-          there. Runs on full page loads only, so the “Admin view” button still opens the admin. */}
-      <script dangerouslySetInnerHTML={{ __html: APP_START }} />
+      {/* Plus de redirection /admin → /ambassador (23/11) : recharger /admin reste sur /admin. L'app et la connexion
+          admin arrivent déjà sur la vue ambassadeur via le manifeste (start_url) et homePath. */}
       <div className="container cx-header-row">
         <ConsoleBrand href={pro} badge="Admin" />
         <div className="cx-who">

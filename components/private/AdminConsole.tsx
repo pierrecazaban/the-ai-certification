@@ -16,6 +16,7 @@ import { programBySlug } from '@/lib/catalog';
 import { decideSchoolRequestAction, resetGuestLinkAction } from '@/lib/privateActions';
 import { setting } from '@/lib/settings';
 import RevenueChart from '@/components/private/RevenueChart';
+import { payReminderStatus } from '@/lib/payReminder';
 
 // Admin console, rendered by app/[locale]/page.tsx for signed-in admins only.
 // It has no route of its own, so for anyone else its address behaves like any unknown address.
@@ -121,7 +122,7 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
       count(distinct lower(r.email)) filter (where (coalesce(r.paid_at, r.created_at) at time zone 'Europe/Paris')::date = (now() at time zone 'Europe/Paris')::date)::int as today
     from registrations r where ${BOUGHT}`);
   const bySchool = await sql(`
-    select coalesce(u.short_name, u.name, 'No school') as school, count(distinct lower(r.email))::int as n,
+    select coalesce(nullif(u.short_name, ''), u.name, 'No school') as school, count(distinct lower(r.email))::int as n,
       count(distinct lower(r.email)) filter (where (coalesce(r.paid_at, r.created_at) at time zone 'Europe/Paris')::date = (now() at time zone 'Europe/Paris')::date)::int as today
     from registrations r left join universities u on u.id = r.university_id
     where ${BOUGHT} group by 1 order by 2 desc, 1`);
@@ -164,6 +165,7 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
         </form>
       </section>
 
+
     </>
   );
 }
@@ -184,6 +186,11 @@ function Kpi({ label, value, sub, href }: { label: string; value: string; sub?: 
  * while paying), how far they are in the course, and the emails sent to them.
  */
 async function Students({ q, status }: { q: string; status: string }) {
+  // Payment reminders are automatic (23/11, lib/payReminder.ts): no button any more, only a line that says how they are
+  // doing and warns when the task has stopped.
+  const rem = await payReminderStatus();
+  const hm = (d: Date) => d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  const pct = (n: number, of: number) => (of ? ` (${Math.round((n / of) * 100)} %)` : '');
   const rows = await sql(
     `select r.*, u.name as uni, us.last_login_at,
        case when r.status = 'held' and r.hold_expires_at <= now() then 'expired' when r.status = 'paid' and r.payment_id = '${GUEST_PAYMENT}' then 'guest' else r.status end as live_status
@@ -231,6 +238,16 @@ async function Students({ q, status }: { q: string; status: string }) {
           <button className="btn btn-sm" type="submit">Search</button>
         </form>
       </div>
+      <p className="help" title="Un seul rappel par personne, 1 h après une inscription restée sans paiement, entre 9 h et 22 h. Jamais à quelqu’un qui a payé, qui a un ticket ou qui a été remboursé. Témoin : 1 personne sur 5 n’est pas rappelée jusqu’au 7/12, pour mesurer l’effet.">
+        Rappels de paiement automatiques :{' '}
+        {rem.clock.late
+          ? <strong className="cx-flag">⚑ la tâche ne tourne plus{rem.clock.last ? ` depuis le ${hm(rem.clock.last)}` : ''}</strong>
+          : <>dernier passage {hm(rem.clock.last!)}</>}
+        {!rem.open.ok && !rem.clock.late ? ` · en pause (${rem.open.why})` : ''}
+        {' · '}{rem.reminded} rappelé{rem.reminded > 1 ? 's' : ''}, {rem.remindedPaid} {rem.remindedPaid > 1 ? 'ont' : 'a'} payé ensuite{pct(rem.remindedPaid, rem.reminded)}
+        {' · '}témoin : {rem.control} non rappelé{rem.control > 1 ? 's' : ''}, {rem.controlPaid} {rem.controlPaid > 1 ? 'ont' : 'a'} payé{pct(rem.controlPaid, rem.control)}
+        {rem.stuck > 0 ? ` · ${rem.stuck} envoi${rem.stuck > 1 ? 's' : ''} interrompu${rem.stuck > 1 ? 's' : ''}, non rejoué${rem.stuck > 1 ? 's' : ''}` : ''}
+      </p>
       <nav className="cx-pills" aria-label="Status" style={{ marginBottom: 12 }}>
         {FILTERS.map(([k, label]) => (
           <Link key={k} href={`/admin?tab=etudiants${k ? `&status=${k}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}#etudiants`} aria-current={filter === k ? 'page' : undefined}>{label}</Link>
@@ -245,7 +262,10 @@ async function Students({ q, status }: { q: string; status: string }) {
           <tbody>
             {filtered.map((r) => {
               const p = progress(r);
-              const sent = mails.filter((m) => m.registration_id === r.id || String(m.to_email).toLowerCase() === String(r.email).toLowerCase());
+              // A mail about one registration (confirmation, relance) shows on that line only (23/11): it used to show on every
+              // line of the address, so a payer's relance looked sent to their old unpaid attempt. Login and ticket mails
+              // (no registration) still show on every line of the address.
+              const sent = mails.filter((m) => m.registration_id === r.id || (!m.registration_id && String(m.to_email).toLowerCase() === String(r.email).toLowerCase()));
               return (
                 <tr key={r.id}>
                   <td>{dt(r.created_at)}</td>

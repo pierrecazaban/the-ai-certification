@@ -57,11 +57,15 @@ export const EXAM_RETRY_MINUTES = 60;
 // Illustrations that really exist in /public. The Kai drawings of public/assets/course (m1, m2, m3) are generic:
 // any module (v2 or catalogue) gets one in turn. Lesson photos only exist for the v1 student lessons (m1-l1 … m3-l3);
 // a lesson without one shows no photo rather than a broken image.
+// Dessins de Kai propres à chaque module du cours étudiant v2 (23/11) ; les autres cours gardent les trois d'origine.
+const V2_MODULE_ART = new Set(['v2-m1', 'v2-m2', 'v2-m3', 'v2-m4']);
 export function moduleArt(moduleId: string): string {
+  if (V2_MODULE_ART.has(moduleId)) return `/assets/course/${moduleId}.webp`;
   const n = Number(/(\d+)$/.exec(moduleId)?.[1] ?? 1);
   return `/assets/course/m${((Math.max(n, 1) - 1) % 3) + 1}.webp`;
 }
 const LESSON_PHOTOS = new Set(['m1-l1', 'm1-l2', 'm1-l3', 'm2-l1', 'm2-l2', 'm2-l3', 'm3-l1', 'm3-l2', 'm3-l3']);
+// Les leçons du cours v2 n'ont pas de photo : leurs illustrations animées sont dans lib/learning/figures.
 export function lessonPhoto(lesson: Lesson): string | null {
   return lesson.image ?? (LESSON_PHOTOS.has(lesson.id) ? `/images/course/${lesson.id}.webp` : null);
 }

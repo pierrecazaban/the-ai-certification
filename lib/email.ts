@@ -7,6 +7,9 @@ import { setting } from './settings';
 import { formatDate, LOCALES, type Locale } from './locales';
 import { siteUrl } from '@/lib/site';
 import { SITE_DOMAIN, SITE_NAME } from './site';
+import { daysFor, pace, planDays } from './i18n/pace';
+import { getCourse } from './learning';
+import { STUDENT_PROGRAM } from './catalog';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -124,6 +127,26 @@ export function sendLoginEmail(to: string, token: string, locale: Locale) {
   return send({ to, subject: t.loginSubject, html, kind: 'login', locale });
 }
 
+// Rythme conseillé (23/11) : le plan jour par jour dans le mail de confirmation du cours étudiant, dans le style de
+// l'espace élève (carte blanche, pastilles dorées, « Module » en bleu pâle, examen en bleu nuit). Tableaux : les
+// messageries ignorent flex et grid.
+function planHtml(locale: Locale) {
+  const modules = getCourse(STUDENT_PROGRAM, locale)?.modules.length ?? 0;
+  if (!modules) return '';
+  const p = pace(locale);
+  const pill = (txt: string, exam = false) =>
+    `<span style="display:inline-block;margin:3px 6px 3px 0;padding:5px 12px;border-radius:999px;font-size:13px;font-weight:700;${exam ? 'background:#17274C;color:#fff' : 'background:#E9EEFA;color:#1F3A75'}">${exam ? '<span style="color:#FBC531">&#9733;</span> ' : ''}${esc(txt)}</span>`;
+  const rows = planDays(modules).map((d) => `<tr>
+<td style="width:42px;padding:6px 14px 6px 0;vertical-align:middle"><div style="width:40px;height:40px;line-height:40px;text-align:center;border-radius:13px;background:#F8C239;color:#17274C;font-weight:800;font-size:17px">${d.day}</div></td>
+<td style="padding:6px 0;vertical-align:middle"><span style="font-weight:800;margin-right:8px">${esc(p.day(d.day))}</span>${d.modules.map((n) => pill(p.moduleLabel(n))).join('')}${d.exam ? pill(p.examLabel, true) : ''}</td></tr>`).join('');
+  return `<div style="margin:24px 0 0;background:#fff;border:1px solid #EEF1F6;border-radius:22px;padding:22px 22px 16px">
+<div style="width:44px;height:3px;border-radius:2px;background:#F5B82E;margin:0 0 12px"></div>
+<p style="margin:0;color:#6B7590;letter-spacing:3px;font-weight:700;font-size:11px;text-transform:uppercase">${esc(p.planTitle)}</p>
+<p style="margin:8px 0 6px;font-size:22px;font-weight:800;line-height:1.2">${esc(p.certIn(daysFor(modules)))}</p>
+<p style="margin:0 0 12px;color:#4A5370;font-size:14.5px;line-height:1.5">${esc(p.tipShort)}</p>
+<table style="border-collapse:collapse">${rows}</table></div>`;
+}
+
 export function sendConfirmationEmail(input: {
   to: string;
   name: string;
@@ -145,7 +168,7 @@ export function sendConfirmationEmail(input: {
 <div style="background:#F7F8FA;border-radius:14px;padding:6px 18px">
 <table style="width:100%;border-collapse:collapse;font-size:14px">${row(t.reference, input.reference)}${input.certification ? row('Certification', input.certification) : ''}${input.university ? row(t.university, input.university) : ''}${row(t.paid, input.amount, true)}</table>
 </div>
-<p style="font-size:15px;line-height:1.5;margin:22px 0 0">${esc(t.confirmNext)}</p>${button(`${base()}/login?lang=${input.locale}`, t.spaceButton)}
+${input.certification ? '' : planHtml(input.locale)}<p style="font-size:15px;line-height:1.5;margin:22px 0 0">${esc(t.confirmNext)}</p>${button(`${base()}/login?lang=${input.locale}`, t.spaceButton)}
 <p style="font-size:12px;color:#4A5370;margin:0;text-align:center">${esc(t.receipt)}</p>`,
   );
   return send({ to: input.to, subject: t.confirmSubject(input.reference), html, kind: 'confirmation', locale: input.locale, registrationId: input.registrationId });
@@ -177,6 +200,140 @@ export function sendTicketEmail(input: { to: string; reference: string; locale: 
       ? layout(input.locale, `<p style="font-size:16px;margin:0">${esc(t.receivedIntro)}</p>${quote}${button(`${base()}/support?lang=${input.locale}`, `${SITE_DOMAIN}/support`)}`)
       : layout(input.locale, `<p style="font-size:16px;margin:0">${esc(t.replyIntro)}</p>${quote}<p style="font-size:13px;color:#4A5370">${esc(t.followUp)} (${esc(input.reference)})</p>`);
   return send({ to: input.to, subject: input.kind === 'received' ? t.received(input.reference) : t.reply(input.reference), html, kind: `ticket_${input.kind}`, locale: input.locale });
+}
+
+// Relance des clients pas encore certifiés (23/11), envoyée une fois depuis l'admin. Texte demandé par Pierre en français.
+export const FINISH_NUDGE_TEXT: Record<'fr' | 'en' | 'es' | 'it' | 'de', { subject: string; hello: (name: string) => string; line: string; linkedin: string; button: string }> = {
+  fr: {
+    subject: 'Finissez votre formation en une soirée',
+    hello: (n) => (n ? `Bonjour ${n},` : 'Bonjour,'),
+    line: 'Finissez votre formation en une soirée pour être certifié sur LinkedIn.',
+    linkedin: 'Une fois l’examen réussi, votre certificat s’ajoute à votre profil LinkedIn en un clic.',
+    button: 'Reprendre ma formation',
+  },
+  en: {
+    subject: 'Finish your course in one evening',
+    hello: (n) => (n ? `Hi ${n},` : 'Hi,'),
+    line: 'Finish your course in one evening and get certified on LinkedIn.',
+    linkedin: 'Once you pass the exam, your certificate goes on your LinkedIn profile in one click.',
+    button: 'Resume my course',
+  },
+  es: {
+    subject: 'Termina tu formación en una tarde',
+    hello: (n) => (n ? `Hola ${n}:` : 'Hola:'),
+    line: 'Termina tu formación en una tarde y obtén tu certificación en LinkedIn.',
+    linkedin: 'Cuando apruebes el examen, tu certificado se añade a tu perfil de LinkedIn con un clic.',
+    button: 'Retomar mi formación',
+  },
+  it: {
+    subject: 'Finisci il tuo corso in una serata',
+    hello: (n) => (n ? `Ciao ${n},` : 'Ciao,'),
+    line: 'Finisci il tuo corso in una serata e ottieni la certificazione su LinkedIn.',
+    linkedin: 'Superato l’esame, il certificato si aggiunge al tuo profilo LinkedIn con un clic.',
+    button: 'Riprendi il corso',
+  },
+  de: {
+    subject: 'Schließe deinen Kurs an einem Abend ab',
+    hello: (n) => (n ? `Hallo ${n},` : 'Hallo,'),
+    line: 'Schließe deinen Kurs an einem Abend ab und werde auf LinkedIn zertifiziert.',
+    linkedin: 'Nach bestandener Prüfung kommt dein Zertifikat mit einem Klick in dein LinkedIn-Profil.',
+    button: 'Kurs fortsetzen',
+  },
+};
+
+export const finishNudgeText = (locale: Locale) => FINISH_NUDGE_TEXT[(LOCALES[locale]?.lang ?? 'en') as keyof typeof FINISH_NUDGE_TEXT] ?? FINISH_NUDGE_TEXT.en;
+
+/** No duplicate, whatever the caller did (23/11): true when a mail of this kind already left for this address. */
+async function alreadySent(to: string, kindPrefix: string) {
+  const [row] = await sql(`select 1 from emails where lower(to_email) = lower($1) and kind like $2 and status = 'sent' limit 1`, [to, `${kindPrefix}%`]);
+  return Boolean(row);
+}
+
+export async function sendFinishNudgeEmail(input: { to: string; firstName: string; locale: Locale; registrationId: string }) {
+  if (await alreadySent(input.to, 'finish_nudge')) return 'duplicate';
+  const t = finishNudgeText(input.locale);
+  const html = layout(
+    input.locale,
+    `<p style="font-size:16px;margin:0 0 12px">${esc(t.hello(input.firstName))}</p>
+<p style="font-size:22px;line-height:1.3;font-weight:800;margin:0 0 12px">${esc(t.line)}</p>
+<p style="font-size:15px;line-height:1.5;margin:0">${esc(t.linkedin)}</p>${button(`${base()}/space?lang=${input.locale}`, t.button)}`,
+  );
+  return send({ to: input.to, subject: t.subject, html, kind: 'finish_nudge', locale: input.locale, registrationId: input.registrationId });
+}
+
+// Rappel de paiement (23/11) : une inscription commencée, pas payée. Remplace les relances que Smart Mail envoyait depuis
+// la boîte de l'ambassadeur. Étape 1 : il ne manque que le paiement. Étape 2 : la veille de la clôture.
+type PayText = { subject: [string, string]; hello: (name: string) => string; line: [string, string]; body: [string, string]; closes: (day: string) => string; button: string; stop: string };
+export const PAY_REMINDER_TEXT: Record<'fr' | 'en' | 'es' | 'it' | 'de', PayText> = {
+  fr: {
+    subject: ['Ton inscription n’est pas terminée', 'Dernier rappel : les inscriptions ferment demain'],
+    hello: (n) => (n ? `Bonjour ${n},` : 'Bonjour,'),
+    line: ['Ta place n’est pas encore confirmée : il ne manque que le paiement.', 'Les inscriptions ferment demain soir : ta place n’est pas encore confirmée.'],
+    body: ['Tes informations sont déjà remplies, il reste 2 minutes pour finaliser ton inscription à The AI Certification.', 'Il ne manque que le paiement. Tes informations sont déjà remplies, ça prend 2 minutes.'],
+    closes: (d) => `Les inscriptions ferment ${d}.`,
+    button: 'Finaliser mon inscription',
+    stop: 'Ne plus recevoir de rappel',
+  },
+  en: {
+    subject: ['Your registration isn’t finished', 'Last reminder: registration closes tomorrow'],
+    hello: (n) => (n ? `Hi ${n},` : 'Hi,'),
+    line: ['Your place isn’t confirmed yet: only the payment is missing.', 'Registration closes tomorrow night: your place isn’t confirmed yet.'],
+    body: ['Your details are already filled in. It takes 2 minutes to finish registering for The AI Certification.', 'Only the payment is missing. Your details are already filled in, it takes 2 minutes.'],
+    closes: (d) => `Registration closes on ${d}.`,
+    button: 'Finish my registration',
+    stop: 'Stop reminders',
+  },
+  es: {
+    subject: ['Tu inscripción no está terminada', 'Último aviso: las inscripciones cierran mañana'],
+    hello: (n) => (n ? `Hola ${n}:` : 'Hola:'),
+    line: ['Tu plaza aún no está confirmada: solo falta el pago.', 'Las inscripciones cierran mañana por la noche: tu plaza aún no está confirmada.'],
+    body: ['Tus datos ya están rellenados. Terminar tu inscripción en The AI Certification lleva 2 minutos.', 'Solo falta el pago. Tus datos ya están rellenados, son 2 minutos.'],
+    closes: (d) => `Las inscripciones cierran el ${d}.`,
+    button: 'Terminar mi inscripción',
+    stop: 'No recibir más recordatorios',
+  },
+  it: {
+    subject: ['La tua iscrizione non è completa', 'Ultimo promemoria: le iscrizioni chiudono domani'],
+    hello: (n) => (n ? `Ciao ${n},` : 'Ciao,'),
+    line: ['Il tuo posto non è ancora confermato: manca solo il pagamento.', 'Le iscrizioni chiudono domani sera: il tuo posto non è ancora confermato.'],
+    body: ['I tuoi dati sono già compilati. Bastano 2 minuti per completare l’iscrizione a The AI Certification.', 'Manca solo il pagamento. I tuoi dati sono già compilati, bastano 2 minuti.'],
+    closes: (d) => `Le iscrizioni chiudono ${d}.`,
+    button: 'Completa l’iscrizione',
+    stop: 'Non ricevere più promemoria',
+  },
+  de: {
+    subject: ['Deine Anmeldung ist noch nicht abgeschlossen', 'Letzte Erinnerung: Die Anmeldung schließt morgen'],
+    hello: (n) => (n ? `Hallo ${n},` : 'Hallo,'),
+    line: ['Dein Platz ist noch nicht bestätigt: Es fehlt nur die Zahlung.', 'Die Anmeldung schließt morgen Abend: Dein Platz ist noch nicht bestätigt.'],
+    body: ['Deine Angaben sind schon ausgefüllt. Der Abschluss deiner Anmeldung bei The AI Certification dauert 2 Minuten.', 'Es fehlt nur die Zahlung. Deine Angaben sind schon ausgefüllt, es dauert 2 Minuten.'],
+    closes: (d) => `Die Anmeldung schließt am ${d}.`,
+    button: 'Anmeldung abschließen',
+    stop: 'Keine Erinnerungen mehr erhalten',
+  },
+};
+
+export const payReminderText = (locale: Locale) => PAY_REMINDER_TEXT[(LOCALES[locale]?.lang ?? 'en') as keyof typeof PAY_REMINDER_TEXT] ?? PAY_REMINDER_TEXT.en;
+
+export async function sendPayReminderEmail(input: { to: string; firstName: string; locale: Locale; step: 1 | 2; link: string; deadline: string; registrationId: string }) {
+  if (await alreadySent(input.to, 'pay_reminder')) return 'duplicate';
+  const t = payReminderText(input.locale);
+  const i = input.step - 1;
+  const html = layout(
+    input.locale,
+    `<p style="font-size:16px;margin:0 0 12px">${esc(t.hello(input.firstName))}</p>
+<p style="font-size:22px;line-height:1.3;font-weight:800;margin:0 0 12px">${esc(t.line[i])}</p>
+<p style="font-size:15px;line-height:1.5;margin:0">${esc(t.body[i])}${input.step === 1 ? ` ${esc(t.closes(formatDate(input.deadline, input.locale)))}` : ''}</p>${button(input.link, t.button)}
+<p style="font-size:12px;margin:0;text-align:center"><a href="${esc(input.link.replace('/finish?', '/stop?'))}" style="color:#4A5370">${esc(t.stop)}</a></p>`,
+  );
+  return send({ to: input.to, subject: t.subject[i], html, kind: `pay_reminder_${input.step}`, locale: input.locale, registrationId: input.registrationId });
+}
+
+/** Trouble with the automatic reminders (clock stopped, quota, refused mails): a short mail to the admin. */
+export async function sendRelanceAlert(input: { subject: string; lines: string[] }) {
+  const to = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim()).find(Boolean);
+  if (!to) return 'skipped';
+  const html = layout('fr', input.lines.map((l) => `<p style="font-size:15px;margin:0 0 8px;white-space:pre-line">${esc(l)}</p>`).join('') + button(`${base()}/admin?tab=etudiants`, 'Ouvrir l’admin'));
+  return send({ to, subject: input.subject, html, kind: 'relance_alert', locale: 'fr' });
 }
 
 /** "Tester" button of the admin settings: a short email to the admin. */
