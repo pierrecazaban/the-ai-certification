@@ -8,7 +8,7 @@ export const company = {
   legalForm: env('COMPANY_LEGAL_FORM', 'Entrepreneur individuel (micro-entreprise)'),
   siren: env('COMPANY_SIREN', '132 067 414'),
   address: env('COMPANY_ADDRESS', '74 rue du Mas de Caze, 34090 Montpellier, France'),
-  email: env('SUPPORT_EMAIL', 'support@example.com'),
+  // No e-mail address here (23/11): the only contact is the tickets of /support, linked from the legal notice.
   publisher: env('COMPANY_PUBLISHER', 'Pierre Cazaban'),
   // Micro-entreprises under "franchise en base de TVA" do not charge VAT.
   vatExempt: env('VAT_EXEMPT', 'true') !== 'false',

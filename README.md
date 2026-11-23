@@ -28,7 +28,7 @@ To get into the admin console locally, put your email in `ADMIN_EMAILS` and a pa
    - `SETTINGS_KEY`: any long random string, set once; it encrypts the API keys entered in the admin console.
    - `RESEND_API_KEY` and `EMAIL_FROM` (the sender domain must be verified in Resend), or the SMTP settings.
    - `ANTHROPIC_API_KEY` for the site assistant (it can also be entered later in the admin console › Settings).
-   - `SUPPORT_EMAIL`. The company fields (`COMPANY_*`) already default to Pierre Cazaban EI (see Décisions).
+   - The company fields (`COMPANY_*`) already default to Pierre Cazaban EI (see Décisions). No support e-mail: contact goes through the tickets of `/support`.
 4. Add the domain name in Vercel › Settings › Domains and follow the DNS instructions.
 5. In the admin console (`/admin` › Formation), put the catalogue certifications on sale.
 
