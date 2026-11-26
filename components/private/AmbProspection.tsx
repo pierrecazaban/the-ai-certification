@@ -15,11 +15,10 @@ export default async function AmbProspection({ userId, msg, preview = false }: {
   if (!p.enabled && !p.account && !preview) return null;
   const acc = p.account;
   const status = acc?.status ?? 'none';
-  const todo = p.contacts.filter((c) => c.status === 'new' || c.status === 'verify');
 
   return (
     <div className="cx-card" id="linkedin">
-      <h2>Prospect with your LinkedIn {todo.length > 0 && <span className="cx-dot">{todo.length}</span>}</h2>
+      <h2>Prospect with your LinkedIn</h2>
       {msg === 'lk_stopped' && <p className="price-alert" role="status">Stopped. Your LinkedIn connection is being erased from our server.</p>}
 
       {(status === 'none' || status === 'stopped') && (
