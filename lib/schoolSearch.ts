@@ -9,7 +9,12 @@ const normalize = (s: string) =>
 
 export function searchSchools<T extends Searchable>(schools: T[], query: string): T[] {
   const words = normalize(query).split(/[^a-z0-9]+/).filter((w) => w.length >= 2);
-  if (!words.length) return query.trim() ? [] : schools;
+  if (!words.length) {
+    // The list only opens once the person types: a first letter shows the schools whose name starts with it.
+    const letter = normalize(query).replace(/[^a-z0-9]/g, '');
+    if (!letter) return query.trim() ? [] : schools;
+    return schools.filter((s) => [s.name, s.short_name ?? ''].some((n) => normalize(n).replace(/[^a-z0-9]/g, '').startsWith(letter)));
+  }
   const hays = schools.map((s) =>
     normalize(`${s.name} ${s.short_name ?? ''} ${s.state ?? ''} ${(s.email_domains ?? []).join(' ')}`),
   );

@@ -1,0 +1,119 @@
+/* Lecture du fascicule dans la page du module (26/11) : par-dessus la page, aux couleurs du site (bleu marine,
+   jaune d'or), les pages A4 en colonne, net et zoomable au doigt sur téléphone. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  background: #E9EDF4;
+  outline: none;
+}
+
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  background: #17274C;
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(23, 39, 76, .25);
+}
+
+.back {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 6px 14px 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.back:hover { background: rgba(255, 255, 255, .22); }
+.back:focus-visible, .download:focus-visible { outline: 3px solid #F5B82E; outline-offset: 2px; }
+
+.heading {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.download {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: #F5B82E;
+  color: #17274C;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pages {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+}
+
+/* flex: none : dans cette colonne de hauteur limitée, une page qui masque son débordement rétrécirait sinon en bandeau. */
+.page {
+  flex: none;
+  width: 100%;
+  max-width: 860px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 6px 22px rgba(23, 39, 76, .14);
+}
+.page img { display: block; width: 100%; height: auto; }
+
+.end {
+  flex: none;
+  margin-top: 6px;
+  min-height: 46px;
+  padding: 10px 26px;
+  border: 0;
+  border-radius: 999px;
+  background: #F5B82E;
+  color: #17274C;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.end:hover, .download:hover { background: #F2AE1E; }
+.end:focus-visible { outline: 3px solid #17274C; outline-offset: 2px; }
+
+/* Téléphone : le titre laisse la place aux deux boutons, les pages prennent toute la largeur. */
+@media (max-width: 560px) {
+  .heading { display: none; }
+  .bar { justify-content: space-between; padding-left: 10px; padding-right: 10px; }
+  .back { font-size: 14px; }
+  .download { font-size: 13px; padding: 6px 13px; }
+  .pages { gap: 10px; padding-left: 8px; padding-right: 8px; }
+  .page { border-radius: 3px; }
+}

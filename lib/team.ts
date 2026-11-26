@@ -147,9 +147,12 @@ export async function joinTeam(input: {
   return { ok: true };
 }
 
-/** Ambassadors who see their earnings and can ask for a payout in their space (22/11): only these addresses. */
-const EARNINGS_EMAILS = ['jbejani9008@sdsu.edu'];
-export const showsEarnings = (email: string | null | undefined) => EARNINGS_EMAILS.includes(String(email ?? '').trim().toLowerCase());
+// Revenus visibles par TOUS les ambassadeurs depuis le 26/11 (demande de Pierre : « le tableau des commissions doit
+// toujours être là », même à 0, avec la demande de virement) : la liste d'adresses du 22/11 n'existe plus. Le solde
+// affiché reste celui saisi dans /admin › Commissions.
+// Prise de l'école de l'adresse à la connexion par Smart Mail (22/11) : jb seulement. Pas pour Mahé (26/11) : l'école
+// ferait compter les ventes de BSB sous son nom, et des commissions automatiques si TEAM_AUTO_COMMISSIONS revenait.
+const SCHOOL_FROM_EMAIL = ['jbejani9008@sdsu.edu'];
 
 /** Takes the school whose email domain matches this address (sub-domains included), if nobody holds it yet. */
 async function claimSchoolOfEmail(userId: string, email: string) {
@@ -223,11 +226,19 @@ export async function decideSchoolRequest(requestId: string, accept: boolean) {
 }
 
 /**
+ * Calcul automatique des commissions à chaque vente : arrêté le 24/11 (décision de Pierre). Le solde d'un ambassadeur ne
+ * compte plus que les lignes saisies dans /admin › Commissions (addManualCommission) et celles déjà enregistrées avant.
+ * TEAM_AUTO_COMMISSIONS=1 le remet en route sans toucher au code.
+ */
+const AUTO_COMMISSIONS = process.env.TEAM_AUTO_COMMISSIONS === '1';
+
+/**
  * Called once a registration is paid: the ambassador holding the student's school earns the owner rate,
  * the one who invited them the parent rate, and the one above that the grandparent rate; nobody further up
  * (and never the admin, whose invites start a branch with no one above). Idempotent per ambassador and registration.
  */
 export async function recordCommissions(registrationId: string) {
+  if (!AUTO_COMMISSIONS) return;
   const [r] = await sql(
     `select r.id, r.amount_cents, r.currency, c.user_id as owner_id, a.parent_user_id, p.parent_user_id as grandparent_user_id
      from registrations r
@@ -252,11 +263,130 @@ export async function recordCommissions(registrationId: string) {
   }
 }
 
+/** Monnaies dans lesquelles une commission se saisit et se retire (un code inconnu ferait planter l'affichage des montants). */
+export const CURRENCIES = ['EUR', 'USD', 'CAD'] as const;
+/** Plafond d'une saisie : 10 000,00. Au-delà, c'est une faute de frappe. */
+export const MAX_COMMISSION_CENTS = 1_000_000;
+/** Demandes de virement en attente par ambassadeur : au plus trois à la fois. */
+const MAX_PENDING_PAYOUTS = 3;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Clé de contrôle d'un IBAN (ISO 13616, mod 97-10), un caractère à la fois : pas de BigInt, le reste tient sous 10 000. */
+export function ibanValid(raw: string): boolean {
+  const iban = raw.replace(/\s+/g, '').toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+  let rem = 0;
+  for (const ch of iban.slice(4) + iban.slice(0, 4)) {
+    const code = ch.charCodeAt(0);
+    rem = code >= 65 ? (rem * 100 + code - 55) % 97 : (rem * 10 + code - 48) % 97;
+  }
+  return rem === 1;
+}
+
 export async function saveBankDetails(userId: string, holder: string, iban: string) {
   const clean = iban.replace(/\s+/g, '').toUpperCase();
-  if (!holder.trim() || !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(clean)) return false;
-  await sql('update ambassadors set iban = $2, iban_holder = $3 where user_id = $1', [userId, clean, holder.trim()]);
+  // Le titulaire est recopié dans le ticket de virement : une seule ligne, 120 caractères.
+  const name = holder.replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!name || !ibanValid(clean)) return false;
+  await sql('update ambassadors set iban = $2, iban_holder = $3 where user_id = $1', [userId, clean, name]);
   return true;
+}
+
+/**
+ * Une commission saisie par l'admin (24/11) : pas de vente rattachée, une note que l'ambassadeur voit. `id` est créé à
+ * l'affichage du formulaire : renvoyer deux fois le même formulaire n'ajoute qu'une ligne.
+ */
+export async function addManualCommission(input: { id: string; userId: string; amountCents: number; currency: string; label: string }): Promise<'added' | 'amount' | 'currency' | 'unknown'> {
+  if (!UUID_RE.test(input.id) || !UUID_RE.test(input.userId)) return 'unknown';
+  if (!Number.isInteger(input.amountCents) || input.amountCents < 1 || input.amountCents > MAX_COMMISSION_CENTS) return 'amount';
+  if (!(CURRENCIES as readonly string[]).includes(input.currency)) return 'currency';
+  const label = input.label.replace(/\s+/g, ' ').trim().slice(0, 120);
+  const [made] = await sql(
+    `insert into commissions (id, user_id, level, rate_bp, amount_cents, currency, label)
+     select $1::uuid, a.user_id, 0, 0, $3::int, $4::text, $5::text
+       from ambassadors a join users u on u.id = a.user_id
+      where a.user_id::text = $2 and u.role <> 'admin'
+     on conflict (id) do nothing returning id`,
+    [input.id, input.userId, input.amountCents, input.currency, label],
+  );
+  if (made) return 'added';
+  // Rien d'inséré : soit le formulaire a déjà été reçu (la ligne existe), soit l'ambassadeur n'existe pas.
+  const [again] = await sql('select 1 from commissions where id::text = $1 and user_id::text = $2', [input.id, input.userId]);
+  return again ? 'added' : 'unknown';
+}
+
+/**
+ * L'admin annule une ligne (saisie ou automatique) : elle reste dans l'historique et ne compte plus. Refusé quand son
+ * montant n'est plus entièrement disponible (déjà demandé ou versé) : le solde ne devient jamais négatif.
+ */
+export async function cancelCommission(lineId: string): Promise<'cancelled' | 'withdrawn' | 'gone'> {
+  const [done] = await sql(
+    `update commissions c set status = 'cancelled'
+      where c.id::text = $1 and c.status <> 'cancelled'
+        and c.amount_cents <= coalesce((select sum(amount_cents) from commissions where user_id = c.user_id and currency = c.currency and status <> 'cancelled'), 0)
+                            - coalesce((select sum(amount_cents) from payouts where user_id = c.user_id and currency = c.currency and status in ('requested', 'paid')), 0)
+      returning c.id`,
+    [lineId],
+  );
+  if (done) return 'cancelled';
+  const [line] = await sql('select status from commissions where id::text = $1', [lineId]);
+  return !line ? 'gone' : line.status === 'cancelled' ? 'cancelled' : 'withdrawn';
+}
+
+/**
+ * Toutes les lignes automatiques d'un ambassadeur (celles nées d'une vente, avant le 24/11) annulées d'un coup, monnaie par
+ * monnaie : tout ou rien dans chaque monnaie, selon que leur total est encore disponible. Rend le nombre de lignes annulées.
+ */
+export async function cancelAutoCommissions(userId: string): Promise<number> {
+  const rows = await sql(
+    `update commissions c set status = 'cancelled'
+      where c.user_id::text = $1 and c.registration_id is not null and c.status <> 'cancelled'
+        and (select coalesce(sum(amount_cents), 0) from commissions where user_id = c.user_id and currency = c.currency and status <> 'cancelled' and registration_id is not null)
+            <= coalesce((select sum(amount_cents) from commissions where user_id = c.user_id and currency = c.currency and status <> 'cancelled'), 0)
+             - coalesce((select sum(amount_cents) from payouts where user_id = c.user_id and currency = c.currency and status in ('requested', 'paid')), 0)
+      returning c.id`,
+    [userId],
+  );
+  return rows.length;
+}
+
+/**
+ * Tous les ambassadeurs avec leur solde, pour /admin › Commissions : une ligne par ambassadeur et par monnaie (monnaie
+ * nulle quand il n'a encore rien). Même calcul que payoutBalances, mais « available » n'est pas ramené à zéro : un solde
+ * négatif doit se voir. `auto` = part des lignes nées d'une vente (calcul automatique d'avant le 24/11).
+ */
+export async function ambassadorBalances() {
+  return sql(
+    `select a.user_id::text as user_id, u.first_name, u.last_name, u.email, a.iban is not null as has_iban,
+       coalesce(
+         (select string_agg(un.name, ', ' order by un.name) from school_claims c join universities un on un.id = c.university_id where c.user_id = a.user_id),
+         (select un.name from universities un, unnest(un.email_domains) d
+           where split_part(lower(u.email), '@', 2) = lower(d) or split_part(lower(u.email), '@', 2) like '%.' || lower(d)
+              or lower(d) like '%.' || split_part(lower(u.email), '@', 2)
+           order by length(d) desc limit 1)) as school,
+       b.currency, coalesce(b.earned, 0)::int as earned, coalesce(b.auto, 0)::int as auto, coalesce(b.auto_lines, 0)::int as auto_lines,
+       coalesce(b.requested, 0)::int as requested, coalesce(b.pending, 0)::int as pending, coalesce(b.paid, 0)::int as paid,
+       (coalesce(b.earned, 0) - coalesce(b.requested, 0) - coalesce(b.paid, 0))::int as available
+     from ambassadors a
+     join users u on u.id = a.user_id
+     left join (
+       select coalesce(e.user_id, p.user_id) as user_id, coalesce(e.currency, p.currency) as currency,
+              e.earned, e.auto, e.auto_lines, p.requested, p.pending, p.paid
+         from (select user_id, currency,
+                      sum(amount_cents) filter (where status <> 'cancelled') as earned,
+                      sum(amount_cents) filter (where status <> 'cancelled' and registration_id is not null) as auto,
+                      count(*) filter (where status <> 'cancelled' and registration_id is not null) as auto_lines
+                 from commissions group by user_id, currency) e
+         full join (select user_id, currency,
+                           sum(amount_cents) filter (where status = 'requested') as requested,
+                           count(*) filter (where status = 'requested') as pending,
+                           sum(amount_cents) filter (where status = 'paid') as paid
+                      from payouts group by user_id, currency) p
+           on p.user_id = e.user_id and p.currency = e.currency
+     ) b on b.user_id = a.user_id
+     where u.role <> 'admin'
+     order by lower(u.first_name), lower(u.last_name), u.email, b.currency`,
+  );
 }
 
 /**
@@ -289,6 +419,9 @@ export async function requestPayout(userId: string, currency: string, amountCent
   const balance = (await payoutBalances(userId)).find((b) => b.currency === currency);
   if (!balance || balance.available <= 0) return 'nothing';
   if (!Number.isInteger(amountCents) || amountCents <= 0 || amountCents > balance.available) return 'amount';
+  // Trois demandes en attente au plus (24/11) : sinon des demandes de quelques centimes rempliraient les tickets.
+  const [open] = await sql(`select count(*)::int as n from payouts where user_id = $1 and status = 'requested'`, [userId]);
+  if (Number(open.n) >= MAX_PENDING_PAYOUTS) return 'pending_max';
   // One statement checks the balance again and records the payout: two quick clicks cannot exceed it.
   const id = randomUUID();
   const [made] = await sql(
@@ -300,28 +433,52 @@ export async function requestPayout(userId: string, currency: string, amountCent
     [id, userId, currency, amountCents, amb.iban, amb.iban_holder],
   );
   if (!made) return 'amount';
+  // Deux demandes parties au même instant voient chacune le solde d'avant l'autre (24/11) : celle qui fait dépasser est retirée.
+  const [over] = await sql(
+    `delete from payouts p where p.id = $1::uuid
+        and (select coalesce(sum(amount_cents), 0) from payouts where user_id = p.user_id and currency = p.currency and status in ('requested', 'paid'))
+          > (select coalesce(sum(amount_cents), 0) from commissions where user_id = p.user_id and currency = p.currency and status <> 'cancelled')
+      returning p.id`,
+    [id],
+  );
+  if (over) return 'amount';
   const fmt = (c: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(c / 100);
   // A ticket in /admin so the transfer is not forgotten: it is promised within 48 hours.
   const [u] = await sql('select first_name, last_name, email from users where id = $1', [userId]);
-  await createTicket({
+  const ticket = await createTicket({
     name: `${u.first_name} ${u.last_name}`.trim() || u.email,
     email: u.email,
     category: 'payout',
     message: [
       `Ambassador payout request: ${fmt(amountCents)} (balance before this request: ${fmt(balance.available)}).`,
-      `Account holder: ${amb.iban_holder}`,
+      `Account holder: ${String(amb.iban_holder ?? '').replace(/\s+/g, ' ').trim()}`,
       `IBAN : ${amb.iban}`,
       'Transfer within 48 hours, then click “Transfer done” on this ticket.',
     ].join('\n'),
     locale: 'en-us',
     notify: false,
   });
+  // Le virement garde son ticket (24/11) : « Transfer done » clôt celui-là, même si l'ambassadeur a deux demandes ouvertes.
+  if (ticket.ok) await sql('update payouts set ticket_id = $2::uuid where id = $1::uuid', [id, ticket.id]);
   return 'ok';
 }
 
-export async function markPayoutPaid(payoutId: string) {
-  await sql(`update payouts set status = 'paid', paid_at = now() where id = $1 and status = 'requested'`, [payoutId]);
-  await sql(`update commissions set status = 'paid' where payout_id = $1`, [payoutId]);
+/** Le virement est parti. Rend le ticket de CE virement (nul pour les virements d'avant le 24/11, sans lien). */
+export async function markPayoutPaid(payoutId: string): Promise<{ done: boolean; ticketId: string | null }> {
+  const [p] = await sql(
+    `update payouts set status = 'paid', paid_at = now() where id::text = $1 and status = 'requested' returning ticket_id::text as ticket_id`,
+    [payoutId],
+  );
+  return { done: Boolean(p), ticketId: p?.ticket_id ? String(p.ticket_id) : null };
+}
+
+/** L'admin refuse une demande de virement (24/11) : le montant revient dans le solde disponible de l'ambassadeur. */
+export async function refusePayout(payoutId: string): Promise<{ done: boolean; ticketId: string | null }> {
+  const [p] = await sql(
+    `update payouts set status = 'refused' where id::text = $1 and status = 'requested' returning ticket_id::text as ticket_id`,
+    [payoutId],
+  );
+  return { done: Boolean(p), ticketId: p?.ticket_id ? String(p.ticket_id) : null };
 }
 
 export async function releaseSchool(universityId: string) {
@@ -440,6 +597,12 @@ export async function removeAmbassadorsByEmail(emails: string[]): Promise<Record
 async function removeAmbassador(targetId: string): Promise<'amb_deleted' | 'amb_refused'> {
   const [a] = await sql(`select a.parent_user_id, u.role from ambassadors a join users u on u.id = a.user_id where a.user_id = $1`, [targetId]);
   if (!a || a.role === 'admin') return 'amb_refused';
+  // Argent en jeu (24/11) : un compte qui a une commission non annulée ou un virement demandé ou versé n'est jamais effacé.
+  // Fermer un compte dans Smart Mail effaçait jusque-là ses commissions et ses virements sur le site.
+  const [money] = await sql(
+    `select (exists (select 1 from commissions where user_id = $1 and status <> 'cancelled')
+          or exists (select 1 from payouts where user_id = $1 and status in ('requested', 'paid'))) as yes`, [targetId]);
+  if (money?.yes) return 'amb_refused';
   await sql('update ambassadors set parent_user_id = $2 where parent_user_id = $1', [targetId, a.parent_user_id ?? null]);
   await sql('update ambassadors set master_by = null where master_by = $1', [targetId]);
   for (const t of ['school_claims', 'school_requests', 'commissions', 'payouts']) await sql(`delete from ${t} where user_id = $1`, [targetId]);
@@ -545,7 +708,7 @@ export async function signInFromSmartMail(t: string): Promise<'ambassador' | 'st
   }
   await ensureAmbassador(id, await parentFromToolCode(d.parrain));
   // Revenus visibles (22/11) : l'ambassadeur prend l'école de son adresse si elle est libre, pour toucher ses commissions.
-  if (showsEarnings(d.email)) await claimSchoolOfEmail(id, d.email);
+  if (SCHOOL_FROM_EMAIL.includes(d.email)) await claimSchoolOfEmail(id, d.email);
   if (d.uid > 0) {
     await sql('update ambassadors set smartmail_id = $2 where user_id = $1 and smartmail_id is null', [id, d.uid]);
     // Ce qu'on lui avait donné quand il n'était connu que par Smart Mail le suit sur son compte : grade Legend, noms donnés.

@@ -521,6 +521,20 @@ a.cx-kpi:hover { border-color: var(--green-dark); }
 .cx-meter { width: 140px; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; margin-bottom: 4px; }
 .cx-meter span { display: block; height: 100%; background: var(--green-dark); }
 .cx-email { width: 100%; height: 640px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+/* Admin : tous les mails envoyés à une personne, les uns sous les autres (23/11). */
+.cx-mail-index { list-style: none; margin: 0 0 22px; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.cx-mail-index li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 14px; }
+.cx-mail-index li:first-child { border-top: 0; }
+.cx-mail-index li.on { background: #F7F8FA; }
+.cx-mail-index a { display: flex; gap: 10px; flex: 1 1 260px; min-width: 0; text-decoration: none; color: inherit; }
+.cx-mail-index a span { color: var(--muted); white-space: nowrap; }
+.cx-mail-index a strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-mail-index a:hover strong { text-decoration: underline; }
+.cx-mail-index small { color: var(--muted); }
+.cx-mail { margin: 0 0 28px; scroll-margin-top: 16px; }
+.cx-mail h3 { margin: 0 0 4px; font-size: 18px; }
+.cx-mail h3 small { color: var(--muted); font-weight: 600; margin-right: 6px; }
+.cx-mail .help { margin: 0 0 10px; }
 @media (max-width: 960px) { .cx-grid { grid-template-columns: 1fr; } }
 .cx-code code { display: block; font-size: 15px; padding: 12px 14px; background: var(--cream); border: 1px solid var(--line); border-radius: 10px; word-break: break-all; user-select: all; }
 .cx-school { display: flex; gap: 8px; align-items: baseline; margin: 0 0 4px; }
@@ -1368,6 +1382,8 @@ button.cx-view { background: transparent; font-family: inherit; cursor: pointer;
 .py-tools { display: flex; gap: 6px; flex-wrap: wrap; }
 .py-tools button { font: inherit; font-size: 13px; font-weight: 700; min-width: 38px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--navy); cursor: pointer; }
 .py-tools button:hover { border-color: var(--green); }
+.py-tools .py-invite-top { background: var(--green-dark); border-color: var(--green-dark); color: #fff; margin-right: 6px; }
+.py-tools .py-invite-top.is-copied { background: #fff; color: var(--navy); }
 .py-box { overflow: auto; height: min(70vh, 680px); border: 1px solid var(--line); border-radius: 14px; background: #FBFBF8; cursor: grab; touch-action: pan-x pan-y; user-select: none; -webkit-user-select: none; display: flex; }
 .py-box svg { margin: auto; flex: none; }
 .py-zoom { align-self: center; font-size: 13px; font-weight: 700; color: var(--muted); margin-left: 4px; }
@@ -2647,6 +2663,30 @@ html.chat-open { overflow: hidden; }
 .cx-payout-form { margin: 4px 0 0; gap: 10px; }
 .cx-payout-row { display: flex; gap: 8px; align-items: stretch; }
 .cx-payout-row input[type="number"] { max-width: 180px; font-size: 18px; font-weight: 600; }
+.cx-payout-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Admin › Commissions (24/11) : une ligne par ambassadeur, lisible au téléphone, puis la fiche où l'on saisit. */
+.cm-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.cm-list li { border-top: 1px solid var(--line); }
+.cm-list li:first-child { border-top: 0; }
+.cm-list a { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; text-decoration: none; color: inherit; }
+.cm-list a:hover { background: var(--cream); color: inherit; }
+.cm-empty { padding: 16px 14px; color: var(--muted); }
+.cm-who { min-width: 0; display: grid; gap: 2px; }
+.cm-who strong, .cm-who small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-who small { color: var(--muted); font-size: 13px; }
+.cm-who .cm-flag { color: #8A4B00; font-weight: 700; }
+.cm-sums { flex: none; display: grid; gap: 2px; text-align: right; }
+.cm-sums strong { font-size: 16px; white-space: nowrap; }
+.cm-sums small { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.cm-neg { color: #B42318; }
+.cm-form { grid-template-columns: minmax(0, 1fr) 120px; gap: 12px; max-width: 520px; margin-top: 12px; }
+.cm-form .cm-wide { grid-column: 1 / -1; }
+.cm-payout { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; padding: 12px 14px; }
+.cm-payout .cm-who strong { font-size: 18px; }
+.cm-iban { font-size: 14px; white-space: nowrap; user-select: all; -webkit-user-select: all; }
+.cm-off td { opacity: .55; }
+.cm-off td strong { text-decoration: line-through; }
 
 /* Admin › Avis (23/11) : note moyenne, répartition par étoiles, puis chaque avis. */
 .rv-stars { color: #D9DCE5; letter-spacing: 2px; font-size: 18px; white-space: nowrap; }
@@ -2693,7 +2733,7 @@ html.chat-open { overflow: hidden; }
 .pl-txt small { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pl-root .pl-txt small { color: #C9CFE3; }
 .pl-card .gb { flex: none; }
-.pl-invite { margin-top: 10px; border-style: dashed; }
+.pl-invite { margin-bottom: 10px; border-style: dashed; }
 .pl-invite .pl-plus { background: var(--green); color: #fff; font-size: 20px; }
 .pl-invite.is-copied { border-style: solid; border-color: var(--green); }
 
@@ -2739,3 +2779,49 @@ main > section.rating-band:has(.hero-rating) { padding: 6px 0 34px; }
 .hero-stars { color: #D9DEE8; letter-spacing: 2px; font-size: 22px; line-height: 1; }
 .hero-stars .on { color: #E2A93B; }
 
+
+/* Parcours avant le certificat (24/11) : une étape à la fois (note, Trustpilot, question ambassadeur). */
+.cert-step { margin-bottom: 16px; scroll-margin-top: 90px; }
+.cert-step > .help { text-align: center; margin: 0 0 12px; }
+.cert-step .space-module > p:first-child { margin-top: 0; }
+.tp-next { display: block; margin: 10px auto 0; padding: 6px 10px; background: none; border: 0; font: inherit; font-weight: 700;
+  color: #063D2B; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* Question « Tu veux devenir ambassadeur ? » : carte bleu marine, jaune d'or du site, Kai dans un médaillon clair.
+   Un <div>, pas une <section> : la marge générique des sections sur téléphone ne doit pas s'y ajouter. */
+.amb-card { text-align: center; background: var(--navy); color: #fff; border-radius: 18px; padding: 24px 24px 22px; }
+.amb-kai { display: block; width: 92px; height: 92px; margin: 0 auto 14px; border-radius: 50%; background: #fff;
+  border: 3px solid #F5B82E; object-fit: cover; }
+.amb-card h2 { margin: 0 0 10px; font-size: 24px; line-height: 1.25; color: #fff; text-wrap: balance; }
+.amb-pitch { margin: 0 auto 8px; max-width: 520px; font-size: 16px; line-height: 1.5; color: #D5DCEE; text-wrap: balance; }
+.amb-offer { margin: 0 auto 20px; max-width: 520px; font-size: 18px; line-height: 1.4; font-weight: 800; color: #F5B82E; text-wrap: balance; }
+.amb-choice { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.amb-yes { display: inline-block; min-height: 48px; padding: 13px 28px; background: #F5B82E; color: var(--navy); border: 0;
+  border-radius: 999px; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+.amb-yes:hover { background: #FFCB52; }
+.amb-yes:focus-visible, .amb-no:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.amb-no { min-height: 44px; padding: 10px 12px; background: none; border: 0; font: inherit; font-size: 14.5px; font-weight: 600;
+  color: #C3CCE4; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.amb-no:hover { color: #fff; }
+.amb-form { display: grid; gap: 16px; max-width: 440px; margin: 0 auto 4px; text-align: left; }
+.amb-networks { min-width: 0; margin: 0; padding: 0; border: 0; }
+.amb-networks legend, .amb-field label { display: block; margin-bottom: 8px; padding: 0; font-size: 14.5px; font-weight: 700; color: #fff; }
+.amb-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.amb-pills label { position: relative; cursor: pointer; }
+.amb-pills input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.amb-pills span { display: block; padding: 9px 14px; border: 1.5px solid #4A5A8C; border-radius: 999px; font-size: 14.5px; font-weight: 600; color: #E6EBF7; }
+.amb-pills input:checked + span { background: #F5B82E; border-color: #F5B82E; color: var(--navy); }
+.amb-pills input:focus-visible + span { outline: 3px solid #fff; outline-offset: 2px; }
+.amb-field input { box-sizing: border-box; width: 100%; padding: 12px 14px; background: #fff; color: var(--navy); border: 0;
+  border-radius: 12px; font: inherit; font-size: 16px; }
+.amb-field input:focus-visible { outline: 3px solid #F5B82E; outline-offset: 2px; }
+.amb-form .amb-yes { justify-self: center; }
+.amb-error { margin: 0; font-size: 14px; font-weight: 700; color: #FFD7D7; }
+.amb-note { margin: 0; text-align: center; font-size: 12.5px; color: #AEB9D6; }
+.amb-card > form { margin-top: 2px; }
+@media (max-width: 640px) {
+  .amb-card { padding: 22px 16px 18px; border-radius: 16px; }
+  .amb-card h2 { font-size: 21px; }
+  .amb-pitch { font-size: 15px; }
+  .amb-offer { font-size: 16.5px; }
+  .amb-yes { width: 100%; max-width: 360px; }
+}

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { PRIVATE_SLUGS } from '@/lib/private';
-import { markPayoutPaidAction, replyTicketAction } from '@/lib/privateActions';
+import { markPayoutPaidAction, refusePayoutAction, replyTicketAction } from '@/lib/privateActions';
 import TicketStatusSelect from '@/components/private/TicketStatusSelect';
 
 // Admin "Tickets" tab: every request sent from /support, answered from here by email.
@@ -28,12 +28,16 @@ export default async function Tickets({ id, status }: { id: string; status: stri
     if (t) {
       const thread = await sql('select * from ticket_messages where ticket_id = $1 order by created_at', [t.id]);
       // Demande de virement d'un ambassadeur (22/11) : ses virements, avec le bouton à cliquer une fois le virement fait.
+      // Chaque virement garde son ticket (24/11) : les boutons ne sont proposés que sur celui de CE ticket (ou sur un
+      // virement d'avant, sans lien). Avec deux demandes ouvertes, on ne clôt plus le mauvais ticket.
       const payouts = t.category === 'payout'
         ? await sql(
-            `select p.* from payouts p join users u on u.id = p.user_id where lower(u.email) = lower($1) order by p.requested_at desc limit 20`,
-            [t.email],
+            `select p.*, p.ticket_id::text as ticket, p.user_id::text as owner from payouts p join users u on u.id = p.user_id
+              where lower(u.email) = lower($1) order by (p.ticket_id::text = $2) desc, p.requested_at desc limit 20`,
+            [t.email, String(t.id)],
           )
         : [];
+      const mine = (p: Record<string, unknown>) => !p.ticket || p.ticket === String(t.id);
       return (
         <section className="cx-card">
           <p><Link href={`/${PRIVATE_SLUGS.admin}?tab=tickets`}>← All tickets</Link></p>
@@ -51,32 +55,49 @@ export default async function Tickets({ id, status }: { id: string; status: stri
             </div>
           ))}
           {payouts.length > 0 && (
-            <div className="cx-scroll" style={{ marginTop: 16 }}>
-              <table className="cx-table">
-                <thead><tr><th>Requested</th><th>Amount</th><th>Account holder</th><th>IBAN</th><th>Status</th></tr></thead>
-                <tbody>
-                  {payouts.map((p) => (
-                    <tr key={p.id}>
-                      <td>{dt(p.requested_at)}</td>
-                      <td><strong>{new Intl.NumberFormat('en-GB', { style: 'currency', currency: p.currency }).format(p.amount_cents / 100)}</strong></td>
-                      <td>{p.iban_holder}</td>
-                      <td><code>{String(p.iban).replace(/(.{4})/g, '$1 ').trim()}</code></td>
-                      <td>
-                        {p.status === 'paid' ? (
-                          <span className="cx-badge tone-ok">Paid {p.paid_at ? dt(p.paid_at) : ''}</span>
-                        ) : (
-                          <form action={markPayoutPaidAction}>
+            <p className="help" style={{ marginTop: 16 }}>
+              <Link href={`/${PRIVATE_SLUGS.admin}?tab=commissions&id=${payouts[0].owner}`}>Voir ses commissions et son solde</Link>
+            </p>
+          )}
+          {/* En cartes (24/11) : au téléphone, « Transfer done » était hors de l'écran, au bout d'un tableau à faire défiler. */}
+          {payouts.length > 0 && (
+            <ul className="cm-list">
+              {payouts.map((p) => (
+                <li key={p.id}>
+                  <div className="cm-payout">
+                    <span className="cm-who">
+                      <strong>{new Intl.NumberFormat('en-GB', { style: 'currency', currency: p.currency }).format(p.amount_cents / 100)}</strong>
+                      <small>{dt(p.requested_at)} · {p.iban_holder}</small>
+                      <code className="cm-iban">{String(p.iban).replace(/(.{4})/g, '$1 ').trim()}</code>
+                    </span>
+                    {p.status === 'paid' ? (
+                      <span className="cx-badge tone-ok">Paid {p.paid_at ? dt(p.paid_at) : ''}</span>
+                    ) : p.status === 'refused' ? (
+                      <span className="cx-badge tone-muted">Refused</span>
+                    ) : mine(p) ? (
+                      <div className="cx-payout-acts">
+                        <form action={markPayoutPaidAction}>
+                          <input type="hidden" name="payout_id" value={p.id} />
+                          <input type="hidden" name="ticket_id" value={t.id} />
+                          <button className="btn btn-sm btn-green" type="submit">Transfer done</button>
+                        </form>
+                        {/* Refuser (24/11) : le montant revient dans le solde de l'ambassadeur. Deux gestes, pour ne pas refuser par erreur. */}
+                        <details className="cx-setting-edit">
+                          <summary className="btn btn-sm btn-ghost">Refuser</summary>
+                          <form action={refusePayoutAction}>
                             <input type="hidden" name="payout_id" value={p.id} />
                             <input type="hidden" name="ticket_id" value={t.id} />
-                            <button className="btn btn-sm btn-green" type="submit">Transfer done</button>
+                            <button className="btn btn-sm" type="submit">Confirmer le refus</button>
                           </form>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </details>
+                      </div>
+                    ) : (
+                      <Link href={href(`&id=${p.ticket}`)}>Autre demande : son ticket</Link>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
           <form action={replyTicketAction} className="form" style={{ marginTop: 16 }}>
             <input type="hidden" name="ticket_id" value={t.id} />

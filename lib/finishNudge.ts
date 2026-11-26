@@ -13,7 +13,7 @@ import { blockedNow, blockedPeople, quotaHit, relanceAllowance, relanceOpen } fr
 //   - ne pas avoir son certificat ;
 //   - avoir payé depuis plus de 2 h et ne pas avoir validé de leçon dans les 3 dernières heures (elle est dessus).
 
-export type NudgeTarget = { id: string; email: string; first_name: string; locale: string; reference: string; payment_id: string };
+export type NudgeTarget = { id: string; email: string; first_name: string; name: string; locale: string; reference: string; payment_id: string };
 export type NudgeExcluded = { email: string; name: string; why: string };
 
 export async function finishNudgeList(only?: string) {
@@ -52,12 +52,13 @@ export async function finishNudgeList(only?: string) {
     const email = String(r.email);
     const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim();
     const person = `${String(r.first_name ?? '').trim().toLowerCase()}|${String(r.last_name ?? '').trim().toLowerCase()}`;
-    const why = blocked.why(email, String(r.reference)) ?? (stripeNo.has(email) ? 'Stripe : paiement non encaissé, remboursé ou contesté' : null);
+    // Le nom aussi (26/11) : un ticket envoyé d'une autre adresse, sans référence, écarte la personne.
+    const why = blocked.why(email, String(r.reference), name) ?? (stripeNo.has(email) ? 'Stripe : paiement non encaissé, remboursé ou contesté' : null);
     if (why) excluded.push({ email, name, why });
     else if (doneSet.has(email)) already++;
     else if (person !== '|' && names.has(person)) excluded.push({ email, name, why: 'même nom déjà relancé sous une autre adresse' });
     else if (r.fresh || r.studying) later++;
-    else if (names.add(person)) targets.push({ id: String(r.id), email, first_name: String(r.first_name ?? '').trim(), locale: String(r.locale ?? 'en-us'), reference: String(r.reference), payment_id: String(r.payment_id ?? '') });
+    else if (names.add(person)) targets.push({ id: String(r.id), email, first_name: String(r.first_name ?? '').trim(), name, locale: String(r.locale ?? 'en-us'), reference: String(r.reference), payment_id: String(r.payment_id ?? '') });
   }
   return { targets, excluded, already, later };
 }
@@ -97,7 +98,7 @@ export async function sendFinishNudges(budgetMs: number, opts: { max?: number; o
                            where c.program = r.program and (c.user_id = r.user_id or lower(u.email) = lower(r.email)))`,
       [t.id, t.payment_id],
     );
-    if (!still || (await blockedNow(t.email, t.reference))) {
+    if (!still || (await blockedNow(t.email, t.reference, t.name))) {
       await release();
       continue;
     }

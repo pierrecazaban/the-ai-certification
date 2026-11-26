@@ -10,6 +10,9 @@ import { sql } from './db';
 import { examDraw, hasCourse } from './learning';
 import { STUDENT_PROGRAM } from './catalog';
 import { RATING_COMMENT_MIN } from './rating';
+import { isLeadNetwork, leadLink, leadNetworkLabel, LEAD_HANDLE_MAX, LEAD_HANDLE_MIN, LEAD_SCHOOLS_MAX } from './leadNetworks';
+import { saveLead } from './ambassadorLeads';
+import { sendOutreachAlert } from './email';
 import { certificateReference, examPassMark, examSize, getProgress, grade, hasPaidAccess } from './learning/progress';
 
 const MIN_SUBMISSION = 40;
@@ -109,7 +112,7 @@ export async function resetMyProgressAction() {
   if (!user || user.role !== 'admin') redirect('/');
   await logAdmin('Progression de test remise à zéro (vue étudiant)', '', user);
   await sql('delete from lesson_progress where user_id = $1', [user.id]);
-  for (const table of ['exercise_submissions', 'quiz_attempts', 'exam_attempts', 'certificates']) {
+  for (const table of ['exercise_submissions', 'quiz_attempts', 'exam_attempts', 'certificates', 'ambassador_leads']) {
     await sql(`delete from ${table} where user_id = $1`, [user.id]);
   }
   redirect('/space');
@@ -156,21 +159,68 @@ export async function trustpilotEventAction(formData: FormData) {
     );
   } else if (event === 'shown') {
     await sql(`update certificates set tp_shown_at = coalesce(tp_shown_at, now()) where user_id = $1 and program = $2 and rating = 5`, [user.id, program]);
+  } else if (event === 'done') {
+    // End of the countdown (24/11): the step is passed even if the note of the click itself was lost. Not one more click.
+    await sql(
+      `update certificates set tp_clicked_at = coalesce(tp_clicked_at, now()), tp_shown_at = coalesce(tp_shown_at, now())
+        where user_id = $1 and program = $2 and rating = 5`,
+      [user.id, program],
+    );
   }
 }
 
-/** The learner rates the course before adding the certificate to LinkedIn: 1 to 5 stars and a review of at least 25 characters. */
+/**
+ * The learner rates the course before the certificate is shown (24/11, it used to open only the LinkedIn block):
+ * 1 to 5 stars and a review of at least 25 characters.
+ */
 export async function rateCertificateAction(formData: FormData) {
   const { user, progress, program, base } = await learner(formData);
   if (!progress.certificate) redirect(base);
   const rating = Number(formData.get('rating'));
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) redirect(`${base}/certificate?rate=missing#linkedin`);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) redirect(`${base}/certificate?rate=missing#etape`);
   const comment = String(formData.get('comment') ?? '').trim().slice(0, 2000);
   // Counted without the padding: 25 spaces are not a review.
-  if (comment.replace(/\s+/g, ' ').length < RATING_COMMENT_MIN) redirect(`${base}/certificate?rate=short#linkedin`);
+  if (comment.replace(/\s+/g, ' ').length < RATING_COMMENT_MIN) redirect(`${base}/certificate?rate=short#etape`);
   await sql(
     `update certificates set rating = $3, rating_comment = $4, rated_at = now() where user_id = $1 and program = $2`,
     [user.id, program, rating, comment],
   );
-  redirect(`${base}/certificate?rated=1#linkedin`);
+  redirect(`${base}/certificate?rated=1#etape`);
+}
+
+/**
+ * "Do you want to become an ambassador?", asked once per learner between the rating and the certificate (24/11): yes
+ * with a social network and where to reach them, or no. A yes sends the owner an e-mail, and he contacts them himself.
+ */
+export async function ambassadorAnswerAction(formData: FormData) {
+  const { user, progress, program, base } = await learner(formData);
+  const cert = progress.certificate;
+  if (!cert) redirect(base);
+  const back = `${base}/certificate`;
+  if (cert.rating == null) redirect(back);
+  const interested = formData.get('answer') === 'yes';
+  const field = (k: string, max: number) => String(formData.get(k) ?? '').trim().replace(/\s+/g, ' ').slice(0, max);
+  const network = field('network', 20);
+  const handle = field('handle', LEAD_HANDLE_MAX);
+  const schools = field('schools', LEAD_SCHOOLS_MAX);
+  if (interested && (!isLeadNetwork(network) || handle.length < LEAD_HANDLE_MIN)) redirect(`${back}?amb=missing#etape`);
+  const fresh = await saveLead({
+    userId: user.id, program, interested,
+    network: interested ? network : '', handle: interested ? handle : '', schools: interested ? schools : '',
+  });
+  if (fresh && interested) {
+    const link = leadLink(network, handle);
+    await sendOutreachAlert({
+      subject: `Ambassadeur : ${cert.holder_name} veut devenir ambassadeur`,
+      lines: [
+        `${cert.holder_name} (${user.email}) vient d’obtenir son certificat et veut devenir ambassadeur.`,
+        `${leadNetworkLabel(network)} : ${handle}${link && link !== handle ? `\n${link}` : ''}`,
+        schools ? `Écoles citées : ${schools}` : '',
+        `Note donnée à la formation : ${cert.rating}/5`,
+        'À retrouver dans l’admin, onglet Prospection, tableau « Certifiés intéressés ».',
+      ].filter(Boolean),
+      linkedin: network === 'linkedin' && link ? link : undefined,
+    }).catch(() => {});
+  }
+  redirect(back);
 }

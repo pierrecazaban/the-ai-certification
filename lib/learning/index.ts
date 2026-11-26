@@ -110,6 +110,24 @@ for (const [program, byLocale] of Object.entries(NEXT_VERSIONS)) {
   if (ref) check(program, byLocale, shape(ref));
 }
 
+// Videos of the modules (24/11): two per module, real YouTube ids, and never the same video twice. The French and the
+// English course must suggest different videos, each in its own language.
+for (const [program, byLocale] of Object.entries(NEXT_VERSIONS)) {
+  const seen = new Set<string>();
+  for (const course of new Set(Object.values(byLocale))) {
+    if (!course) continue;
+    for (const m of course.modules) {
+      const videos = m.videos ?? [];
+      if (videos.length !== 2) throw new Error(`Course ${program} v${course.version ?? 1}: module ${m.id} must suggest two videos`);
+      for (const v of videos) {
+        if (!/^[\w-]{11}$/.test(v.id) || !(v.minutes > 0) || !v.title || !v.channel || !v.why) throw new Error(`Course ${program}: bad video in module ${m.id}`);
+        if (seen.has(v.id)) throw new Error(`Course ${program}: video ${v.id} is suggested twice (each language has its own videos)`);
+        seen.add(v.id);
+      }
+    }
+  }
+}
+
 /** A catalogue certification can be bought only once its course is written (the AI one is the student course). */
 export function isAvailable(slug: string) {
   return slug === 'ai-at-work' || slug in COURSES;

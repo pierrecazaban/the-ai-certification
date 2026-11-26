@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import type { User } from '@/lib/auth';
 import { sql } from '@/lib/db';
-import { estimatedFee, eurCentsSql, feesSince } from '@/lib/revenue';
+import { FEE_ESTIMATED, eurCentsSql, feeCentsSql, readNewStripeFees } from '@/lib/revenue';
 import { getCourse, lessonIdsOf } from '@/lib/learning';
 import { LOCALES, isLocale } from '@/lib/locales';
 import Tickets from '@/components/private/Tickets';
+import Commissions from '@/components/private/Commissions';
 import Reviews from '@/components/private/Reviews';
 import Settings from '@/components/private/Settings';
 import Outreach from '@/components/private/Outreach';
@@ -17,6 +19,7 @@ import { decideSchoolRequestAction, resetGuestLinkAction } from '@/lib/privateAc
 import { setting } from '@/lib/settings';
 import RevenueChart from '@/components/private/RevenueChart';
 import { payReminderStatus } from '@/lib/payReminder';
+import MailFrame from '@/components/private/MailFrame';
 
 // Admin console, rendered by app/[locale]/page.tsx for signed-in admins only.
 // It has no route of its own, so for anyone else its address behaves like any unknown address.
@@ -75,6 +78,8 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
             {!id && <SchoolRequests msg={String(params.msg ?? '')} />}
             <Tickets id={id} status={statusFilter} />
           </>
+        ) : tab === 'commissions' ? (
+          <Commissions id={id} msg={String(params.msg ?? '')} />
         ) : tab === 'avis' ? (
           <Reviews stars={String(params.stars ?? '')} />
         ) : tab === 'prospection' ? (
@@ -95,16 +100,30 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
 // Test payments (mock checkout, Stripe test mode) are left out of every figure and list of the admin (14/11).
 const NOT_TEST = `coalesce(payment_id, '') not like 'mock\\_%' and coalesce(payment_id, '') not like 'cs\\_test\\_%'`;
 
+// Tuile revenus « après frais Stripe » (26/11) : les frais sont gardés vente par vente dans la base ; seules les
+// ventes arrivées depuis la dernière ouverture sont lues chez Stripe. Toujours en différé (Suspense) par prudence.
+// Les frais d'une vente remboursée restent comptés : Stripe ne les rend pas.
+async function RevenueTile({ grossCents, n }: { grossCents: number; n: number }) {
+  await readNewStripeFees();
+  const [f] = await sql(
+    `select coalesce(sum(${await feeCentsSql()}), 0)::int as fees, count(*) filter (where ${FEE_ESTIMATED})::int as estimated
+       from registrations where status in ('paid', 'refunded') and payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST}`,
+  );
+  const fees = Number(f.fees);
+  return (
+    <Kpi label="Revenue after Stripe fees" value={money(grossCents - fees, 'EUR')}
+      sub={`${n} sale${n === 1 ? '' : 's'} · ${money(fees, 'EUR')} fees${Number(f.estimated) ? ' (est.)' : ''}`} />
+  );
+}
+
 async function Overview({ name, msg }: { name: string; msg: string }) {
   const invite = await guestCode();
   // One figure in euros (19/11): sales in other currencies are converted (lib/revenue.ts), after Stripe fees.
   const [revenue] = await sql(
-    `select coalesce(sum(${await eurCentsSql()}), 0)::int as cents, count(*)::int as n,
-       extract(epoch from min(coalesce(paid_at, created_at)))::bigint as since
+    `select coalesce(sum(${await eurCentsSql()}), 0)::int as cents, count(*)::int as n
      from registrations where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST}`,
   );
-  const realFees = revenue.n ? await feesSince(Number(revenue.since) - 13 * 3600) : 0;
-  const fees = realFees ?? estimatedFee(revenue.cents, revenue.n);
+  // La tuile revenus se charge en différé (Suspense) : le reste de l'admin s'affiche tout de suite (24/11).
   const [counts] = await sql(`
     select
       count(*) filter (where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}')::int as paid,
@@ -133,14 +152,17 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
     <>
       <div className="cx-kpis">
         <LiveVisitors />
-        <Kpi label="Revenue after Stripe fees" value={money(revenue.cents - fees, 'EUR')}
-          sub={`${revenue.n} sale${revenue.n === 1 ? '' : 's'} · ${money(fees, 'EUR')} fees${realFees === null ? ' (est.)' : ''}`} />
+        <Suspense fallback={<Kpi label="Revenue" value={money(revenue.cents, 'EUR')} sub={`${revenue.n} sale${revenue.n === 1 ? '' : 's'} · computing fees…`} />}>
+          <RevenueTile grossCents={revenue.cents} n={revenue.n} />
+        </Suspense>
         <Kpi label="Paid registrations" value={String(counts.paid)} sub={`${conversion} % of registrations started`} />
         <Kpi label="Certificates issued" value={String(certs.n)} />
         <Kpi label="Guests (free access)" value={String(counts.guests)} sub="Signed up through the invite link" />
       </div>
 
-      <RevenueChart />
+      <Suspense fallback={<section className="cx-card cx-revenue"><div className="cx-revenue-top"><h2>Chiffre d’affaires</h2></div><p className="help">Chargement des frais Stripe…</p></section>}>
+        <RevenueChart />
+      </Suspense>
 
       <section className="cx-card" id="buyers">
         <h2>Buyers by school</h2>
@@ -312,13 +334,37 @@ async function Emails({ id, q }: { id: string; q: string }) {
   if (id) {
     const [email] = await sql('select * from emails where id::text = $1', [id]);
     if (email) {
+      // Every mail sent to this person (23/11), latest first, one under the other: the page scrolls through them.
+      const all = await sql('select * from emails where lower(to_email) = lower($1) order by created_at desc limit 60', [email.to_email]);
+      const kindLabel: Record<string, string> = {
+        login: 'Connexion', confirmation: 'Confirmation d’achat', finish_nudge: 'Relance formation', pay_reminder_1: 'Rappel de paiement',
+        ticket_received: 'Ticket reçu', ticket_reply: 'Réponse à un ticket', ambassador_welcome: 'Bienvenue ambassadeur', call_booked: 'Appel réservé',
+        outreach_alert: 'Alerte prospection', relance_alert: 'Alerte rappels', test: 'Test',
+      };
+      const badge = (m: Record<string, any>) => (
+        <span className={`cx-badge tone-${m.status === 'sent' ? 'ok' : m.status === 'failed' ? 'bad' : 'muted'}`}>{m.status === 'sent' ? 'Envoyé' : m.status === 'failed' ? 'Refusé' : 'Non envoyé'}</span>
+      );
       return (
         <section className="cx-card">
-          <p><Link href="/admin?tab=emails">← Tous les emails</Link></p>
-          <h2>{email.subject}</h2>
-          <p className="help">À {email.to_email} · {dt(email.created_at)} · {email.kind} · {email.status}{email.error ? ` · ${email.error}` : ''}</p>
-          {/* Rendered sandboxed: no scripts, no same-origin access. */}
-          <iframe className="cx-email" sandbox="" srcDoc={email.html} title={email.subject} />
+          <p><Link href="/admin?tab=emails">Tous les emails</Link></p>
+          <h2>Mails envoyés à {email.to_email} <small>({all.length})</small></h2>
+          <ol className="cx-mail-index">
+            {all.map((m) => (
+              <li key={m.id} className={m.id === email.id ? 'on' : ''}>
+                <a href={`#mail-${m.id}`}><span>{dt(m.created_at)}</span><strong>{m.subject}</strong></a>
+                <small>{kindLabel[m.kind] ?? m.kind}</small>
+                {badge(m)}
+              </li>
+            ))}
+          </ol>
+          {all.map((m, n) => (
+            <article key={m.id} id={`mail-${m.id}`} className="cx-mail">
+              <h3><small>{all.length - n} / {all.length}</small> {m.subject}</h3>
+              <p className="help">{dt(m.created_at)} · {kindLabel[m.kind] ?? m.kind} · {badge(m)}{m.error ? ` · ${m.error}` : ''}</p>
+              {/* Rendered sandboxed: no scripts. */}
+              <MailFrame html={m.html} title={m.subject} />
+            </article>
+          ))}
         </section>
       );
     }
@@ -350,7 +396,7 @@ async function Emails({ id, q }: { id: string; q: string }) {
               <tr key={r.id}>
                 <td>{dt(r.created_at)}</td>
                 <td>{r.to_email}</td>
-                <td><Link href={`/admin?tab=emails&id=${r.id}`}>{r.subject}</Link></td>
+                <td><Link href={`/admin?tab=emails&id=${r.id}#mail-${r.id}`}>{r.subject}</Link></td>
                 <td>{r.kind === 'login' ? 'Sign-in' : r.kind === 'confirmation' ? 'Confirmation' : r.kind}</td>
                 <td><span className={`cx-badge tone-${r.status === 'sent' ? 'ok' : r.status === 'failed' ? 'bad' : 'muted'}`}>{r.status === 'sent' ? 'Sent' : r.status === 'failed' ? 'Failed' : 'Stored'}</span></td>
               </tr>

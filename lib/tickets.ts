@@ -25,7 +25,7 @@ export async function createTicket(input: {
   locale?: string;
   /** false for tickets opened by the site itself (internal notes the customer should not receive). */
   notify?: boolean;
-}): Promise<{ ok: true; reference: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; reference: string; id: string } | { ok: false; error: string }> {
   const name = input.name.trim().slice(0, 120);
   const email = input.email.trim().toLowerCase().slice(0, 200);
   const message = input.message.trim().slice(0, 5000);
@@ -41,7 +41,7 @@ export async function createTicket(input: {
   );
   await sql(`insert into ticket_messages (id, ticket_id, author, body) values ($1, $2, 'customer', $3)`, [randomUUID(), id, message]);
   if (input.notify !== false) await sendTicketEmail({ to: email, reference: ref, locale, kind: 'received', body: message });
-  return { ok: true, reference: ref };
+  return { ok: true, reference: ref, id };
 }
 
 /** An answer from the admin console: stored, emailed to the customer, ticket marked answered. */

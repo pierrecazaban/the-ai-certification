@@ -3,12 +3,17 @@ import { gradeOf } from '@/lib/grades';
 import { AdminHeader, TeamHeader } from '@/components/private/ConsoleHeaders';
 import type { User } from '@/lib/auth';
 import { sql } from '@/lib/db';
-import { ensureAmbassador, freeSchools, payoutBalances, RATES, showsEarnings, toolCodeOf } from '@/lib/team';
+import { ensureAmbassador, freeSchools, payoutBalances, RATES, toolCodeOf } from '@/lib/team';
 import { claimSchoolAction, requestPayoutAction, saveBankAction, showInTreeAction } from '@/lib/privateActions';
+import { PRIVATE_SLUGS } from '@/lib/private';
 import { siteUrl } from '@/lib/site';
 import UniversityPicker from '@/components/UniversityPicker';
 import NetworkPyramid, { type PyramidNode } from '@/components/private/NetworkPyramid';
 import ShortInvite from '@/components/private/ShortInvite';
+import AmbProspection from '@/components/private/AmbProspection';
+import AmbProspectionPreview from '@/components/private/AmbProspectionPreview';
+import AmbLinkedInGate from '@/components/private/AmbLinkedInGate';
+import { linkedInGate } from '@/lib/prospection';
 
 // Ambassador space, rendered by app/[locale]/page.tsx for signed-in ambassadors only. Server-rendered, no client code.
 type Params = Record<string, string | string[] | undefined>;
@@ -27,6 +32,7 @@ const MESSAGES: Record<string, string> = {
   nothing: 'Nothing available to withdraw yet.',
   amount: 'Choose an amount above zero and no higher than what is available.',
   no_iban: 'Add your bank details first.',
+  pending_max: 'You already have 3 payout requests being processed. Wait for one of them to be paid.',
   master: 'Made a Legend ✦',
   unlegend: 'Legend grade removed.',
   amb_deleted: 'Ambassador deleted.',
@@ -51,6 +57,16 @@ export default async function TeamConsole({ user, params }: { user: User; params
   const tab = 'overview';
   const msg = MESSAGES[String(params.msg ?? '')];
   const inviteUrl = `${BASE()}/${amb.invite_code}`;
+  // Page plein écran LinkedIn (26/11) : à chaque arrivée tant que le LinkedIn ne prospecte pas, sauf « Not now » (?ensuite=1).
+  // L'admin la voit en aperçu avec ?apercu=page (et ?voir= pour celle d'un ambassadeur).
+  const voir = typeof params.voir === 'string' ? params.voir : undefined;
+  // Jamais au retour d'une action (?msg=…, virement, coordonnées bancaires…) : l'ambassadeur doit voir sa confirmation.
+  // L'admin (26/11, « sur Ambassador view aussi ») arrive lui aussi sur la page, en aperçu, dans les mêmes cas qu'un
+  // ambassadeur sans LinkedIn relié (ou celui choisi avec ?voir=) ; « Not now » le mène à la vue ambassadeur habituelle.
+  const arrival = params.ensuite !== '1' && !params.msg;
+  const gate = user.role === 'ambassador'
+    ? arrival && !!(await linkedInGate(user.id))
+    : user.role === 'admin' && (params.apercu === 'page' || (arrival && !!(await linkedInGate(voir ?? '00000000-0000-0000-0000-000000000000'))));
 
   return (
     <div className="cx" lang="en">
@@ -62,16 +78,28 @@ export default async function TeamConsole({ user, params }: { user: User; params
       ) : (
         <TeamHeader user={user} tab={tab} />
       )}
+      {gate ? (
+        <AmbLinkedInGate userId={user.role === 'admin' ? voir ?? '00000000-0000-0000-0000-000000000000' : user.id} preview={user.role === 'admin'} voir={voir} />
+      ) : (
       <main id="main" className="container cx-main">
+        {/* Prospecter avec son LinkedIn (26/11) : la carte de l'ambassadeur ; l'admin en voit l'aperçu (et celle de chacun). */}
+        {user.role === 'ambassador' && <AmbProspection userId={user.id} msg={String(params.msg ?? '')} />}
+        {user.role === 'admin' && <AmbProspectionPreview voir={voir} />}
+        {/* Solde, retrait, commissions et virements de CHAQUE ambassadeur (26/11) : toujours là, en haut de l'espace, dès
+            l'arrivée depuis Smart Mail, même à 0. L'admin y voit le même bloc (le sien) et le lien pour saisir les commissions. */}
+        <div id="earnings" className="cx-anchor">
+          {msg && <p className="price-alert" role="status">{msg}</p>}
+          {user.role === 'admin' && (
+            <p className="help" lang="fr">
+              Ce bloc est celui que chaque ambassadeur voit en haut de son espace. Les montants se saisissent dans{' '}
+              <a href={`/${PRIVATE_SLUGS.admin}?tab=commissions`}>Admin › Commissions</a>.
+            </p>
+          )}
+          <Earnings userId={user.id} amb={amb} />
+        </div>
         {tab === 'overview' && <Overview user={user} inviteUrl={inviteUrl} />}
-        {/* Revenus, IBAN et demande de virement (22/11) : seulement pour les ambassadeurs de showsEarnings. */}
-        {showsEarnings(user.email) && (
-          <div id="earnings">
-            {msg && <p className="price-alert" role="status">{msg}</p>}
-            <Earnings userId={user.id} amb={amb} />
-          </div>
-        )}
       </main>
+      )}
     </div>
   );
 }
@@ -182,10 +210,12 @@ async function Students({ userId }: { userId: string }) {
 async function Earnings({ userId, amb }: { userId: string; amb: Record<string, any> }) {
   // Balance per currency (22/11): earned minus payouts asked for or paid; the ambassador withdraws any amount of it.
   const balances = await payoutBalances(userId);
+  // Lignes saisies par l'admin (24/11, sans vente rattachée, avec une note) et anciennes lignes nées d'une vente ; une
+  // ligne annulée ne compte plus et n'est plus montrée.
   const lines = await sql(
-    `select cm.*, r.first_name, r.last_name, r.amount_cents as paid_cents, u.name as school
-     from commissions cm join registrations r on r.id = cm.registration_id join universities u on u.id = r.university_id
-     where cm.user_id = $1 order by cm.created_at desc limit 500`,
+    `select cm.*, r.first_name, r.last_name, u.name as school
+     from commissions cm left join registrations r on r.id = cm.registration_id left join universities u on u.id = r.university_id
+     where cm.user_id = $1 and cm.status <> 'cancelled' order by cm.created_at desc limit 500`,
     [userId],
   );
   const payouts = await sql('select * from payouts where user_id = $1 order by requested_at desc', [userId]);
@@ -232,10 +262,15 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
               <div><button className="btn btn-green" type="submit">Ask for this payout</button></div>
             </form>
           ) : (
-            <div><button className="btn btn-green" type="button" disabled>Ask for a payout</button></div>
+            // Toujours cliquable (26/11) : sans IBAN ou sans solde, la réponse dit quoi faire (no_iban / nothing).
+            <form action={requestPayoutAction} className="form cx-payout-form">
+              <input type="hidden" name="currency" value={balances[0]?.currency ?? 'EUR'} />
+              <input type="hidden" name="amount" value="0" />
+              <div><button className="btn btn-green" type="submit">Ask for a payout</button></div>
+            </form>
           )}
           {!iban && <p className="help">Add your bank account first.</p>}
-          {iban && !first && <p className="help">Nothing available right now: commissions appear as soon as a student pays.</p>}
+          {iban && !first && <p className="help">Nothing available to withdraw right now.</p>}
         </div>
         <div className="cx-payout-bank">
           <h3>Bank account</h3>
@@ -258,21 +293,25 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
 
       <section className="cx-card">
         <h2>Commissions</h2>
-        <p className="help">{RATES.owner / 100} % on students of your schools, {RATES.parent / 100} % at the schools of the ambassadors you invited, {RATES.grandparent / 100} % one level below them.</p>
+        <p className="help">Your commissions are added here by The AI Certification. You can withdraw them whenever you want.</p>
         <div className="cx-scroll">
           <table className="cx-table">
-            <thead><tr><th>Date</th><th>Student</th><th>Payment</th><th>Your share</th><th className="num">Amount</th></tr></thead>
+            <thead><tr><th>Date</th><th>Commission</th><th className="num">Amount</th></tr></thead>
             <tbody>
               {lines.map((l) => (
                 <tr key={l.id}>
                   <td>{day(l.created_at)}</td>
-                  <td><strong>{short(l.first_name, l.last_name)}</strong><small>{l.school}</small></td>
-                  <td>{money(l.paid_cents, l.currency)}</td>
-                  <td>{l.rate_bp / 100} %{l.level === 2 ? ' (your invitee)' : l.level === 3 ? ' (2nd level)' : ''}</td>
+                  <td>
+                    {l.registration_id ? (
+                      <><strong>{short(l.first_name ?? '', l.last_name ?? '') || 'Student'}</strong><small>{[l.school, `${l.rate_bp / 100} %${l.level === 2 ? ' (your invitee)' : l.level === 3 ? ' (2nd level)' : ''}`].filter(Boolean).join(' · ')}</small></>
+                    ) : (
+                      <strong>{l.label || 'Commission'}</strong>
+                    )}
+                  </td>
                   <td className="num">{money(l.amount_cents, l.currency)}</td>
                 </tr>
               ))}
-              {lines.length === 0 && <tr><td colSpan={5} className="empty">No commission yet.</td></tr>}
+              {lines.length === 0 && <tr><td colSpan={3} className="empty">No commission yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -286,7 +325,7 @@ async function Earnings({ userId, amb }: { userId: string; amb: Record<string, a
             <thead><tr><th>Requested</th><th className="num">Amount</th><th>Status</th></tr></thead>
             <tbody>
               {payouts.map((p) => (
-                <tr key={p.id}><td>{day(p.requested_at)}</td><td className="num">{money(p.amount_cents, p.currency)}</td><td>{p.status === 'paid' ? `Sent ${day(p.paid_at)}` : 'On its way (within 48 h)'}</td></tr>
+                <tr key={p.id}><td>{day(p.requested_at)}</td><td className="num">{money(p.amount_cents, p.currency)}</td><td>{p.status === 'paid' ? `Sent ${day(p.paid_at)}` : p.status === 'refused' ? 'Refused: the amount is back in your balance' : 'On its way (within 48 h)'}</td></tr>
               ))}
             </tbody>
           </table>

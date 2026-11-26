@@ -22,6 +22,9 @@ export type OutreachConfig = {
   followUp: string; // {prenom} {ecole} {lien}
   withdrawAfterDays: number; // invitations still pending after this are withdrawn (keeps the acceptance rate healthy)
   searchCooldownDays: number; // a school searched without enough results waits this long before the next search
+  // Prospection par les comptes LinkedIn des ambassadeurs (26/11) : en service ou non, et combien de comptes au plus.
+  ambEnabled?: boolean;
+  ambMaxAccounts?: number;
 };
 
 // LinkedIn's limits for a young free account: about 100 invitations a week. Hard ceilings the admin cannot pass.
@@ -61,6 +64,9 @@ export async function getConfig(): Promise<OutreachConfig> {
     followUpAfterDays: clamp(c.followUpAfterDays, 30, DEFAULT_CONFIG.followUpAfterDays),
     withdrawAfterDays: clamp(c.withdrawAfterDays, 60, DEFAULT_CONFIG.withdrawAfterDays),
     searchCooldownDays: clamp(c.searchCooldownDays, 60, DEFAULT_CONFIG.searchCooldownDays),
+    // Allumée depuis le 26/11 au soir (« mets en marche », service de Paris prêt et vérifié) ; l'admin l'éteint d'une case.
+    ambEnabled: c.ambEnabled !== false,
+    ambMaxAccounts: clamp(c.ambMaxAccounts, 50, 10),
   };
 }
 
@@ -80,7 +86,7 @@ export async function budget() {
       count(*) filter (where invited_at >= date_trunc('day', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris')::int as invites_today,
       count(*) filter (where invited_at >= now() - interval '7 days')::int as invites_week,
       count(*) filter (where messaged_at >= date_trunc('day', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris')::int as messages_today
-    from outreach_prospects`);
+    from outreach_prospects where account = 'pierre'`); // les comptes des ambassadeurs ont leurs propres quotas (lib/prospection.ts, 26/11)
   const [r] = await sql(`select count(*)::int as n from outreach_log where kind = 'repost' and at >= date_trunc('day', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris'`);
   return {
     config,
@@ -91,21 +97,30 @@ export async function budget() {
   };
 }
 
-export type ProspectIn = { linkedin: string; name?: string; school?: string; headline?: string };
+export type ProspectIn = { linkedin: string; name?: string; school?: string; headline?: string; school_id?: string };
 
-/** New prospects found by the script (already known ones are left as they are). Each gets its personal /call link. */
-export async function addProspects(list: ProspectIn[]) {
+const ACCOUNT_RE = /^(pierre|hippolyte|amb-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * New prospects found by the script (already known ones are left as they are). Each gets its personal /call link.
+ * Since 26/11 each belongs to the account that found it (never contacted by another one) and to its school of the base.
+ */
+export async function addProspects(list: ProspectIn[], account = 'pierre') {
+  const acc = ACCOUNT_RE.test(account) ? account : 'pierre';
   let added = 0;
   for (const p of list.slice(0, 200)) {
     const linkedin = normaliseLinkedin(p.linkedin);
     if (!linkedin) continue;
+    const [known] = await sql('select 1 from outreach_prospects where linkedin = $1', [linkedin]);
+    if (known) continue;
     const name = String(p.name ?? '').trim().slice(0, 120);
     const [first, ...rest] = name.split(/\s+/);
     const token = await registerProspect({ linkedin, first_name: first ?? '', last_name: rest.join(' '), school: p.school ?? '' });
     const res = await sql(
-      `insert into outreach_prospects (linkedin, name, first_name, school, headline, token) values ($1, $2, $3, $4, $5, $6)
+      `insert into outreach_prospects (linkedin, name, first_name, school, headline, token, account, school_id) values ($1, $2, $3, $4, $5, $6, $7, $8)
        on conflict (linkedin) do nothing returning linkedin`,
-      [linkedin, name, first ?? '', String(p.school ?? '').slice(0, 120), String(p.headline ?? '').slice(0, 300), token],
+      [linkedin, name, first ?? '', String(p.school ?? '').slice(0, 120), String(p.headline ?? '').slice(0, 300), token, acc, p.school_id && UUID_RE.test(p.school_id) ? p.school_id : null],
     );
     added += res.length;
   }
@@ -115,9 +130,14 @@ export async function addProspects(list: ProspectIn[]) {
 export type Prospect = { linkedin: string; name: string; first_name: string; school: string; headline: string; token: string | null; status: string;
   found_at: string; invited_at: string | null; accepted_at: string | null; messaged_at: string | null; booked_at: string | null; error: string; link: string; contact: string; contact_at: string | null; contacted_at: string | null };
 
-export async function prospects(status: string | null, limit = 200): Promise<Prospect[]> {
+export async function prospects(status: string | null, limit = 200, account?: string, skipSchools: string[] = []): Promise<Prospect[]> {
+  // One account's queue (26/11); `skipSchools` = covered schools: nobody of these is invited or messaged any more.
+  const acc = account && ACCOUNT_RE.test(account) ? account : null;
+  const skip = skipSchools.filter((id) => UUID_RE.test(id));
   const rows = status
-    ? await sql('select * from outreach_prospects where status = $1 order by found_at limit $2', [status, limit])
+    ? await sql(
+      `select * from outreach_prospects where status = $1 and ($3::text is null or account = $3)
+          and (school_id is null or not (school_id = any($4::uuid[]))) order by found_at limit $2`, [status, limit, acc, skip])
     : await sql('select * from outreach_prospects order by coalesce(booked_at, messaged_at, accepted_at, invited_at, found_at) desc limit $1', [limit]);
   return rows.map((r) => ({ ...(r as Omit<Prospect, 'link'>), link: r.token ? `${siteUrl()}/call?t=${r.token}` : `${siteUrl()}/call` }));
 }
@@ -126,12 +146,15 @@ const STAMP: Record<string, string> = { invited: 'invited_at', accepted: 'accept
 // Final states: nothing ever moves a refused student back into a queue.
 const FINAL = ['declined'];
 
-export async function setStatus(linkedinUrl: string, status: string, error = '') {
+export async function setStatus(linkedinUrl: string, status: string, error = '', account?: string) {
   const linkedin = normaliseLinkedin(linkedinUrl);
   const col = STAMP[status];
+  // An account only moves its own prospects (26/11). Without `account` (old script): any prospect, as before.
+  const acc = account && ACCOUNT_RE.test(account) ? account : null;
   await sql(
-    `update outreach_prospects set status = $2, error = $3${col ? `, ${col} = coalesce(${col}, now())` : ''} where linkedin = $1 and (status <> all($4) or $2 = any($4))`,
-    [linkedin, status, error.slice(0, 300), FINAL],
+    `update outreach_prospects set status = $2, error = $3${col ? `, ${col} = coalesce(${col}, now())` : ''}
+      where linkedin = $1 and (status <> all($4) or $2 = any($4)) and ($5::text is null or account = $5)`,
+    [linkedin, status, error.slice(0, 300), FINAL, acc],
   );
 }
 

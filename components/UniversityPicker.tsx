@@ -50,17 +50,20 @@ export default function UniversityPicker({
         />
       </div>
       <input type="hidden" name={name} value={chosen} />
-      <ul className="uni-list" aria-label="Schools">
-        {filtered.map((s) => (
-          <li key={s.id}>
-            <button type="button" aria-pressed={s.id === chosen} onClick={() => { setChosen(s.id); setQuery(s.name); }}>
-              {s.name}
-              <small>All campuses</small>
-            </button>
-          </li>
-        ))}
-        {filtered.length === 0 && <li style={{ padding: 16 }} className="help">{empty(query)}</li>}
-      </ul>
+      {/* The list stays folded until the person starts typing their school. */}
+      {query.trim() && (
+        <ul className="uni-list" aria-label="Schools">
+          {filtered.map((s) => (
+            <li key={s.id}>
+              <button type="button" aria-pressed={s.id === chosen} onClick={() => { setChosen(s.id); setQuery(s.name); }}>
+                {s.name}
+                <small>All campuses</small>
+              </button>
+            </li>
+          ))}
+          {filtered.length === 0 && <li style={{ padding: 16 }} className="help">{empty(query)}</li>}
+        </ul>
+      )}
       {(allowAdd || allowNone) && (
         <div className="uni-extra">
           {allowAdd && (

@@ -4,6 +4,13 @@ const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
   // No Next.js badge in the corner while testing locally.
   devIndicators: false,
+  // Module booklets (PDF, scripts/fascicules.mjs): kept out of public/, read by the route that serves them to signed-in
+  // learners, so they must travel with that route.
+  // Their pages as images (26/11, read inside the module page) travel with the route that serves them.
+  outputFileTracingIncludes: {
+    '/space/[program]/module/[id]/fascicule': ['./fascicules/**/*.pdf'],
+    '/space/[program]/module/[id]/fascicule/pages/[n]': ['./fascicules/**/*.jpg'],
+  },
   // PGlite (local database) ships WASM files and must not be bundled.
   serverExternalPackages: ['@electric-sql/pglite', 'nodemailer'],
   // Public pages are the same for every visitor: the host's CDN (Vercel or Netlify) keeps a copy for 5 minutes and serves it

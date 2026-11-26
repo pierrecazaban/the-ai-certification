@@ -114,8 +114,8 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
       const p: Placed = { node: n, x: 0, y: top + depth * (H + ROW), depth, parent, invite: n.id === INVITE_ID };
       maxDepth = Math.max(maxDepth, depth);
       out.push(p);
-      // The viewer's own row ends with a “+” slot: the next person they invite.
-      const children = depth === 0 && invite ? [...n.children, { id: INVITE_ID, name: '', school: '', paid: 0, size: 0, rate: 0, earned: '', children: [] }] : n.children;
+      // The viewer's own row starts with a “+” slot (first since 23/11, it was last): the next person they invite.
+      const children = depth === 0 && invite ? [{ id: INVITE_ID, name: '', school: '', paid: 0, size: 0, rate: 0, earned: '', children: [] }, ...n.children] : n.children;
       const kids = children.map((c) => place(c, depth + 1, p));
       p.x = kids.length ? (kids[0].x + kids[kids.length - 1].x) / 2 : leaf++ * (W + GAP);
       return p;
@@ -280,16 +280,19 @@ export default function NetworkPyramid({ root, sponsor, viewerEarns, inviteUrl, 
           qui l'a amenée ; un tap ouvre la même fiche. Le dessin en pyramide reste pour les écrans larges. */}
       <div className="py-narrow">
         {sponsor && <p className="pl-sponsor">Invited by <strong>{sponsor}</strong></p>}
-        <ul className="pl-list">{listNode(root, 0)}</ul>
+        {/* En haut de la liste (23/11) : avec du monde, il fallait tout faire défiler pour le trouver en bas. */}
         {invite && (
           <button type="button" className={`pl-invite${copied ? ' is-copied' : ''}`} onClick={copyInvite}>
             <span className="pl-plus">{copied ? '✓' : '+'}</span>
             <span className="pl-txt"><strong>{copied ? 'Link copied!' : 'Invite someone'}</strong><small>{copied ? 'Now send it to them' : 'Tap to copy your link'}</small></span>
           </button>
         )}
+        <ul className="pl-list">{listNode(root, 0)}</ul>
       </div>
       <div className="py-wide">
       <div className="py-tools">
+        {/* Le lien d'invitation en haut, toujours visible (23/11), en plus de la case « + » de la pyramide. */}
+        {invite && <button type="button" className={`py-invite-top${copied ? ' is-copied' : ''}`} onClick={copyInvite}>{copied ? '✓ Link copied! Now send it' : '+ Invite someone'}</button>}
         <button type="button" onClick={() => zoomAt(zoom / 1.4)} aria-label="Zoom out">−</button>
         <button type="button" onClick={() => zoomAt(zoom * 1.4)} aria-label="Zoom in">+</button>
         <button type="button" onClick={() => setZoom(fitZoom())}>See everyone</button>

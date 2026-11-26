@@ -475,13 +475,121 @@ create table if not exists relance_runs (
 -- premier clic sur le bouton qui ouvre Trustpilot, nombre de clics. Un clic ne prouve pas qu'un avis a été déposé.
 alter table certificates add column if not exists tp_shown_at timestamptz;
 alter table certificates add column if not exists tp_clicked_at timestamptz;
-alter table certificates add column if not exists tp_clicks integer not null default 0
+alter table certificates add column if not exists tp_clicks integer not null default 0;
+-- Question ambassadeur posée avant le certificat (24/11) : une seule réponse par personne. Oui avec le réseau social
+-- et le pseudo où la joindre (et les écoles où elle connaît du monde), ou non. contacted_at : Pierre a pris contact.
+create table if not exists ambassador_leads (
+  user_id uuid primary key references users(id) on delete cascade,
+  program text not null,
+  interested boolean not null,
+  network text not null default '',
+  handle text not null default '',
+  schools text not null default '',
+  answered_at timestamptz not null default now(),
+  contacted_at timestamptz
+);
+-- Commissions saisies à la main dans /admin (24/11). Une ligne saisie na pas de vente rattachée et porte une note que
+-- lambassadeur voit. Les nouvelles ventes ne créent plus de ligne (recordCommissions, lib/team.ts). Les lignes déjà là restent.
+alter table commissions alter column registration_id drop not null;
+alter table commissions add column if not exists label text not null default '';
+-- Le ticket ouvert pour une demande de virement, pour que Transfer done close celui-là et aucun autre.
+alter table payouts add column if not exists ticket_id uuid;
+-- Frais Stripe réels de chaque vente (26/11), en centimes deuro, lus une seule fois chez Stripe (lib/revenue.ts) :
+-- ladmin ne rebalaie plus toutes les ventes à chaque ouverture. stripe_fee_checked_at = dernière lecture tentée.
+alter table registrations add column if not exists stripe_fee_cents integer;
+alter table registrations add column if not exists stripe_fee_checked_at timestamptz;
+-- Prospection LinkedIn à plusieurs comptes (26/11) : le compte de Pierre et ceux des ambassadeurs qui relient leur
+-- LinkedIn. id = pierre, hippolyte ou amb- suivi de l’identifiant de l’utilisateur. status : connecting, active, paused,
+-- stop_requested (le serveur de Paris efface alors la connexion) puis stopped.
+create table if not exists prospect_accounts (
+  id text primary key,
+  user_id uuid references users(id) on delete cascade,
+  name text not null default '',
+  linkedin_url text not null default '',
+  status text not null default 'connecting',
+  reason text not null default '',
+  consent_at timestamptz,
+  connected_at timestamptz,
+  started_at timestamptz,
+  last_pass_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+-- Chaque prospect appartient au compte qui l’a trouvé (jamais contacté par un autre) et à son école de la base.
+alter table outreach_prospects add column if not exists account text not null default 'pierre';
+alter table outreach_prospects add column if not exists school_id uuid;
+create index if not exists outreach_prospects_account on outreach_prospects (account, status);
+-- L’identifiant interne de LinkedIn du prospect (lien /in/ACoA… de la messagerie), appris au premier message : il
+-- reconnaît la conversation sans se fier au nom affiché.
+alter table outreach_prospects add column if not exists urn text;
+create index if not exists outreach_prospects_urn on outreach_prospects (urn);
+-- La base des écoles à prospecter (26/11) : elle grandit sans fin. key = nom sans accents ni ponctuation, une seule
+-- ligne par école. assigned_to = le compte qui la prospecte en ce moment (7 jours, puis elle tourne). cursor = où en est
+-- la recherche LinkedIn. exhausted_until = plus de nouvel étudiant trouvé, elle revient seule après 30 jours.
+-- covered_manual : vide = automatique (ambassadeur connecté), sinon le choix de Pierre.
+create table if not exists prospect_schools (
+  id uuid primary key,
+  name text not null,
+  key text not null unique,
+  city text not null default '',
+  university_id uuid,
+  email_domains text[] not null default '{}',
+  source text not null default '',
+  covered_manual boolean,
+  paused boolean not null default false,
+  assigned_to text,
+  assigned_at timestamptz,
+  cursor jsonb not null default '{}',
+  searches integer not null default 0,
+  found integer not null default 0,
+  last_searched_at timestamptz,
+  exhausted_until timestamptz,
+  added_at timestamptz not null default now()
+);
+-- Ce que chaque serveur Smart Mail dit de ses comptes, toutes les 10 minutes : les domaines des adresses, rien d’autre.
+create table if not exists coverage_feed (
+  source text primary key,
+  domains jsonb not null default '[]',
+  received_at timestamptz not null default now()
+);
+-- Contacts donnés par les étudiants (26/11) : un par réseau et identifiant, avec la phrase où ils le donnent.
+-- status : new, verify (à vérifier), contacted, invalid. source : auto, image ou manual.
+create table if not exists prospect_contacts (
+  id uuid primary key,
+  linkedin text not null,
+  account text not null default 'pierre',
+  network text not null,
+  value text not null,
+  normalized text not null,
+  quote text not null default '',
+  status text not null default 'new',
+  source text not null default 'auto',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (linkedin, network, normalized)
+);
+-- Registre des messages d’étudiants lus par l’agent (26/11) : chacun reçoit une décision (outcome : contact, none,
+-- verify, declined, error). Un message vu sans décision après 2 heures déclenche l’alerte de la nuit.
+create table if not exists prospect_messages (
+  linkedin text not null,
+  msg text not null,
+  account text not null default 'pierre',
+  seen_at timestamptz not null default now(),
+  analyzed_at timestamptz,
+  outcome text not null default '',
+  excerpt text not null default '',
+  attempts integer not null default 0,
+  primary key (linkedin, msg)
+)
 `;
 
 /** Moves everything attached to school `from` onto school `into`, then deletes `from`. No-op once done. */
 async function mergeSchool(q: Query, from: string, into: string) {
   const [gone] = await q('select id from universities where id = $1', [from]);
   if (!gone) return;
+  // Jamais vers une école absente (26/11) : la mise à jour des inscriptions échouerait et bloquerait le démarrage du site.
+  const [target] = await q('select id from universities where id = $1', [into]);
+  if (!target || from === into) return;
   const moved = await q(
     `update registrations set university_id = $2 where university_id = $1 returning id::text as id, status`,
     [from, into],
@@ -544,6 +652,83 @@ async function seed(q: Query) {
     ['d6033a85-2330-5473-a49e-a42e35e2aa2a', '85ddfc3f-cec5-4372-9f17-3c62e35f3efb'],
     ['c4ff0abd-ed85-48e3-a5c4-12c1144f9b95', 'aaca2deb-5c28-4922-95b5-f2a0bdd9a077'],
   ]) await mergeSchool(q, campus, school);
+  // Une seule entrée par école, tous campus confondus (26/11, demande de Pierre : « fusionne les partout ») : l'entrée d'un
+  // campus, d'une ville, d'une composante ou d'une autre orthographe de la même école rejoint l'école (inscriptions, liste
+  // d'attente, demandes, école tenue). Ces entrées sont aussi retirées de data/universities.json. Restent à part les écoles
+  // distinctes qui partagent un nom : Sciences Po de région, IAE, HEC Lausanne et Montréal, Polytech, ISEN, Institut Agro,
+  // ESIEE Amiens, ESG Sport et Tourisme, Sup de Pub, Audencia SciencesCom, UTS Insearch, EBS Paris.
+  // Une fusion qui échoue est notée au journal et ne bloque jamais le démarrage du site.
+  for (const [campus, school] of [
+  ['a885c58a-2a8f-43fc-9772-1e1956c9fcc4', '826a2869-d10b-49e0-a6fa-1a525f42523d'], // NEOMA (Rouen) → NEOMA Business School
+  ['ba301a57-0eda-460d-9802-b6bccaf1b3a4', '826a2869-d10b-49e0-a6fa-1a525f42523d'], // Neoma (Paris campus) → NEOMA Business School
+  ['160db773-11da-40f6-a7eb-2ba6928a2cb2', '826a2869-d10b-49e0-a6fa-1a525f42523d'], // NEOMA Reims → NEOMA Business School
+  ['83be722e-add7-4eed-a78f-04ef5a54df04', '34839d62-d3f4-4fe1-8319-4d2d126b570a'], // ESCP (Turin/Berlin campus) → ESCP Business School
+  ['960aad3c-d85f-4007-bc4b-e964382d0ca0', '6259d2c9-9a06-4e12-9c73-e704abb1879a'], // Kedge Bordeaux → KEDGE Business School
+  ['49a8ad96-46a9-4be8-aea5-de95fefda2bd', '6259d2c9-9a06-4e12-9c73-e704abb1879a'], // Kedge Marseille → KEDGE Business School
+  ['97c37576-e0e5-44d4-9eb9-c568a6ce4ca5', '94c51031-69d5-43e5-aad0-20ec89e239b0'], // EDHEC (Nice campus) → EDHEC Business School
+  ['b85d2ea0-9523-4199-93f1-193df02d698d', '5490c8e0-9271-419e-820c-e67d5d751220'], // IÉSEG (Lille campus) → IÉSEG School of Management
+  ['0e11b969-baff-450f-beb6-bfae6de85d17', '5490c8e0-9271-419e-820c-e67d5d751220'], // IÉSEG (Lille) → IÉSEG School of Management
+  ['ac7fb286-f2c3-4f28-80b9-61c6fa834f3a', '5490c8e0-9271-419e-820c-e67d5d751220'], // IÉSEG Network → IÉSEG School of Management
+  ['c54ef0b8-3a95-4d35-bb55-f0115a3377aa', '8871d5b1-24a8-4326-93d0-6ff874ecba76'], // INSEEC Bordeaux → INSEEC Grande École
+  ['1cfed939-ffbd-4036-86c1-78e8491e358a', '8871d5b1-24a8-4326-93d0-6ff874ecba76'], // INSEEC Lyon → INSEEC Grande École
+  ['b9272b40-ff94-4d14-9e69-16d35fc23074', '5ed69841-1472-4666-b7f7-ba56ca4f9a31'], // Grenoble École de Management (Paris) → Grenoble École de Management
+  ['57279447-9d19-46b9-9693-00bbee3926d2', 'f954d4d8-574a-473d-8169-6630b38427b1'], // IPSA Paris → IPSA
+  ['3a91a475-759b-4fd7-ba69-4ea76a61f540', 'f1fbe538-862d-5136-ad2c-ba64d6443986'], // ESIEE Paris (Noisy) → ESIEE Paris
+  ['5554cf0a-28b3-4277-95ad-2e80c6fa4bd4', '726d20dd-c821-5086-9c0a-236c56d8da52'], // ISTEC Paris → ISTEC
+  ['25a839eb-a751-4c57-b896-a651c97ee449', '87fdb318-5556-4915-82bf-3a5cdc839cde'], // IDRAC Lyon → IDRAC Business School
+  ['6b165628-6964-4d26-9687-2fcb408f0c24', '91137d2b-ac9f-5fc2-b7b0-bfc0de1e0ca3'], // ESG Management School → ESG
+  ['dc2d1827-d781-4aa5-9209-969020b64682', '91137d2b-ac9f-5fc2-b7b0-bfc0de1e0ca3'], // ESG Lyon → ESG
+  ['02289ead-dcf1-466e-ae16-1bdb6070f13d', '91137d2b-ac9f-5fc2-b7b0-bfc0de1e0ca3'], // ESG Rennes → ESG
+  ['60510704-903d-4e02-b669-011b5951b752', '8831fa9b-6c3f-467e-9f22-a2ade0a7dc27'], // Isg → ISG International Business School
+  ['462cfe63-bf82-40e0-b729-fe10af1bea8d', 'ec9d0ebf-c205-4d16-8471-7532a0dd902f'], // Ynov Informatique → Ynov Campus
+  ['49d22033-4ad9-4ae9-a8d3-de296925ca62', 'ec9d0ebf-c205-4d16-8471-7532a0dd902f'], // Ynov Business → Ynov Campus
+  ['401c5572-278e-4918-b884-3f1f739bea39', '4fb2b779-7421-5594-9756-f76b9f336052'], // ESTP Paris → ESTP
+  ['0e61ea06-c4ff-4e7b-b0a4-cd4bba7833f2', 'cc0d8c3e-816a-523c-b04b-2934cdf01167'], // EDC Paris → EDC Paris Business School
+  ['a3dbf92e-21fa-4e54-9fbd-d8b049b6cf22', 'c7be2a9d-9a63-4c93-b1c0-7167d6e7251d'], // ENSAE Paris (ParisTech) → ENSAE Paris
+  ['2dbf5225-7a9c-5033-a577-78171797f023', 'c0609097-e9e8-44a6-83cb-17eb699060bb'], // Gobelins Paris → Gobelins, l'école de l'image
+  ['144bd1a7-cac0-498d-9da6-0d58b8f1e6f0', 'df043fb8-2b8f-4703-8d33-f35809199d23'], // LISAA Rennes → LISAA
+  ['201e977b-ac8a-4435-8cee-d98e4eb7bac6', '70e3a0cc-26f1-4b47-b6e9-509562b64cf5'], // ESMA Toulouse → ESMA
+  ['b04cf061-a6f0-45f3-8b26-c823c08ffd46', '990ad95e-8a94-4c42-a4ca-6e3999576562'], // ArtFX Lille → ARTFX
+  ['a337c3d5-318e-4585-b4b4-ea871d20b685', 'e6e51769-e876-4121-83f2-bf16f460ea53'], // Vatel Paris → Vatel
+  ['d27b12de-8f52-4e66-8bc0-cb1200baadf8', 'e6e51769-e876-4121-83f2-bf16f460ea53'], // Vatel Lyon → Vatel
+  ['8060be7a-bccf-4868-aaed-bc51f4152fd0', 'e6e51769-e876-4121-83f2-bf16f460ea53'], // Institut Vatel → Vatel
+  ['32fcddbb-3339-420f-9c04-30103161db3e', '831e374a-f072-44fa-9c51-f838b56fafab'], // EM Lyon (Saint-Étienne) → emlyon business school
+  ['4f4468bc-9298-424e-9e7f-a55d0a4d255a', '80fadbc6-199b-46eb-8ab7-ed763bc8e1d4'], // École Ferrandi (Bordeaux) → Ferrandi Paris
+  ['3fb19b09-cefc-4df9-84a7-2fcceffb1a6c', '5b31d169-ec14-4335-a966-bef0b8490653'], // HEAD Paris (droit) → HEAD (droit)
+  ['e1624adb-c4ac-49bb-92db-3a0958ac3ef3', '380464be-cebb-4dcd-9055-3462bbab7c92'], // Université Clermont Auvergne (IUT) → Université Clermont Auvergne
+  ['d7ace43b-77db-4dad-b504-e378f7572b63', '379b5e49-eec3-4ab6-ac82-638c8cd67f84'], // Université Grenoble Alpes (IUT) → Université Grenoble Alpes
+  ['74a4a580-7f23-4de2-a3ed-772a02f57c77', '0bf227d2-9fb9-49f5-8602-9a09c0a376f9'], // Nantes Université (Polytech) → Polytech Nantes
+  ['aee2d292-9027-4722-ac97-830f720d5e0d', 'ce342e34-a1d6-4155-8d82-295c572c797c'], // Arizona State University (West) → Arizona State University
+  ['6a436f09-a801-4810-84a4-f2e85a3aa967', '707f203c-6246-4b77-96ea-fa8876dcad39'], // San Diego State University (Imperial) → San Diego State University
+  ['9d7c6aa0-af86-408d-b883-4857ec83e1b3', '9dace563-7a3f-4f7a-9424-98bbd778e4f3'], // University of Sydney (Business) → University of Sydney
+  ['867918b0-7b9f-427b-b48f-7e13a01d21c3', 'fe5c7b59-5dbe-4479-a17a-ce8f818bb5e0'], // National University of Singapore (Business) → National University of Singapore
+  ['52fbdcaf-d4db-411f-8e0f-8a2732aa1745', '67b053bb-349e-4eae-aa1b-541f2b777c4a'], // University of Amsterdam (Business) → University of Amsterdam
+  ['17e97460-b659-472f-a0d7-5aaa2c7bf925', '31993312-24e2-4e9b-9fa8-b7c8fd894549'], // Radboud (Nijmegen) → Radboud University
+  ['e6b1d69b-06bd-44a3-80d7-8ab7dbbb2ce4', 'dfeccbd4-c6af-57e6-a2a5-d0a311b08187'], // Bocconi (SDA) → Università Bocconi
+  ['065f87bb-5101-4244-8433-f3fff3a24ccd', 'dfeccbd4-c6af-57e6-a2a5-d0a311b08187'], // Bocconi Graduate → Università Bocconi
+  ]) await mergeSchool(q, campus, school).catch((e) => console.error('[db] merge school', campus, e));
+  // Les mêmes écoles tapées à la main dans l'espace ambassadeur (« Neoma Rouen », « IESEG Paris »…), absentes du fichier :
+  // reconnues au début de leur nom, pour les seules marques qui ne désignent qu'une école.
+  const plainName = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const sameSchool: [RegExp, string][] = [
+    [/^neoma\b/, '826a2869-d10b-49e0-a6fa-1a525f42523d'],
+    [/^escp\b/, '34839d62-d3f4-4fe1-8319-4d2d126b570a'],
+    [/^kedge\b/, '6259d2c9-9a06-4e12-9c73-e704abb1879a'],
+    [/^edhec\b/, '94c51031-69d5-43e5-aad0-20ec89e239b0'],
+    [/^ieseg\b/, '5490c8e0-9271-419e-820c-e67d5d751220'],
+    [/^inseec\b/, '8871d5b1-24a8-4326-93d0-6ff874ecba76'],
+    [/^ipsa\b/, 'f954d4d8-574a-473d-8169-6630b38427b1'],
+    [/^ynov\b/, 'ec9d0ebf-c205-4d16-8471-7532a0dd902f'],
+    [/^(institut )?vatel\b/, 'e6e51769-e876-4121-83f2-bf16f460ea53'],
+    [/^em ?lyon\b/, '831e374a-f072-44fa-9c51-f838b56fafab'],
+    [/^essec\b/, '7a6a5b54-32c3-4d88-bd1d-160b155e20a9'],
+    [/^skema\b/, 'cc5a68c4-d50c-4fc5-805b-76788601b320'],
+    [/^ece\b/, 'd5f25c47-3b8e-491a-b721-3ba5a2a72523'],
+  ];
+  for (const u of await q('select id::text as id, name from universities')) {
+    const into = sameSchool.find(([re]) => re.test(plainName(String(u.name))))?.[1];
+    if (into && into !== u.id) await mergeSchool(q, String(u.id), into).catch((e) => console.error('[db] merge school', u.id, e));
+  }
   // No school shows a campus as its city any more ("All campuses", "Tous campus"), and names typed by hand get their capitals.
   await q(`update universities set state = '' where state ilike '%campus%'`);
   await q(`update universities set name = 'Université Toulouse Capitole' where name = 'Université toulouse capitole'`);

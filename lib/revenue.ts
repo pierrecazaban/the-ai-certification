@@ -2,7 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { sql } from './db';
 import { setting } from './settings';
-import { STRIPE_APP, stripeBalance } from './stripe';
+import { StripeError, stripeBalance } from './stripe';
 
 // The admin counts all revenue in euros (19/11). A sale in another currency counts for what Stripe really
 // credited in euros, saved once on the registration (eur_cents). When Stripe keeps that currency as it is (the
@@ -52,49 +52,74 @@ export const eurCentsSql = cache(async (): Promise<string> => {
   return `(case when currency = 'EUR' then amount_cents else coalesce(eur_cents${est ? `, case currency ${est} end` : ''}, 0) end)`;
 });
 
-/** Real Stripe fees of this site's payments since `since` (the account is shared: other sites are left out).
- *  Per Paris day: { fee, net } in cents. null when Stripe cannot be read (no key, key without the right). */
-export const stripeFees = cache(async (since: number): Promise<Map<string, { fee: number; net: number }> | null> => {
-  const key = await setting('STRIPE_SECRET_KEY');
-  if (!key) return null;
-  const out = new Map<string, { fee: number; net: number }>();
-  let rates: Record<string, number> | null = null; // read only when a fee is not in euros (dollar balance)
-  let after = '';
-  try {
-    for (let page = 0; page < 30; page++) {
-      const url = `https://api.stripe.com/v1/charges?limit=100&created[gte]=${since}&expand[]=data.balance_transaction&expand[]=data.payment_intent${after ? `&starting_after=${after}` : ''}`;
-      const res = await fetch(url, { headers: { authorization: `Bearer ${key}` }, next: { revalidate: 600 } });
-      if (!res.ok) return null;
-      const d = (await res.json()) as { data: StripeCharge[]; has_more: boolean };
-      for (const c of d.data) {
-        const app = c.metadata?.app || (typeof c.payment_intent === 'object' ? c.payment_intent?.metadata?.app : undefined);
-        const bt = typeof c.balance_transaction === 'object' ? c.balance_transaction : null;
-        if (app !== STRIPE_APP || c.status !== 'succeeded' || !bt) continue;
-        const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(c.created * 1000));
-        // A fee taken in dollars (19/11) is converted, not added as if it were euros.
-        let rate = 1;
-        if (bt.currency && bt.currency !== 'eur') rate = (rates ??= await ecbRates())[bt.currency.toUpperCase()] || 1;
-        const cur = out.get(day) ?? { fee: 0, net: 0 };
-        out.set(day, { fee: cur.fee + Math.round(bt.fee / rate), net: cur.net + Math.round(bt.net / rate) });
-      }
-      if (!d.has_more || !d.data.length) break;
-      after = d.data[d.data.length - 1].id;
+// Frais Stripe (26/11) : lus UNE fois par vente et gardés sur l'inscription (stripe_fee_cents, en centimes d'euro).
+// Avant, l'admin rebalayait toutes les ventes du compte Stripe à chaque ouverture, deux fois (tuile et graphique) :
+// 13 s par balayage à 391 ventes, et de plus en plus long. Désormais une ouverture ne lit chez Stripe que les ventes
+// arrivées depuis la précédente (0,24 s chacune, en parallèle), et aucune quand il n'y en a pas.
+// Contrôle du 26/11 sur le compte réel : 372 ventes, 275,26 € de frais par les deux méthodes, 0 centime d'écart.
+
+/** Ventes dont il faut lire les frais : vraies sessions Checkout payées (ou remboursées depuis : Stripe garde ses
+ *  frais), ni tests ni invités. Une lecture sans résultat (frais pas encore posés, session introuvable) est retentée
+ *  toutes les 10 minutes pendant 3 jours, puis la vente garde l'estimation. */
+const FEE_TO_READ = `stripe_fee_cents is null and status in ('paid', 'refunded') and amount_cents > 0
+  and payment_id like 'cs\\_live\\_%'
+  and (stripe_fee_checked_at is null
+       or (stripe_fee_checked_at < now() - interval '10 minutes' and coalesce(paid_at, created_at) > now() - interval '3 days'))`;
+const FEE_WAVE = 10; // lectures en parallèle (Stripe accepte 100 lectures par seconde)
+const FEE_BUDGET_MS = 8000; // au-delà, la suite attend l'ouverture suivante : la page ne reste jamais bloquée
+
+/** Lit chez Stripe les frais des ventes qui ne les ont pas encore, une seule fois par vente (une par requête). */
+export const readNewStripeFees = cache(async (): Promise<void> => {
+  const todo = await sql(
+    `select id::text as id, payment_id, coalesce(paid_at, created_at) as paid_at from registrations
+      where ${FEE_TO_READ} order by coalesce(paid_at, created_at) limit 2000`,
+  );
+  if (!todo.length || !(await setting('STRIPE_SECRET_KEY'))) return;
+  const stop = Date.now() + FEE_BUDGET_MS;
+  for (let i = 0; i < todo.length && Date.now() < stop; i += FEE_WAVE) {
+    const wave = await Promise.all(
+      todo.slice(i, i + FEE_WAVE).map(async (r) => {
+        try {
+          const bt = await stripeBalance(String(r.payment_id));
+          if (!bt) return { id: String(r.id), fee: null as number | null }; // pas encore de frais posés : retenté plus tard
+          if (bt.currency === 'eur') return { id: String(r.id), fee: bt.fee };
+          // Frais pris dans une autre monnaie (solde en dollars) : taux BCE du jour de la vente, comme eur_cents.
+          const rate = (await ecbRates(new Date(r.paid_at).toISOString().slice(0, 10)))[bt.currency.toUpperCase()];
+          return rate > 0 ? { id: String(r.id), fee: Math.round(bt.fee / rate) } : undefined; // taux illisible : retenté
+        } catch (err) {
+          // Session inconnue de cette clé : retentée seulement dans 10 min. Autre erreur (Stripe injoignable) : intacte.
+          if (err instanceof StripeError && err.status === 404) return { id: String(r.id), fee: null as number | null };
+          console.error('revenue: Stripe fee', err);
+          return undefined;
+        }
+      }),
+    );
+    const read = wave.filter((w): w is { id: string; fee: number } => typeof w?.fee === 'number');
+    const missing = wave.filter((w) => w && w.fee === null).map((w) => w!.id);
+    if (read.length) {
+      await sql(
+        `update registrations r set stripe_fee_cents = v.fee, stripe_fee_checked_at = now()
+           from unnest($1::text[], $2::int[]) as v(id, fee) where r.id = v.id::uuid and r.stripe_fee_cents is null`,
+        [read.map((w) => w.id), read.map((w) => w.fee)],
+      );
     }
-    return out;
-  } catch {
-    return null;
+    if (missing.length) {
+      await sql(`update registrations set stripe_fee_checked_at = now() where id = any($1::uuid[]) and stripe_fee_cents is null`, [missing]);
+    }
+    // Toute une vague en échec (clé refusée, Stripe en panne) : inutile d'insister à cette ouverture.
+    if (wave.every((w) => w === undefined)) break;
   }
 });
-type StripeCharge = {
-  id: string; created: number; status: string; metadata?: Record<string, string>;
-  payment_intent?: string | { metadata?: Record<string, string> } | null;
-  balance_transaction?: string | { fee: number; net: number; currency?: string } | null;
-};
+
 /** Stripe's standard price for European cards, used only when the real fees cannot be read. */
 export const estimatedFee = (cents: number, n: number) => Math.round(cents * 0.015) + 25 * n;
 
-/** Stripe fees of all this site's sales since `since` (epoch seconds), in euro cents; null when Stripe cannot be read. */
-export async function feesSince(since: number): Promise<number | null> {
-  const days = await stripeFees(since);
-  return days ? [...days.values()].reduce((s, x) => s + x.fee, 0) : null;
+/** SQL des frais Stripe d'une inscription en centimes d'euro : les réels une fois lus ; sinon, pour une vente Stripe, le
+ *  tarif européen standard (signalé « est. ») ; rien pour ce qui n'est pas passé par Stripe. */
+export async function feeCentsSql(): Promise<string> {
+  const eur = await eurCentsSql();
+  return `(case when stripe_fee_cents is not null then stripe_fee_cents
+     when amount_cents > 0 and payment_id like 'cs\\_live\\_%' then (round((${eur}) * 0.015) + 25)::int else 0 end)`;
 }
+/** SQL : vrai quand les frais de cette inscription sont estimés (pas encore lus chez Stripe). */
+export const FEE_ESTIMATED = `(stripe_fee_cents is null and amount_cents > 0 and payment_id like 'cs\\_live\\_%')`;

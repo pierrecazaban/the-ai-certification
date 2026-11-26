@@ -4,6 +4,7 @@ import { shownId, type User } from '@/lib/auth';
 import AccountMenu from '@/components/private/AccountMenu';
 import ConsoleBrand from '@/components/private/ConsoleBrand';
 import ToContactBadge from '@/components/private/ToContactBadge';
+import OpenTicketsBadge from '@/components/private/OpenTicketsBadge';
 import Header from '@/components/Header';
 import LanguageSwitch from '@/components/learning/LanguageSwitch';
 import { PRIVATE_SLUGS } from '@/lib/private';
@@ -15,6 +16,7 @@ import type { Locale } from '@/lib/locales';
 export const ADMIN_TABS = [
   { id: 'apercu', label: 'Dashboard' },
   { id: 'tickets', label: 'Tickets' },
+  { id: 'commissions', label: 'Commissions' },
   { id: 'avis', label: 'Avis' },
   { id: 'prospection', label: 'Prospection' },
 ] as const;
@@ -40,7 +42,7 @@ export function AdminHeader({ admin, tab, view = 'pro', actions }: { admin: User
             {actions}
             {views.map((v) => (
               // In the settings, only the gear is highlighted.
-              <Link key={v.id} className="cx-view" href={v.href} aria-current={view === v.id && !(v.id === 'pro' && tab === 'reglages') ? 'page' : undefined}>{v.label}{v.id === 'pro' && view !== 'pro' && <ToContactBadge />}</Link>
+              <Link key={v.id} className="cx-view" href={v.href} aria-current={view === v.id && !(v.id === 'pro' && tab === 'reglages') ? 'page' : undefined}>{v.label}{v.id === 'pro' && view !== 'pro' && <ToContactBadge />}{v.id === 'pro' && view !== 'pro' && <OpenTicketsBadge />}</Link>
             ))}
           </div>
           {/* Settings: a gear by the account menu rather than a section tab. */}
@@ -59,7 +61,7 @@ export function AdminHeader({ admin, tab, view = 'pro', actions }: { admin: User
         <div className="cx-band">
           <nav className="container cx-tabs" aria-label="Sections">
             {ADMIN_TABS.map((t) => (
-              <Link key={t.id} href={`${pro}?tab=${t.id}`} aria-current={tab === t.id ? 'page' : undefined}>{t.label}{t.id === 'prospection' && <ToContactBadge />}</Link>
+              <Link key={t.id} href={`${pro}?tab=${t.id}`} aria-current={tab === t.id ? 'page' : undefined}>{t.label}{t.id === 'tickets' && <OpenTicketsBadge />}{t.id === 'prospection' && <ToContactBadge />}</Link>
             ))}
           </nav>
         </div>

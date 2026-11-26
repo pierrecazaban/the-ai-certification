@@ -1,0 +1,26 @@
+/* Connexion LinkedIn en direct (LinkedInLive.tsx, 26/11) : sobre, aux couleurs du site (bleu marine), sans vert ni violet. */
+.lk-live { display: grid; gap: 10px; }
+.lk-hint { margin: 0; font-size: 14px; line-height: 1.4; color: #475569; }
+.lk-frame {
+  position: relative; width: 100%; overflow: hidden; background: #fff;
+  border: 1px solid #d9dee7; border-radius: 12px; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.lk-screen { display: block; width: 100%; height: auto; cursor: default; }
+.lk-wait { display: grid; place-items: center; min-height: 320px; font-size: 14px; color: #475569; }
+/* Le vrai champ posé sur le champ de la page : même place, même taille, contour pour qu'on le voie. */
+.lk-input {
+  position: absolute; margin: 0; border: 0; border-radius: 4px; background: #fff; color: #111;
+  outline: 2px solid #0a66c2; outline-offset: 0; font-family: inherit;
+}
+.lk-status { margin: 0; padding: 18px 16px; border-radius: 12px; background: #f6f7f9; font-size: 15px; line-height: 1.45; }
+.lk-ok { background: #eef2f8; border: 1px solid #c9d4e6; }
+.lk-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.lk-consent { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 10px; font-size: 14px; line-height: 1.45; }
+.lk-start { display: grid; gap: 6px; }
+/* Page plein écran de l'espace ambassadeur (AmbLinkedInGate, 26/11) : au milieu de l'écran, large pour la connexion. */
+.lk-gate { display: grid; place-items: center; min-height: calc(100vh - 140px); padding-top: 24px; padding-bottom: 40px; }
+.lk-gate-box { width: 100%; max-width: 860px; display: grid; gap: 14px; text-align: left; }
+.lk-gate-box h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); line-height: 1.15; }
+.lk-gate-box .lead { margin: 0; font-size: 18px; line-height: 1.5; color: #334155; }
+.lk-gate-skip { margin: 6px 0 0; font-size: 14px; }
+.lk-gate-skip a, .lk-gate-skip span { color: #475569; }

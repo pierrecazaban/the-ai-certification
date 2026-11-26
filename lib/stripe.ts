@@ -149,10 +149,10 @@ export function getStripeSession(id: string) {
   return call<StripeSession>(`/checkout/sessions/${encodeURIComponent(id)}`);
 }
 
-/** What a paid Checkout Session really brought in: its balance transaction (amount in cents, after Stripe's
- *  conversion when there was one, and its currency). null when not known yet. */
-export async function stripeBalance(id: string): Promise<{ amount: number; currency: string } | null> {
-  type Bt = { amount: number; currency: string };
+/** What a paid Checkout Session really brought in: its balance transaction (amount and Stripe's fee in cents, after
+ *  Stripe's conversion when there was one, and their currency). null when not known yet. */
+export async function stripeBalance(id: string): Promise<{ amount: number; fee: number; currency: string } | null> {
+  type Bt = { amount: number; fee: number; currency: string };
   type Charge = { balance_transaction?: Bt | string | null };
   const s = await call<{ payment_intent?: { latest_charge?: Charge | string | null } | string | null }>(
     `/checkout/sessions/${encodeURIComponent(id)}?expand[]=payment_intent.latest_charge.balance_transaction`,
@@ -160,7 +160,7 @@ export async function stripeBalance(id: string): Promise<{ amount: number; curre
   const pi = s.payment_intent && typeof s.payment_intent === 'object' ? s.payment_intent : null;
   const charge = pi?.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
   const bt = charge?.balance_transaction && typeof charge.balance_transaction === 'object' ? charge.balance_transaction : null;
-  return bt ? { amount: bt.amount, currency: bt.currency } : null;
+  return bt && Number.isInteger(bt.amount) && Number.isInteger(bt.fee) ? { amount: bt.amount, fee: bt.fee, currency: bt.currency } : null;
 }
 
 /**

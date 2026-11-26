@@ -29,9 +29,10 @@ export default async function Page({ searchParams }: Props) {
           <li><strong>Paiement :</strong> montant, devise, statut et référence du paiement. Les données de carte sont saisies chez Stripe et ne nous sont jamais transmises.</li>
           <li><strong>Compte :</strong> email, mot de passe (stocké uniquement sous forme chiffrée irréversible), dates de connexion.</li>
           <li><strong>Formation :</strong> leçons terminées, réponses aux exercices, résultats des quiz et de l’examen, certificat délivré.</li>
-          <li><strong>Ambassadeurs :</strong> écoles suivies, commissions, titulaire et IBAN pour les versements.</li>
+          <li><strong>Ambassadeurs :</strong> écoles suivies, commissions, titulaire et IBAN pour les versements. Si tu demandes à devenir ambassadeur après ton certificat : le réseau social et l’identifiant que tu nous donnes pour te contacter.</li>
           <li><strong>Contact et liste d’attente :</strong> nom, email, organisation et message envoyés via les formulaires.</li>
           <li><strong>Emails envoyés :</strong> une copie des emails que le site t’envoie (confirmation, mot de passe).</li>
+          <li><strong>Assistant du cours :</strong> les questions que tu poses à Kai, l’assistant IA des modules. Nous ne les enregistrons pas : elles sont transmises à notre prestataire d’IA, le temps de produire la réponse.</li>
         </ul>
 
         <h2>Pourquoi et sur quelle base</h2>
@@ -46,7 +47,7 @@ export default async function Page({ searchParams }: Props) {
         <h2>Qui y a accès</h2>
         <ul>
           <li>L’équipe The AI Certification, pour gérer les inscriptions et le support.</li>
-          <li>Nos prestataires, uniquement pour leur mission : l’hébergeur du site et de la base de données ({company.host}), Stripe Payments Europe, Ltd. (paiement, Irlande) et notre service d’envoi d’emails.</li>
+          <li>Nos prestataires, uniquement pour leur mission : l’hébergeur du site et de la base de données ({company.host}), Stripe Payments Europe, Ltd. (paiement, Irlande), notre service d’envoi d’emails et, pour l’assistant du cours, Anthropic, PBC (États-Unis).</li>
           <li>Les autorités, si la loi l’exige.</li>
         </ul>
         <p>
@@ -96,9 +97,10 @@ export default async function Page({ searchParams }: Props) {
         <li><strong>Payment:</strong> amount, currency, status and payment reference. Card details are entered with Stripe and never sent to us.</li>
         <li><strong>Account:</strong> email, password (stored only as an irreversible hash), sign-in dates.</li>
         <li><strong>Learning:</strong> lessons completed, exercise answers, quiz and exam results, certificate issued.</li>
-        <li><strong>Ambassadors:</strong> schools held, commissions, account holder and IBAN for payouts.</li>
+        <li><strong>Ambassadors:</strong> schools held, commissions, account holder and IBAN for payouts. If you ask to become an ambassador after your certificate: the social network and the handle you give us to contact you.</li>
         <li><strong>Contact and waitlist:</strong> name, email, organization and message sent through the forms.</li>
         <li><strong>Emails sent:</strong> a copy of the emails the site sends you (confirmation, password).</li>
+        <li><strong>Course assistant:</strong> the questions you ask Kai, the AI assistant of the modules. We do not store them: they are sent to our AI provider for the time needed to produce the answer.</li>
       </ul>
 
       <h2>Why, and on what legal basis</h2>
@@ -113,7 +115,7 @@ export default async function Page({ searchParams }: Props) {
       <h2>Who can see it</h2>
       <ul>
         <li>The AI Certification team, to manage registrations and support.</li>
-        <li>Our providers, only for their task: the site and database host ({company.host}), Stripe Payments Europe, Ltd. (payments, Ireland) and our email delivery service.</li>
+        <li>Our providers, only for their task: the site and database host ({company.host}), Stripe Payments Europe, Ltd. (payments, Ireland), our email delivery service and, for the course assistant, Anthropic, PBC (United States).</li>
         <li>Authorities, when the law requires it.</li>
       </ul>
       <p>

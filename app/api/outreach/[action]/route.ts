@@ -4,6 +4,7 @@ import { addProspects, budget, getConfig, log, markFollowedUp, prospects, recent
 import { sendOutreachAlert } from '@/lib/email';
 import { draftReply } from '@/lib/outreachReply';
 import { siteUrl } from '@/lib/site';
+import { prospectionGet, prospectionPost } from '@/lib/prospectionApi';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,9 @@ type Ctx = { params: Promise<{ action: string }> };
 export async function GET(req: NextRequest, { params }: Ctx) {
   if (!(await scriptAuthorised(req))) return NextResponse.json({ error: 'unauthorised' }, { status: 401 });
   const { action } = await params;
+  // Comptes, écoles, registre des messages (26/11) : lib/prospectionApi.ts, avant les actions d'avant.
+  const extra = await prospectionGet(action, req);
+  if (extra) return extra;
   if (action === 'plan') {
     const b = await budget();
     return NextResponse.json({ ...b, schoolCounts: await schoolCounts(), recentlySearched: await recentlySearched(b.config.searchCooldownDays) });
@@ -25,7 +29,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (action === 'queue') {
     const status = req.nextUrl.searchParams.get('status') ?? 'found';
     const limit = Math.min(200, Number(req.nextUrl.searchParams.get('limit') ?? 50) || 50);
-    return NextResponse.json({ prospects: await prospects(status, limit) });
+    // Sans compte (script d'avant le 26/11) : les prospects de Pierre seulement, jamais ceux d'un ambassadeur.
+    return NextResponse.json({ prospects: await prospects(status, limit, 'pierre') });
   }
   return NextResponse.json({ error: 'unknown' }, { status: 404 });
 }
@@ -34,9 +39,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!(await scriptAuthorised(req))) return NextResponse.json({ error: 'unauthorised' }, { status: 401 });
   const { action } = await params;
   const body = await req.json().catch(() => ({}));
+  const extra = await prospectionPost(action, body ?? {});
+  if (extra) return extra;
   if (action === 'prospects') return NextResponse.json({ added: await addProspects(Array.isArray(body?.prospects) ? body.prospects : []) });
   if (action === 'status' && typeof body?.linkedin === 'string' && typeof body?.status === 'string') {
-    await setStatus(body.linkedin, body.status, String(body.error ?? ''));
+    await setStatus(body.linkedin, body.status, String(body.error ?? ''), typeof body.account === 'string' ? body.account : undefined);
     return NextResponse.json({ ok: true });
   }
   // A student answered the LinkedIn message: draft Pierre's reply (or hand it to him).
@@ -48,7 +55,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (result.declined && typeof body.linkedin === 'string') await setStatus(body.linkedin, 'declined');
     const who = `${body.name ?? ''} (${body.school ?? ''})`;
     const last = history[history.length - 1]?.text ?? '';
-    if (result.contact && !result.declined && typeof body.linkedin === 'string') {
+    // Depuis le 26/11 l'agent relève lui-même les contacts (action analysis, avant la réponse) : agent >= 2 = rien en double ici.
+    if (result.contact && !result.declined && typeof body.linkedin === 'string' && !(Number(body.agent) >= 2)) {
       await setContact(body.linkedin, result.contact);
       await log('contact', `${who} : ${result.contact}`);
       await sendOutreachAlert({ subject: `Prospection : ${body.name ?? 'un étudiant'} t’a donné son contact`, linkedin: body.linkedin,

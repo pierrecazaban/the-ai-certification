@@ -241,14 +241,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "60510704-903d-4e02-b669-011b5951b752",
-"name": "Isg",
-"short_name": "Isg",
-"state": "",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "b4c3bca4-4c97-4dd0-9429-c850a0dffaf5",
 "name": "Istituto Salesiano Firenze Istituto Salesiano dell'Immacolata",
 "short_name": "ISFISD",
@@ -3974,14 +3966,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "2dbf5225-7a9c-5033-a577-78171797f023",
-"name": "Gobelins Paris",
-"short_name": "Gobelins",
-"state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "1035caad-3afb-528c-91a2-e7af82484780",
 "name": "École du Louvre",
 "short_name": "École du Louvre",
@@ -6436,14 +6420,6 @@
 "timezone": "Europe/Vienna"
 },
 {
-"id": "e6b1d69b-06bd-44a3-80d7-8ab7dbbb2ce4",
-"name": "Bocconi (SDA)",
-"short_name": "SDA Bocconi",
-"state": "",
-"email_domains": [],
-"timezone": "Europe/Rome"
-},
-{
 "id": "2f124503-07ad-4080-ba87-69c2357a6732",
 "name": "Boğaziçi University",
 "short_name": "Boğaziçi",
@@ -6750,14 +6726,6 @@
 "jnu.ac.in"
 ],
 "timezone": "Asia/Kolkata"
-},
-{
-"id": "867918b0-7b9f-427b-b48f-7e13a01d21c3",
-"name": "National University of Singapore (Business)",
-"short_name": "NUS Biz",
-"state": "",
-"email_domains": [],
-"timezone": "Asia/Singapore"
 },
 {
 "id": "93c46ac3-7e8a-4826-a751-2c26f075790f",
@@ -7083,14 +7051,6 @@
 "timezone": "Africa/Casablanca"
 },
 {
-"id": "aee2d292-9027-4722-ac97-830f720d5e0d",
-"name": "Arizona State University (West)",
-"short_name": "ASU West",
-"state": "AZ",
-"email_domains": [],
-"timezone": "America/Phoenix"
-},
-{
 "id": "00bce601-52ff-490f-ae87-250c2c1677c3",
 "name": "Texas Christian University",
 "short_name": "TCU",
@@ -7120,14 +7080,6 @@
 "lion.lmu.edu",
 "lmu.edu"
 ],
-"timezone": "America/Los_Angeles"
-},
-{
-"id": "6a436f09-a801-4810-84a4-f2e85a3aa967",
-"name": "San Diego State University (Imperial)",
-"short_name": "SDSU IV",
-"state": "CA",
-"email_domains": [],
 "timezone": "America/Los_Angeles"
 },
 {
@@ -7485,14 +7437,6 @@
 "timezone": "Asia/Bangkok"
 },
 {
-"id": "9d7c6aa0-af86-408d-b883-4857ec83e1b3",
-"name": "University of Sydney (Business)",
-"short_name": "USyd Biz",
-"state": "",
-"email_domains": [],
-"timezone": "Australia/Sydney"
-},
-{
 "id": "2b980a4a-a664-4d8f-a740-30cb44bcaad7",
 "name": "University of Technology Sydney (Insearch)",
 "short_name": "UTS Insearch",
@@ -7743,14 +7687,6 @@
 "timezone": "America/New_York"
 },
 {
-"id": "065f87bb-5101-4244-8433-f3fff3a24ccd",
-"name": "Bocconi Graduate",
-"short_name": "",
-"state": "",
-"email_domains": [],
-"timezone": "Europe/Rome"
-},
-{
 "id": "9a7234b3-a70e-4aa3-8038-882d72101006",
 "name": "Linköping University",
 "short_name": "Linköping",
@@ -7760,22 +7696,6 @@
 "liu.se"
 ],
 "timezone": "Europe/Stockholm"
-},
-{
-"id": "52fbdcaf-d4db-411f-8e0f-8a2732aa1745",
-"name": "University of Amsterdam (Business)",
-"short_name": "",
-"state": "",
-"email_domains": [],
-"timezone": "Europe/Amsterdam"
-},
-{
-"id": "17e97460-b659-472f-a0d7-5aaa2c7bf925",
-"name": "Radboud (Nijmegen)",
-"short_name": "",
-"state": "",
-"email_domains": [],
-"timezone": "Europe/Amsterdam"
 },
 {
 "id": "e740836f-410c-4eae-9c4c-99f45fb9b53e",
@@ -8039,30 +7959,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "b85d2ea0-9523-4199-93f1-193df02d698d",
-"name": "IÉSEG (Lille campus)",
-"short_name": "",
-"state": "",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "a885c58a-2a8f-43fc-9772-1e1956c9fcc4",
-"name": "NEOMA (Rouen)",
-"short_name": "",
-"state": "",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "d7ace43b-77db-4dad-b504-e378f7572b63",
-"name": "Université Grenoble Alpes (IUT)",
-"short_name": "Université Grenoble Alpes (IUT)",
-"state": "Grenoble",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "8ca4a506-4c51-4659-a99a-164c9bf051e9",
 "name": "CY Tech",
 "short_name": "CY Tech",
@@ -8098,22 +7994,6 @@
 "email_domains": [
 "upf.pf"
 ],
-"timezone": "Europe/Paris"
-},
-{
-"id": "74a4a580-7f23-4de2-a3ed-772a02f57c77",
-"name": "Nantes Université (Polytech)",
-"short_name": "Nantes Université (Polytech)",
-"state": "Nantes",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "e1624adb-c4ac-49bb-92db-3a0958ac3ef3",
-"name": "Université Clermont Auvergne (IUT)",
-"short_name": "Université Clermont Auvergne (IUT)",
-"state": "Clermont-Ferrand",
-"email_domains": [],
 "timezone": "Europe/Paris"
 },
 {
@@ -8417,14 +8297,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "57279447-9d19-46b9-9693-00bbee3926d2",
-"name": "IPSA Paris",
-"short_name": "IPSA Paris",
-"state": "Ivry-sur-Seine",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "98453af8-2c3b-41e0-adcd-f3f2881fdd17",
 "name": "CPE Lyon",
 "short_name": "CPE",
@@ -8697,14 +8569,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "401c5572-278e-4918-b884-3f1f739bea39",
-"name": "ESTP Paris",
-"short_name": "ESTP Paris",
-"state": "Cachan",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "63be4252-65f8-4f0d-b36f-fbeb7189085e",
 "name": "Brest Business School",
 "short_name": "BBS",
@@ -8743,14 +8607,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "6b165628-6964-4d26-9687-2fcb408f0c24",
-"name": "ESG Management School",
-"short_name": "ESG",
-"state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "57df49e9-66ff-4083-84ab-a9dc7d90d2a1",
 "name": "PPA Business School",
 "short_name": "PPA",
@@ -8774,22 +8630,6 @@
 "email_domains": [
 "edu.esdes.fr"
 ],
-"timezone": "Europe/Paris"
-},
-{
-"id": "ac7fb286-f2c3-4f28-80b9-61c6fa834f3a",
-"name": "IÉSEG Network",
-"short_name": "IÉSEG Network",
-"state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "97c37576-e0e5-44d4-9eb9-c568a6ce4ca5",
-"name": "EDHEC (Nice campus)",
-"short_name": "EDHEC (Nice campus)",
-"state": "Nice",
-"email_domains": [],
 "timezone": "Europe/Paris"
 },
 {
@@ -8824,22 +8664,6 @@
 "email_domains": [
 "imt-bs.eu"
 ],
-"timezone": "Europe/Paris"
-},
-{
-"id": "ba301a57-0eda-460d-9802-b6bccaf1b3a4",
-"name": "Neoma (Paris campus)",
-"short_name": "Neoma (Paris campus)",
-"state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "5554cf0a-28b3-4277-95ad-2e80c6fa4bd4",
-"name": "ISTEC Paris",
-"short_name": "ISTEC Paris",
-"state": "Paris",
-"email_domains": [],
 "timezone": "Europe/Paris"
 },
 {
@@ -8980,14 +8804,6 @@
 "email_domains": [
 "esgi.fr"
 ],
-"timezone": "Europe/Paris"
-},
-{
-"id": "462cfe63-bf82-40e0-b729-fe10af1bea8d",
-"name": "Ynov Informatique",
-"short_name": "Ynov Informatique",
-"state": "Paris",
-"email_domains": [],
 "timezone": "Europe/Paris"
 },
 {
@@ -9446,14 +9262,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "a3dbf92e-21fa-4e54-9fbd-d8b049b6cf22",
-"name": "ENSAE Paris (ParisTech)",
-"short_name": "ENSAE Paris (ParisTech)",
-"state": "Palaiseau",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "889ac2d4-1060-4620-a382-d30c2048cd03",
 "name": "Observatoire de Paris",
 "short_name": "Observatoire de Paris",
@@ -9666,14 +9474,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "3a91a475-759b-4fd7-ba69-4ea76a61f540",
-"name": "ESIEE Paris (Noisy)",
-"short_name": "ESIEE Paris (Noisy)",
-"state": "Noisy-le-Grand",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "449e16f7-cda0-4a7b-81b9-607a6abdacfd",
 "name": "ESC Amiens",
 "short_name": "ESC Amiens",
@@ -9694,22 +9494,6 @@
 "name": "Groupe ESC Troyes",
 "short_name": "Groupe ESC Troyes",
 "state": "Troyes",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "49d22033-4ad9-4ae9-a8d3-de296925ca62",
-"name": "Ynov Business",
-"short_name": "Ynov Business",
-"state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "0e61ea06-c4ff-4e7b-b0a4-cd4bba7833f2",
-"name": "EDC Paris",
-"short_name": "EDC Paris",
-"state": "Courbevoie",
 "email_domains": [],
 "timezone": "Europe/Paris"
 },
@@ -9774,14 +9558,6 @@
 "name": "Keyce Business School",
 "short_name": "Keyce",
 "state": "Montpellier",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "25a839eb-a751-4c57-b896-a651c97ee449",
-"name": "IDRAC Lyon",
-"short_name": "IDRAC Lyon",
-"state": "Lyon",
 "email_domains": [],
 "timezone": "Europe/Paris"
 },
@@ -9892,14 +9668,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "144bd1a7-cac0-498d-9da6-0d58b8f1e6f0",
-"name": "LISAA Rennes",
-"short_name": "LISAA Rennes",
-"state": "Rennes",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "597cd1ba-aebf-4614-87dc-dc196c94a42c",
 "name": "ESP (École Supérieure de Publicité)",
 "short_name": "ESP",
@@ -9920,22 +9688,6 @@
 "name": "EFET Photographie",
 "short_name": "EFET",
 "state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "201e977b-ac8a-4435-8cee-d98e4eb7bac6",
-"name": "ESMA Toulouse",
-"short_name": "ESMA Toulouse",
-"state": "Toulouse",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "b04cf061-a6f0-45f3-8b26-c823c08ffd46",
-"name": "ArtFX Lille",
-"short_name": "ArtFX Lille",
-"state": "Lille",
 "email_domains": [],
 "timezone": "Europe/Paris"
 },
@@ -10020,22 +9772,6 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "a337c3d5-318e-4585-b4b4-ea871d20b685",
-"name": "Vatel Paris",
-"short_name": "Vatel Paris",
-"state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "d27b12de-8f52-4e66-8bc0-cb1200baadf8",
-"name": "Vatel Lyon",
-"short_name": "Vatel Lyon",
-"state": "Lyon",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "00930fd8-909e-4fac-9d1b-c8a32355e742",
 "name": "ESG Tourisme",
 "short_name": "ESG Tourisme",
@@ -10064,22 +9800,6 @@
 "name": "Ferrières School",
 "short_name": "Ferrières",
 "state": "Ferrières-en-Brie",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "8060be7a-bccf-4868-aaed-bc51f4152fd0",
-"name": "Institut Vatel",
-"short_name": "Institut Vatel",
-"state": "Nîmes",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "4f4468bc-9298-424e-9e7f-a55d0a4d255a",
-"name": "École Ferrandi (Bordeaux)",
-"short_name": "École Ferrandi (Bordeaux)",
-"state": "Bordeaux",
 "email_domains": [],
 "timezone": "Europe/Paris"
 },
@@ -10198,82 +9918,10 @@
 "timezone": "Europe/Paris"
 },
 {
-"id": "32fcddbb-3339-420f-9c04-30103161db3e",
-"name": "EM Lyon (Saint-Étienne)",
-"short_name": "EM Lyon (Saint-Étienne)",
-"state": "Saint-Étienne",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "960aad3c-d85f-4007-bc4b-e964382d0ca0",
-"name": "Kedge Bordeaux",
-"short_name": "Kedge Bordeaux",
-"state": "Bordeaux",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "49a8ad96-46a9-4be8-aea5-de95fefda2bd",
-"name": "Kedge Marseille",
-"short_name": "Kedge Marseille",
-"state": "Marseille",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "160db773-11da-40f6-a7eb-2ba6928a2cb2",
-"name": "NEOMA Reims",
-"short_name": "NEOMA Reims",
-"state": "Reims",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
 "id": "b420e571-ea01-4d92-95f0-db02723ae28a",
 "name": "Audencia SciencesCom",
 "short_name": "SciencesCom",
 "state": "Nantes",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "c54ef0b8-3a95-4d35-bb55-f0115a3377aa",
-"name": "INSEEC Bordeaux",
-"short_name": "INSEEC Bordeaux",
-"state": "Bordeaux",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "1cfed939-ffbd-4036-86c1-78e8491e358a",
-"name": "INSEEC Lyon",
-"short_name": "INSEEC Lyon",
-"state": "Lyon",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "dc2d1827-d781-4aa5-9209-969020b64682",
-"name": "ESG Lyon",
-"short_name": "ESG Lyon",
-"state": "Lyon",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "02289ead-dcf1-466e-ae16-1bdb6070f13d",
-"name": "ESG Rennes",
-"short_name": "ESG Rennes",
-"state": "Rennes",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "3fb19b09-cefc-4df9-84a7-2fcceffb1a6c",
-"name": "HEAD Paris (droit)",
-"short_name": "HEAD Paris (droit)",
-"state": "Paris",
 "email_domains": [],
 "timezone": "Europe/Paris"
 },
@@ -10342,30 +9990,6 @@
 "name": "École nationale des Ponts (ENPC)",
 "short_name": "École nationale des Ponts (ENPC)",
 "state": "Marne-la-Vallée",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "83be722e-add7-4eed-a78f-04ef5a54df04",
-"name": "ESCP (Turin/Berlin campus)",
-"short_name": "ESCP (Turin/Berlin campus)",
-"state": "Paris",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "0e11b969-baff-450f-beb6-bfae6de85d17",
-"name": "IÉSEG (Lille)",
-"short_name": "IÉSEG (Lille)",
-"state": "Lille",
-"email_domains": [],
-"timezone": "Europe/Paris"
-},
-{
-"id": "b9272b40-ff94-4d14-9e69-16d35fc23074",
-"name": "Grenoble École de Management (Paris)",
-"short_name": "Grenoble École de Management (Paris)",
-"state": "Paris",
 "email_domains": [],
 "timezone": "Europe/Paris"
 }

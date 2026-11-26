@@ -11,6 +11,11 @@ import LessonContent from '@/components/learning/LessonContent';
 import { submitExerciseAction, submitQuizAction, toggleLessonAction } from '@/lib/learnActions';
 import { formatDate, LOCALES } from '@/lib/locales';
 import { PaceNext } from '@/components/learning/PaceBlocks';
+import { MakeScenario, ModuleHelp, ModuleVideosSection } from '@/components/learning/ModuleExtras';
+import MakeTutorial from '@/components/learning/MakeTutorial';
+import Tutor from '@/components/learning/Tutor';
+import { bookletCover, bookletFile, bookletPages } from '@/lib/learning/booklets';
+import { setting } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -35,6 +40,18 @@ export default async function ModulePage({ params, searchParams }: Props) {
   const [attempt] = attemptId ? await sql('select score, total, answers from quiz_attempts where id::text = $1 and user_id = $2', [attemptId, user.id]) : [];
   const chosen: (number | null)[] | null = attempt ? (typeof attempt.answers === 'string' ? JSON.parse(attempt.answers) : attempt.answers) : null;
   const next = course.modules[index + 1];
+  // Aides du module (24/11) : Kai, l'assistant IA du cours (dès qu'une clé Anthropic est réglée dans l'admin), le
+  // fascicule PDF et l'écran de Make (cours v2), deux vidéos. Voir components/learning/ModuleExtras et Tutor.
+  const kai = Boolean(await setting('ANTHROPIC_API_KEY'));
+  // Le fascicule (26/11) : lu dans la page grâce à ses pages en images ; sans images, la carte ouvre le PDF comme avant.
+  const shown = bookletPages(locale, m.id);
+  const booklet = bookletFile(course, locale, m.id)
+    ? { href: `/space/${program}/module/${m.id}/fascicule`, cover: bookletCover(locale, m.id), pageHref: `/space/${program}/module/${m.id}/fascicule/pages/`,
+        pages: shown?.pages ?? 0, width: shown?.width ?? 1240, height: shown?.height ?? 1755, heading: `${l.module(index + 1)} · ${m.title}` }
+    : null;
+  // Module 3 : le tuto pas à pas de Make (26/11), qui remplace l'écran fixe et la liste des étapes. Module 4 : l'écran fixe.
+  const makeTuto = m.id === 'v2-m3';
+  const makeScreen = m.id === 'v2-m4' ? 'project' : null;
 
   return (
     <div lang={LOCALES[locale].lang}>
@@ -61,6 +78,8 @@ export default async function ModulePage({ params, searchParams }: Props) {
             </ul>
           </section>
 
+          <ModuleHelp l={l} kai={kai} booklet={booklet} />
+
           <h2 className="learn-section">{l.lessons}</h2>
           {m.lessons.map((lesson) => {
             const isDone = progress.done.has(lesson.id);
@@ -85,12 +104,19 @@ export default async function ModulePage({ params, searchParams }: Props) {
             );
           })}
 
+          {m.videos && <ModuleVideosSection videos={m.videos} lang={LOCALES[locale].lang} l={l} />}
+
           <section id="exercise" className="space-module">
             <span className="eyebrow">{l.exercise} · {l.minutes(m.exercise.minutes)}</span>
             <h2>{m.exercise.title}</h2>
             <p>{m.exercise.intro}</p>
-            <h3 style={{ fontSize: 16 }}>{l.steps}</h3>
-            <ol>{m.exercise.steps.map((s) => <li key={s}>{s}</li>)}</ol>
+            {makeScreen && <MakeScenario locale={locale} variant={makeScreen} l={l} kai={kai} />}
+            {makeTuto ? <MakeTutorial lang={locale === 'fr' ? 'fr' : 'en'} kai={kai} /> : (
+              <>
+                <h3 style={{ fontSize: 16 }}>{l.steps}</h3>
+                <ol>{m.exercise.steps.map((s) => <li key={s}>{s}</li>)}</ol>
+              </>
+            )}
             <form action={submitExerciseAction} className="form">
               <input type="hidden" name="program" value={program} />
               <input type="hidden" name="module" value={m.id} />
@@ -171,8 +197,17 @@ export default async function ModulePage({ params, searchParams }: Props) {
               )}
             </p>
           )}
+          {/* La place du bouton flottant de Kai, pour qu'il ne cache jamais le dernier bouton de la page. */}
+          {kai && <div style={{ height: 64 }} aria-hidden="true" />}
         </div>
       </main>
+      {kai && (
+        <Tutor program={program} moduleId={m.id} t={{
+          launcher: l.tutorLauncher, role: l.tutorRole(index + 1), hello: l.tutorHello, suggestions: l.tutorSuggestions,
+          placeholder: l.tutorPlaceholder, send: l.tutorSend, close: l.tutorClose, open: l.tutorOpen, typing: l.tutorTyping, error: l.tutorError,
+          limit: l.tutorLimit, fine: l.tutorFine,
+        }} />
+      )}
     </div>
   );
 }

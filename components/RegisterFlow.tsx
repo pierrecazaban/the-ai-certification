@@ -262,17 +262,20 @@ export default function RegisterFlow({ locale, initialUniversities, initialIntak
                   }}
                 />
               </div>
-              <ul className="uni-list" aria-label={t.universities}>
-                {filtered.map((u) => (
-                  <li key={u.id}>
-                    <button type="button" aria-pressed={u.id === uniId} onClick={() => { setUniId(u.id); setQuery(u.name); }}>
-                      {u.name}
-                      <small>{t.allCampuses}</small>
-                    </button>
-                  </li>
-                ))}
-                {filtered.length === 0 && <li style={{ padding: 16 }} className="help">{t.noMatch(query)}</li>}
-              </ul>
+              {/* The list stays folded until the person starts typing their school. */}
+              {query.trim() && (
+                <ul className="uni-list" aria-label={t.universities}>
+                  {filtered.map((u) => (
+                    <li key={u.id}>
+                      <button type="button" aria-pressed={u.id === uniId} onClick={() => { setUniId(u.id); setQuery(u.name); }}>
+                        {u.name}
+                        <small>{t.allCampuses}</small>
+                      </button>
+                    </li>
+                  ))}
+                  {filtered.length === 0 && <li style={{ padding: 16 }} className="help">{t.noMatch(query)}</li>}
+                </ul>
+              )}
               {err('university_id')}
               <div className="row-actions">
                 <button type="button" className="linklike" onClick={() => setNotListed(true)}>{t.notListed}</button>

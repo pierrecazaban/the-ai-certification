@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db';
 import { GUEST_PAYMENT } from '@/lib/guest';
-import { estimatedFee, eurCentsSql, stripeFees } from '@/lib/revenue';
+import { FEE_ESTIMATED, eurCentsSql, feeCentsSql, readNewStripeFees } from '@/lib/revenue';
 import RevenueBars from '@/components/private/RevenueBars';
 import ReloadButton from '@/components/private/ReloadButton';
 
@@ -15,31 +15,35 @@ const money2 = (cents: number, currency: string) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
 
 export default async function RevenueChart() {
-  // Everything in euros (19/11): sales in other currencies are converted (lib/revenue.ts).
+  // Frais Stripe gardés vente par vente (26/11) : seules les nouvelles ventes sont lues chez Stripe (lib/revenue.ts).
+  await readNewStripeFees();
+  // Everything in euros (19/11): sales in other currencies are converted (lib/revenue.ts). Une vente remboursée ne compte
+  // plus dans le chiffre d'affaires, mais ses frais restent, le jour de la vente : Stripe ne les rend pas.
   const rows = await sql(`
     select (coalesce(paid_at, created_at) at time zone 'Europe/Paris')::date::text as day,
-      sum(${await eurCentsSql()})::int as cents, count(*)::int as n
+      coalesce(sum(${await eurCentsSql()}) filter (where status = 'paid'), 0)::int as cents,
+      count(*) filter (where status = 'paid')::int as n,
+      coalesce(sum(${await feeCentsSql()}), 0)::int as fee,
+      count(*) filter (where ${FEE_ESTIMATED})::int as estimated
     from registrations
-    where status = 'paid' and payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST}
+    where status in ('paid', 'refunded') and payment_id is distinct from '${GUEST_PAYMENT}' and ${NOT_TEST}
       and coalesce(paid_at, created_at) >= (date_trunc('day', now() at time zone 'Europe/Paris') - interval '${DAYS - 1} days') at time zone 'Europe/Paris'
     group by 1`);
   const currency = 'EUR';
 
-  const byDay = new Map<string, { cents: number; n: number }>();
-  for (const r of rows) byDay.set(String(r.day), { cents: Number(r.cents), n: Number(r.n) });
+  const byDay = new Map<string, { cents: number; n: number; fee: number; estimated: number }>();
+  for (const r of rows) byDay.set(String(r.day), { cents: Number(r.cents), n: Number(r.n), fee: Number(r.fee), estimated: Number(r.estimated) });
 
   const todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
   const days = Array.from({ length: DAYS }, (_, i) => {
     const d = new Date(`${todayParis}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() - (DAYS - 1 - i));
     const key = d.toISOString().slice(0, 10);
-    return { key, d, ...(byDay.get(key) ?? { cents: 0, n: 0 }) };
+    return { key, d, ...(byDay.get(key) ?? { cents: 0, n: 0, fee: 0, estimated: 0 }) };
   });
 
-  // Fees: the real ones from Stripe when it can be read, otherwise Stripe's standard European price (marked "estimate").
-  const since = Math.floor(days[0].d.getTime() / 1000) - 13 * 3600;
-  const real = await stripeFees(since);
-  const fee = (x: { key: string; cents: number; n: number }) => (real ? real.get(x.key)?.fee ?? 0 : estimatedFee(x.cents, x.n));
+  // Fees: the real ones read from Stripe for each sale, Stripe's standard European price for a sale not read yet.
+  const fee = (x: { fee: number }) => x.fee;
   const sum = (list: typeof days, f: (x: (typeof days)[number]) => number) => list.reduce((s, x) => s + f(x), 0);
 
   const total = sum(days, (x) => x.cents);
@@ -51,6 +55,7 @@ export default async function RevenueChart() {
   const first = days.findIndex((x) => x.cents > 0);
   const shown = days.slice(Math.min(first < 0 ? DAYS - 7 : first, DAYS - 7));
   const dayLabel = (d: Date, opts: Intl.DateTimeFormatOptions) => d.toLocaleDateString('fr-FR', { timeZone: 'UTC', ...opts });
+  const estimated = sum(days, (x) => x.estimated);
 
   return (
     <>
@@ -59,11 +64,12 @@ export default async function RevenueChart() {
         <h2>Chiffre d’affaires</h2>
         <ReloadButton />
       </div>
-      <RevenueBars currency={currency} estimated={!real}
+      <RevenueBars currency={currency} estimated={estimated > 0}
         days={shown.map((x) => ({ key: x.key, short: dayLabel(x.d, { day: '2-digit', month: '2-digit' }),
           long: dayLabel(x.d, { weekday: 'long', day: 'numeric', month: 'long' }), cents: x.cents, fee: fee(x), n: x.n }))} />
       <p className="help">
-        Montants après frais Stripe{real ? ' (frais réels, mis à jour toutes les 10 min)' : ' (frais estimés au tarif européen standard, 1,5 % + 0,25 € par vente)'}.
+        Montants après frais Stripe (frais réels de chaque vente, lus une seule fois chez Stripe
+        {estimated ? ` ; ${estimated} vente${estimated > 1 ? 's' : ''} pas encore lue${estimated > 1 ? 's' : ''}, estimée${estimated > 1 ? 's' : ''} au tarif européen standard, 1,5 % + 0,25 €` : ''}).
         {' '}Les frais font {total ? Math.round((totalFees / total) * 1000) / 10 : 0} % du chiffre d’affaires
         {net(best) > 0 ? ` · meilleur jour : ${dayLabel(best.d, { day: 'numeric', month: 'long' })} (${money(net(best), currency)})` : ''}.
       </p>

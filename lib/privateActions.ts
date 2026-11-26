@@ -4,7 +4,7 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from './auth';
 import { describeForm, logAdmin } from './adminLog';
-import { claimSchool, decideSchoolRequest, pickedSchool, requestSchool, schoolCount, joinTeam, markPayoutPaid, joinWithEmail, nameMaster, hideInTree, showInTree, deleteShortAmbassador, removeLegend, deleteAmbassador, renameForMe, releaseSchool, requestPayout, saveBankDetails } from './team';
+import { claimSchool, decideSchoolRequest, pickedSchool, requestSchool, schoolCount, joinTeam, markPayoutPaid, joinWithEmail, nameMaster, hideInTree, showInTree, deleteShortAmbassador, removeLegend, deleteAmbassador, renameForMe, releaseSchool, requestPayout, saveBankDetails, addManualCommission, cancelCommission, cancelAutoCommissions, refusePayout } from './team';
 import { PRIVATE_SLUGS } from './private';
 import { replyToTicket, setTicketStatus } from './tickets';
 import { type SettingKey } from './settings';
@@ -14,11 +14,22 @@ import { resetGuestCode } from './guest';
 import { programBySlug } from './catalog';
 import { cancelBooking, deleteWindow, updateAvailability } from './calls';
 import { getConfig, markContacted, saveConfig, setStatus as setOutreachStatus } from './outreach';
+import { markLeadContacted } from './ambassadorLeads';
 
 // Schools sit on the overview now: messages about them land there, at the schools section.
 const team = (tab: string, msg: string) =>
   redirect(`/${PRIVATE_SLUGS.ambassador}?${tab === 'earnings' ? 'tab=earnings&' : ''}msg=${msg}${tab === 'schools' ? '#schools' : tab === 'earnings' ? '#earnings' : ''}`);
 const pro = (tab: string, msg: string) => redirect(`/${PRIVATE_SLUGS.admin}?tab=${tab}&msg=${msg}`);
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** « 12.50 » ou « 12,50 » en centimes ; NaN si ce n'est pas un montant (signe, lettres, trois décimales, plus de 7 chiffres). */
+function cents(raw: FormDataEntryValue | null) {
+  const typed = String(raw ?? '').trim().replace(/\s/g, '').replace(',', '.');
+  if (!/^\d{1,7}(\.\d{1,2})?$/.test(typed)) return NaN;
+  const [whole, frac = ''] = typed.split('.');
+  return Number(whole) * 100 + Number(frac.padEnd(2, '0'));
+}
 
 async function ambassador() {
   const user = await currentUser();
@@ -127,21 +138,59 @@ export async function saveBankAction(formData: FormData) {
 export async function requestPayoutAction(formData: FormData) {
   const user = await ambassador();
   // Montant choisi par l'ambassadeur (22/11), « 12.50 » ou « 12,50 ».
-  const typed = String(formData.get('amount') ?? '').trim().replace(/\s/g, '').replace(',', '.');
-  const amount = /^\d+(\.\d{1,2})?$/.test(typed) ? Math.round(Number(typed) * 100) : NaN;
-  team('earnings', await requestPayout(user.id, String(formData.get('currency') ?? '').toUpperCase(), amount));
+  team('earnings', await requestPayout(user.id, String(formData.get('currency') ?? '').toUpperCase(), cents(formData.get('amount'))));
+}
+
+/** L'admin saisit une commission pour un ambassadeur (24/11) : /admin › Commissions › sa fiche. */
+export async function addCommissionAction(formData: FormData) {
+  await admin('Commission saisie', formData);
+  const userId = String(formData.get('user_id') ?? '');
+  const result = await addManualCommission({
+    id: String(formData.get('line_id') ?? ''),
+    userId,
+    amountCents: cents(formData.get('amount')),
+    currency: String(formData.get('currency') ?? '').toUpperCase(),
+    label: String(formData.get('label') ?? ''),
+  });
+  redirect(`/${PRIVATE_SLUGS.admin}?tab=commissions${UUID.test(userId) ? `&id=${userId}` : ''}&msg=${result}`);
+}
+
+/** L'admin annule une ligne de commission : elle reste dans l'historique, elle ne compte plus. */
+export async function cancelCommissionAction(formData: FormData) {
+  await admin('Commission annulée', formData);
+  const userId = String(formData.get('user_id') ?? '');
+  const result = await cancelCommission(String(formData.get('line_id') ?? ''));
+  redirect(`/${PRIVATE_SLUGS.admin}?tab=commissions${UUID.test(userId) ? `&id=${userId}` : ''}&msg=${result}`);
+}
+
+/** L'admin annule d'un coup les lignes automatiques (d'avant le 24/11) d'un ambassadeur. */
+export async function cancelAutoCommissionsAction(formData: FormData) {
+  await admin('Lignes automatiques annulées', formData);
+  const userId = String(formData.get('user_id') ?? '');
+  const n = UUID.test(userId) ? await cancelAutoCommissions(userId) : 0;
+  redirect(`/${PRIVATE_SLUGS.admin}?tab=commissions${UUID.test(userId) ? `&id=${userId}` : ''}&msg=${n ? 'auto_cancelled' : 'auto_kept'}`);
+}
+
+/** L'admin refuse une demande de virement : le montant revient dans le solde, le ticket de cette demande est clos. */
+export async function refusePayoutAction(formData: FormData) {
+  await admin('Virement refusé', formData);
+  const { done, ticketId } = await refusePayout(String(formData.get('payout_id') ?? ''));
+  const posted = String(formData.get('ticket_id') ?? '');
+  const ticket = ticketId ?? (UUID.test(posted) ? posted : '');
+  if (done && ticket) await setTicketStatus(ticket, 'closed');
+  if (UUID.test(posted)) redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets&id=${posted}`);
+  pro('commissions', 'refuse');
 }
 
 export async function markPayoutPaidAction(formData: FormData) {
   await admin('markPayoutPaidAction', formData);
-  await markPayoutPaid(String(formData.get('payout_id') ?? ''));
-  // Depuis un ticket de demande de virement (22/11) : le ticket est clos et l'admin y revient.
-  const ticket = String(formData.get('ticket_id') ?? '');
-  if (/^[0-9a-f-]{36}$/i.test(ticket)) {
-    await setTicketStatus(ticket, 'closed');
-    redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets&id=${ticket}`);
-  }
-  pro('versements', 'paye');
+  const { done, ticketId } = await markPayoutPaid(String(formData.get('payout_id') ?? ''));
+  // Le ticket de CE virement est clos (24/11) ; pour un virement d'avant, sans lien, celui depuis lequel l'admin a cliqué.
+  const posted = String(formData.get('ticket_id') ?? '');
+  const ticket = ticketId ?? (UUID.test(posted) ? posted : '');
+  if (done && ticket) await setTicketStatus(ticket, 'closed');
+  if (UUID.test(posted)) redirect(`/${PRIVATE_SLUGS.admin}?tab=tickets&id=${posted}`);
+  pro('commissions', 'paye');
 }
 
 export async function releaseSchoolAction(formData: FormData) {
@@ -248,6 +297,14 @@ export async function outreachContactedAction(formData: FormData) {
   await admin('outreachContactedAction', formData);
   await markContacted(String(formData.get('linkedin') ?? ''), formData.get('done') !== '0');
   pro('prospection', 'contacted');
+}
+
+/** “C’est fait” / “annuler” on a certified learner who asked to become an ambassador (24/11). */
+export async function leadContactedAction(formData: FormData) {
+  await admin('leadContactedAction', formData);
+  const id = String(formData.get('user_id') ?? '');
+  if (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)) await markLeadContacted(id, formData.get('done') !== '0');
+  redirect(`/${PRIVATE_SLUGS.admin}?tab=prospection&msg=contacted#certifies`);
 }
 
 /** “Ne plus contacter”: the student is never written to again (no invitation, message, follow-up or reply). */

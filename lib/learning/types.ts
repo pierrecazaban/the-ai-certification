@@ -26,6 +26,13 @@ export type Exercise = {
   submission: string;
 };
 
+/** A video suggested at the end of a module (24/11), in the language of the course. Shown as a card that opens
+ *  YouTube: never an embedded player, the course is paid and YouTube forbids charging to watch one. */
+export type ModuleVideo = { id: string; title: string; channel: string; minutes: number; why: string };
+
+/** A word of the module's glossary: in the booklet (fascicule) and in what the course assistant knows. */
+export type GlossaryEntry = { term: string; def: string };
+
 export type Module = {
   id: string;
   title: string;
@@ -33,6 +40,10 @@ export type Module = {
   lessons: Lesson[];
   exercise: Exercise;
   quiz: Question[];
+  /** Two videos to go further, different in each language (lib/learning/student-ai-v2/*-extras.ts). */
+  videos?: ModuleVideo[];
+  /** The words to remember, for the booklet. */
+  glossary?: GlossaryEntry[];
 };
 
 export type Course = {
