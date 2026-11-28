@@ -43,7 +43,6 @@ export default async function Settings({ params }: { params: Record<string, stri
           checkout.session.expired) grants access even if the buyer closes the page. Its signing secret is set in Vercel (STRIPE_WEBHOOK_SECRET).
         </p>
       </section>
-      <LoginArrivals />
       {rows.map((r) => (
         <section key={r.key} className="cx-card cx-setting">
           <div className="cx-toolbar">
@@ -65,6 +64,7 @@ export default async function Settings({ params }: { params: Record<string, stri
           )}
         </section>
       ))}
+      <LoginArrivals />
     </>
   );
 }
