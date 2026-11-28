@@ -23,3 +23,12 @@ export function saleLog(step: string, r: Reg, session: unknown, paidAt: unknown 
     // a log line must never break a payment
   }
 }
+
+/** Connexions et arrivées dans l'espace (28/11) : les numéros d'inscription payés du compte, son rôle. Ni nom ni e-mail. */
+export function memberLog(step: string, refs: string[], role: string) {
+  try {
+    console.log('[vente] ' + JSON.stringify({ etape: step, ref: refs.join(' '), role }));
+  } catch {
+    // never break a page
+  }
+}

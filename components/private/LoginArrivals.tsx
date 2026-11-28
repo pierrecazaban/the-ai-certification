@@ -26,7 +26,7 @@ function note(a: Pick<Arrival, 'kind' | 'ref' | 'path'>) {
   if (a.kind !== 'interne') return '';
   const path = a.ref.replace(/^https?:\/\/[^/]+/, '');
   if (a.path.startsWith('/space')) {
-    if (path.startsWith('/confirmation')) return 'nouvel acheteur, juste après avoir choisi son mot de passe';
+    if (path.startsWith('/confirmation')) return 'depuis sa page de confirmation (le mot de passe choisi est noté à part dans le registre)';
     if (path === '/login' || path.startsWith('/login/')) return 'juste après la connexion';
     return '';
   }
@@ -96,6 +96,7 @@ export default async function LoginArrivals() {
             <div style={{ ...wrap, ...muted }}>
               → {a.path}{a.query ? `?${a.query}` : ''} · {a.country || '?'} · {a.device} {a.browser}{a.bot ? ' · robot' : ''}
             </div>
+            {a.who_ref && <small style={{ ...muted, ...wrap }}>qui : {a.who_ref}{a.who_name ? ` · ${a.who_name}` : ''}</small>}
             {note(a) && <small style={muted}>{note(a)}</small>}
           </li>
         ))}

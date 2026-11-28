@@ -32,7 +32,7 @@ export function arrivalKind(host: string, fetchSite: string): ArrivalKind {
 type Search = Record<string, string | string[] | undefined>;
 
 /** Called by /login, /login/password and /space: notes the visit once the page is sent. Never blocks or breaks the page. */
-export async function noteLoginArrival(path: string, search: Search, opts: { staff?: boolean } = {}) {
+export async function noteLoginArrival(path: string, search: Search, opts: { staff?: boolean; who?: string } = {}) {
   try {
     if (opts.staff) return;
     const h = await headers();
@@ -72,12 +72,13 @@ export async function noteLoginArrival(path: string, search: Search, opts: { sta
       /mobile|iphone|android/i.test(ua) ? 'mobile' : 'ordinateur',
       (ua.match(/(Edg|OPR|Chrome|Firefox|Safari)\//) ?? [])[1] ?? '',
       /bot|crawl|spider|preview|curl|python|headless|wget/i.test(ua),
+      (opts.who ?? '').slice(0, 200),
     ];
     after(async () => {
       try {
         await sql(
-          `insert into login_arrivals (path, query, ref, host, kind, fetch_site, country, device, browser, bot)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          `insert into login_arrivals (path, query, ref, host, kind, fetch_site, country, device, browser, bot, who)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           row,
         );
         if (Math.random() < 0.02) await sql(`delete from login_arrivals where at < now() - interval '90 days'`);
@@ -93,14 +94,20 @@ export async function noteLoginArrival(path: string, search: Search, opts: { sta
 export type Arrival = {
   at: string; path: string; query: string; ref: string; host: string; kind: ArrivalKind;
   fetch_site: string; country: string; device: string; browser: string; bot: boolean;
+  /** Numéros d'inscription du membre (espace) ou de la page de confirmation, et les noms correspondants. */
+  who_ref: string; who_name: string | null;
 };
 export type OriginCount = { kind: ArrivalKind; host: string; conf: boolean; day: number; week: number; last: string };
 
 /** The latest visits, newest first (robots included, marked). Hosts in .invalid are test visits, left out. */
 export async function latestArrivals(limit = 150): Promise<Arrival[]> {
   return (await sql(
-    `select at, path, query, ref, host, kind, fetch_site, country, device, browser, bot
-     from login_arrivals where host not like '%.invalid' order by at desc limit $1`,
+    `select a.at, a.path, a.query, a.ref, a.host, a.kind, a.fetch_site, a.country, a.device, a.browser, a.bot, w.who_ref,
+            (select string_agg(r.first_name || ' ' || r.last_name, ', ') from registrations r
+              where r.reference = any(string_to_array(nullif(w.who_ref, ''), ' '))) as who_name
+     from login_arrivals a
+     cross join lateral (select coalesce(nullif(a.who, ''), substring(a.query from 'ref=([A-Za-z0-9-]+)'), '') as who_ref) w
+     where a.host not like '%.invalid' order by a.at desc limit $1`,
     [limit],
   )) as unknown as Arrival[];
 }

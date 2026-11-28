@@ -18,6 +18,7 @@ import { formatDate, isLocale, LOCALES, type Locale } from '@/lib/locales';
 import { localeFromSearch } from '@/lib/requestLocale';
 import { PRIVATE_SLUGS } from '@/lib/private';
 import { noteLoginArrival } from '@/lib/loginArrivals';
+import { memberLog } from '@/lib/saleLog';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -30,9 +31,12 @@ type Owned = { program: string; reference: string; paid_at: string; progress: Pr
 export default async function SpacePage({ searchParams }: Props) {
   const queryLocale = await localeFromSearch(searchParams);
   const user = await currentUser();
-  // D'où vient la visite (28/11, /admin › Réglages), connecté ou non, sans adresse IP.
-  await noteLoginArrival(user ? '/space' : '/space (sans session)', await searchParams, { staff: user?.role === 'admin' });
-  if (!user) redirect(`/login?lang=${queryLocale}`);
+  const search = await searchParams;
+  // D'où vient la visite (28/11, /admin › Réglages), sans adresse IP. Sans session : notée ici, puis renvoi vers la connexion.
+  if (!user) {
+    await noteLoginArrival('/space (sans session)', search);
+    redirect(`/login?lang=${queryLocale}`);
+  }
   const preview = user.role === 'admin';
   const ambassador = user.role === 'ambassador';
   const locale: Locale = isLocale(user.locale) ? user.locale : queryLocale;
@@ -44,6 +48,10 @@ export default async function SpacePage({ searchParams }: Props) {
     [user.id],
   );
   const paid = [...new Map(regs.map((r) => [r.program as string, r])).values()];
+  // Connecté : l'arrivée est notée avec les numéros d'inscription payés du membre (registre + /admin › Réglages).
+  const refs = regs.map((r) => String(r.reference));
+  if (user.role !== 'admin') memberLog('espace', refs, user.role);
+  await noteLoginArrival('/space', search, { staff: user.role === 'admin', who: refs.join(' ') });
   const entries = preview
     ? // The admin's student view shows the student course only (the €30 one).
       [paid.find((r) => r.program === STUDENT_PROGRAM) ?? { program: STUDENT_PROGRAM, reference: 'TEST', paid_at: new Date().toISOString() }]

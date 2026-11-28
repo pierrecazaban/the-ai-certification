@@ -613,6 +613,7 @@ create table if not exists login_arrivals (
   bot boolean not null default false
 );
 create index if not exists login_arrivals_at on login_arrivals (at);
+alter table login_arrivals add column if not exists who text not null default '';
 -- Mise en place du 28/11 : visites de l associe et tests (US, avant 15:00 UTC) retirees, appareils equipe exclus ensuite.
 delete from login_arrivals where at < timestamptz '2026-11-28 15:00:00+00' and (country = 'US' or ref like '%.invalid%')
 `;

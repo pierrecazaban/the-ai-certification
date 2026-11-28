@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { sql } from './db';
+import { memberLog } from './saleLog';
 import { DEFAULT_LOCALE, isLocale, type Locale } from './locales';
 import { PRIVATE_SLUGS } from './private';
 
@@ -229,6 +230,15 @@ async function openSession(user: User): Promise<User> {
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000);
   await sql('insert into sessions (token_hash, user_id, expires_at) values ($1, $2, $3)', [hash(session), user.id, expires.toISOString()]);
   await sql('update users set last_login_at = now() where id = $1', [user.id]);
+  // Registre (28/11) : chaque connexion notée avec les numéros d'inscription payés du compte (ni nom ni e-mail).
+  if (user.role !== 'admin') {
+    try {
+      const refs = await sql(`select reference from registrations where user_id = $1 and status = 'paid' order by paid_at desc limit 5`, [user.id]);
+      memberLog('connexion', refs.map((r) => String(r.reference)), user.role);
+    } catch {
+      // never block a sign-in
+    }
+  }
 
   const jar = await cookies();
   const secure = process.env.NODE_ENV === 'production';
