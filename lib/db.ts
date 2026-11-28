@@ -580,6 +580,22 @@ create table if not exists prospect_messages (
   excerpt text not null default '',
   attempts integer not null default 0,
   primary key (linkedin, msg)
+);
+-- Calendrier des envois (28/11) : mails Smart Mail reçus par les élèves, par serveur, compte et heure (aucune adresse).
+-- Chaque serveur remplace ses lignes toutes les 10 minutes (/api/smartmail/envois). La table feed garde ses comptes
+-- (domaine, prénom) et la dernière réception, pour dire si les chiffres sont à jour.
+create table if not exists smartmail_sends (
+  source text not null,
+  account integer not null,
+  hour timestamptz not null,
+  sent integer not null,
+  primary key (source, account, hour)
+);
+create index if not exists smartmail_sends_hour on smartmail_sends (hour);
+create table if not exists smartmail_send_feed (
+  source text primary key,
+  accounts jsonb not null default '[]',
+  received_at timestamptz not null default now()
 )
 `;
 

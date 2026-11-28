@@ -2825,3 +2825,62 @@ main > section.rating-band:has(.hero-rating) { padding: 6px 0 34px; }
   .amb-offer { font-size: 16.5px; }
   .amb-yes { width: 100%; max-width: 360px; }
 }
+
+/* /admin › Calendrier des envois (28/11) : un mois en grille, une case par jour, plus foncée quand plus de mails partent. */
+.sc-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.sc-nav .btn { text-transform: capitalize; }
+.sc-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 4px 0 18px; }
+.sc-sum div { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--cream); }
+.sc-sum span { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+.sc-sum strong { font-size: 26px; font-weight: 800; letter-spacing: -.4px; color: var(--navy); font-variant-numeric: tabular-nums; }
+.sc-sum small { color: var(--muted); font-size: 13px; }
+.sc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.sc-dow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); padding: 0 4px 2px; }
+.sc-day { position: relative; display: flex; flex-direction: column; gap: 1px; min-height: 108px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper); color: var(--navy); text-decoration: none; font-variant-numeric: tabular-nums; transition: border-color .15s, box-shadow .15s; }
+a.sc-day:hover { border-color: var(--navy); box-shadow: 0 2px 10px rgba(23, 39, 76, .12); }
+a.sc-day:focus-visible { outline: 3px solid var(--gold-mid); outline-offset: 2px; }
+.sc-day.sel { border: 2px solid var(--navy); padding: 7px 9px; }
+.sc-day.future { background: transparent; border-style: dashed; color: #9AA3B8; }
+.sc-date { font-size: 13px; font-weight: 700; color: var(--muted); }
+.sc-day.today .sc-date { align-self: flex-start; background: var(--navy); color: #fff; border-radius: 999px; padding: 0 8px; }
+.sc-total { font-size: 22px; font-weight: 800; letter-spacing: -.4px; line-height: 1.15; margin: 2px 0 3px; }
+.sc-short { display: none; }
+.sc-line { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-line b { color: var(--navy); font-weight: 700; }
+.sc-line em { font-style: normal; }
+.sc-sales { margin-top: auto; font-size: 12px; color: var(--muted); }
+.sc-sales.on { color: var(--violet); font-weight: 700; }
+.sc-day.lv-0 .sc-total { color: #9AA3B8; }
+.sc-none { font-size: 12px; color: #9AA3B8; }
+main > section.sc-detail::before { content: none; } /* pas de vague dorée du site public entre les deux cartes */
+.lv-1 { background: #F3F6FB; } .lv-2 { background: #E3EAF6; } .lv-3 { background: #CCD8EE; } .lv-4 { background: #AFC1E4; } .lv-5 { background: #8FA8D8; }
+.sc-day.lv-4 .sc-line, .sc-day.lv-5 .sc-line, .sc-day.lv-4 .sc-date, .sc-day.lv-5 .sc-date, .sc-day.lv-4 .sc-sales, .sc-day.lv-5 .sc-sales { color: var(--navy); }
+.sc-day.today.lv-4 .sc-date, .sc-day.today.lv-5 .sc-date { color: #fff; }
+.sc-foot { display: grid; gap: 8px; margin-top: 14px; }
+.sc-legend { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.sc-legend i { display: inline-block; width: 16px; height: 12px; border-radius: 3px; border: 1px solid var(--line); }
+.sc-h3 { font-size: 15px; margin: 18px 0 8px; }
+.sc-dayhours { overflow-x: auto; margin-bottom: 6px; }
+.sc-dayhours .sc-hours { width: 100%; max-width: 720px; height: auto; }
+.sc-hours { display: block; }
+.sc-axis { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.sc-list { margin-top: 12px; }
+.sc-list summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 6px 0; }
+@media (max-width: 760px) {
+  .sc-grid { gap: 4px; }
+  .sc-dow { font-size: 10px; padding: 0 2px; letter-spacing: 0; }
+  .sc-day { min-height: 58px; padding: 5px 5px; border-radius: 8px; }
+  .sc-day.sel { padding: 4px; }
+  .sc-total { font-size: 14px; letter-spacing: -.2px; margin: 1px 0 0; }
+  .sc-full, .sc-line, .sc-sales { display: none; }
+  .sc-short { display: inline; }
+  .sc-none { display: none; }
+  .sc-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .sc-sum div { padding: 10px 12px; }
+  .sc-sum span { font-size: 11px; letter-spacing: .3px; }
+  .sc-sum strong { font-size: 20px; }
+  .sc-sum small { font-size: 12px; }
+  .sc-date { font-size: 11px; }
+  .sc-day.today .sc-date { padding: 0 5px; }
+}

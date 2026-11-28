@@ -20,6 +20,7 @@ import { setting } from '@/lib/settings';
 import RevenueChart from '@/components/private/RevenueChart';
 import { payReminderStatus } from '@/lib/payReminder';
 import MailFrame from '@/components/private/MailFrame';
+import SendCalendar from '@/components/private/SendCalendar';
 
 // Admin console, rendered by app/[locale]/page.tsx for signed-in admins only.
 // It has no route of its own, so for anyone else its address behaves like any unknown address.
@@ -84,6 +85,8 @@ export default async function AdminConsole({ admin, params }: { admin: User; par
           <Reviews stars={String(params.stars ?? '')} />
         ) : tab === 'prospection' ? (
           <Outreach params={params} />
+        ) : tab === 'calendrier' ? (
+          <SendCalendar params={params} />
         ) : tab === 'reglages' ? (
           <Settings params={params} />
         ) : (
@@ -325,7 +328,7 @@ async function Students({ q, status }: { q: string; status: string }) {
           </tbody>
         </table>
       </div>
-      <p className="help" style={{ marginTop: 10 }}><Link href="/admin?tab=emails">All emails sent</Link> (ambassadors and tickets included)</p>
+      <p className="help" style={{ marginTop: 10 }}><Link href="/admin?tab=emails">All emails sent</Link> (ambassadors and tickets included) · <Link href="/admin?tab=calendrier">Calendrier des envois</Link> (jour par jour, Smart Mail compris)</p>
     </section>
   );
 }
@@ -378,7 +381,7 @@ async function Emails({ id, q }: { id: string; q: string }) {
   return (
     <section className="cx-card">
       <div className="cx-toolbar">
-        <h2>Emails <small>({rows.length})</small></h2>
+        <h2>Emails <small>({rows.length})</small> <Link className="btn btn-sm btn-ghost" href="/admin?tab=calendrier">Par jour</Link></h2>
         <form className="cx-search" action="/admin">
           <input type="hidden" name="tab" value="emails" />
           <input name="q" defaultValue={q} placeholder="Recipient or subject…" aria-label="Search" />
