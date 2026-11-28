@@ -1,4 +1,5 @@
 import { arrivalsByOrigin, latestArrivals, type Arrival, type ArrivalKind, type OriginCount } from '@/lib/loginArrivals';
+import RefreshButton from '@/components/private/RefreshButton';
 
 // /admin › Réglages (28/11) : d'où arrivent les visiteurs de la connexion et de l'espace élève (lib/loginArrivals.ts). Lecture seule.
 const KIND: Record<ArrivalKind, { label: string; tone: string }> = {
@@ -67,6 +68,11 @@ export default async function LoginArrivals() {
           )}
         </span>
       </summary>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 14 }}>
+        <RefreshButton />
+        <small style={{ color: 'var(--muted)', fontSize: 13 }}>données lues à {new Date().toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris' })}</small>
+      </div>
 
       <h3 style={{ marginTop: 16 }}>D’où arrivent les gens</h3>
       <ul style={list}>

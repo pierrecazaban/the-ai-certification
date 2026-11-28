@@ -1,4 +1,5 @@
 import { accountsWithoutPayment, latestSignIns, paidLater, paidOtherwise, reconSummary, type ReconRow, type ReconSummary } from '@/lib/reconciliation';
+import RefreshButton from '@/components/private/RefreshButton';
 import { latestSchoolChoices, schoolChoicesBySchool, type ChoiceRow, type SchoolChoiceRow } from '@/lib/schoolChoices';
 import { salesBySchool, type SchoolSalesRow } from '@/lib/schoolSales';
 
@@ -48,6 +49,11 @@ export default async function Reconciliation() {
           {anomalies > 0 ? <span className="cx-badge tone-bad">{anomalies} à vérifier</span> : <span className="cx-badge tone-ok">Tout colle</span>}
         </span>
       </summary>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 14 }}>
+        <RefreshButton />
+        <small style={{ color: 'var(--muted)', fontSize: 13 }}>données lues à {new Date().toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris' })}</small>
+      </div>
 
       {s && (
         <div className="cx-kpis" style={{ marginTop: 16 }}>
