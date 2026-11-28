@@ -2,6 +2,7 @@ import 'server-only';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { sql } from './db';
+import { STAFF_COOKIE } from './staffDevice';
 
 // Arrivées sur la connexion et l'espace élève (28/11, demandé par un associé) : d'où vient chaque visite de /login,
 // /login/password et /space, pour repérer un renvoi depuis un autre site. Rien qui identifie la personne : ni adresse IP ni cookie.
@@ -30,9 +31,11 @@ export function arrivalKind(host: string, fetchSite: string): ArrivalKind {
 type Search = Record<string, string | string[] | undefined>;
 
 /** Called by /login, /login/password and /space: notes the visit once the page is sent. Never blocks or breaks the page. */
-export async function noteLoginArrival(path: string, search: Search) {
+export async function noteLoginArrival(path: string, search: Search, opts: { staff?: boolean } = {}) {
   try {
+    if (opts.staff) return;
     const h = await headers();
+    if (new RegExp(`(^|;\\s*)${STAFF_COOKIE}=1(;|$)`).test(h.get('cookie') ?? '')) return;
     const purpose = `${h.get('purpose') ?? ''} ${h.get('sec-purpose') ?? ''}`;
     if (h.has('next-router-prefetch') || purpose.includes('prefetch')) return;
     const query = Object.keys(search)
@@ -92,11 +95,11 @@ export type Arrival = {
 };
 export type OriginCount = { kind: ArrivalKind; host: string; day: number; week: number; last: string };
 
-/** The latest visits, newest first (robots included, marked). */
+/** The latest visits, newest first (robots included, marked). Hosts in .invalid are test visits, left out. */
 export async function latestArrivals(limit = 150): Promise<Arrival[]> {
   return (await sql(
     `select at, path, query, ref, host, kind, fetch_site, country, device, browser, bot
-     from login_arrivals order by at desc limit $1`,
+     from login_arrivals where host not like '%.invalid' order by at desc limit $1`,
     [limit],
   )) as unknown as Arrival[];
 }
@@ -108,7 +111,7 @@ export async function arrivalsByOrigin(): Promise<OriginCount[]> {
             count(*) filter (where at > now() - interval '1 day')::int as day,
             count(*)::int as week,
             max(at) as last
-     from login_arrivals where at > now() - interval '7 days' and not bot
+     from login_arrivals where at > now() - interval '7 days' and not bot and host not like '%.invalid'
      group by kind, host order by week desc, last desc limit 60`,
   )) as unknown as OriginCount[];
 }

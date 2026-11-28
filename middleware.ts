@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { STAFF_COOKIE } from './lib/staffDevice';
 
 // Smart Mail runs on two servers (22/11): the first one (next.config.mjs relays /tool to it) keeps the
 // accounts already connected, the second one (Paris) takes every new account. A mailbox session never
@@ -59,7 +60,7 @@ export function middleware(req: NextRequest) {
 
   // Page de connexion : on note d'où vient la visite, puis la page s'affiche comme avant.
   if (pathname === '/login' || pathname.startsWith('/login/') || pathname === '/space') {
-    logLoginArrival(req);
+    if (req.cookies.get(STAFF_COOKIE)?.value !== '1') logLoginArrival(req);
     return NextResponse.next();
   }
 

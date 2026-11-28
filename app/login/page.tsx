@@ -17,10 +17,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function LoginPage({ searchParams }: Props) {
   const locale = await localeFromSearch(searchParams);
   const query = await searchParams;
-  // D'où vient la visite (28/11, /admin › Réglages) : noté après l'envoi de la page, sans adresse IP.
-  await noteLoginArrival('/login', query);
   // Déjà connecté sur cet appareil (22/11) : droit dans son espace, étudiant ou ambassadeur, sans rien retaper.
   const signedIn = await currentUser().catch(() => null);
+  // D'où vient la visite (28/11, /admin › Réglages) : noté après l'envoi de la page, sans adresse IP, jamais pour l'équipe.
+  await noteLoginArrival('/login', query, { staff: signedIn?.role === 'admin' });
   if (signedIn && query.expired !== '1' && query.reset !== '1') redirect(homePath(signedIn, locale));
   const expired = query.expired === '1';
   // /login?reset=1 opens straight on "forgot your password".

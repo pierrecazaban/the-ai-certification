@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { currentUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { PRIVATE_SLUGS } from '@/lib/private';
+import { STAFF_COOKIE } from '@/lib/staffDevice';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,11 @@ export async function POST(req: NextRequest) {
   }
   // Old rows are dropped now and then so the table stays tiny.
   if (Math.random() < 0.05) await sql(`delete from live_visitors where seen_at < now() - interval '1 hour'`);
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  // Appareil de l'équipe (28/11) : marqué dès qu'il ouvre l'admin, pour que ses visites de /login et /space ne soient
+  // pas notées dans les arrivées (lib/loginArrivals.ts, middleware.ts), même déconnecté. Aucune donnée, juste « 1 ».
+  if (admin) res.cookies.set(STAFF_COOKIE, '1', { path: '/', maxAge: 60 * 60 * 24 * 400, httpOnly: true, sameSite: 'lax', secure: true });
+  return res;
 }
 
 // Live count for the admin console only.

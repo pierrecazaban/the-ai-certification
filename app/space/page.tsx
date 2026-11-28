@@ -31,7 +31,7 @@ export default async function SpacePage({ searchParams }: Props) {
   const queryLocale = await localeFromSearch(searchParams);
   const user = await currentUser();
   // D'où vient la visite (28/11, /admin › Réglages), connecté ou non, sans adresse IP.
-  await noteLoginArrival(user ? '/space' : '/space (sans session)', await searchParams);
+  await noteLoginArrival(user ? '/space' : '/space (sans session)', await searchParams, { staff: user?.role === 'admin' });
   if (!user) redirect(`/login?lang=${queryLocale}`);
   const preview = user.role === 'admin';
   const ambassador = user.role === 'ambassador';
