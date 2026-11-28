@@ -615,7 +615,15 @@ create table if not exists login_arrivals (
 create index if not exists login_arrivals_at on login_arrivals (at);
 alter table login_arrivals add column if not exists who text not null default '';
 -- Mise en place du 28/11 : visites de l associe et tests (US, avant 15:00 UTC) retirees, appareils equipe exclus ensuite.
-delete from login_arrivals where at < timestamptz '2026-11-28 15:00:00+00' and (country = 'US' or ref like '%.invalid%')
+delete from login_arrivals where at < timestamptz '2026-11-28 15:00:00+00' and (country = 'US' or ref like '%.invalid%');
+-- Choix d ecole dans le formulaire (28/11) : ecole et heure seulement (lib/schoolChoices.ts).
+create table if not exists school_choices (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  university_id uuid not null,
+  locale text not null default ''
+);
+create index if not exists school_choices_at on school_choices (at)
 `;
 
 /** Moves everything attached to school `from` onto school `into`, then deletes `from`. No-op once done. */

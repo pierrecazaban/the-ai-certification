@@ -1,4 +1,5 @@
 import { accountsWithoutPayment, latestSignIns, paidLater, paidOtherwise, reconSummary, type ReconRow, type ReconSummary } from '@/lib/reconciliation';
+import { latestSchoolChoices, schoolChoicesBySchool, type ChoiceRow, type SchoolChoiceRow } from '@/lib/schoolChoices';
 
 // /admin › Réglages (28/11) : rapprochement des comptes élèves avec les payeurs Stripe et les invités. Lecture seule.
 const at = (d: unknown) =>
@@ -31,6 +32,9 @@ export default async function Reconciliation() {
   [s, noPay, other, later, signIns] = await Promise.all([
     safe<ReconSummary | null>(reconSummary(), null), safe(accountsWithoutPayment(), []), safe(paidOtherwise(), []), safe(paidLater(), []), safe(latestSignIns(), []),
   ]);
+  const [bySchool, choices] = await Promise.all([safe<SchoolChoiceRow[]>(schoolChoicesBySchool(), []), safe<ChoiceRow[]>(latestSchoolChoices(40), [])]);
+  const choicesDay = bySchool.reduce((n, r) => n + r.jour, 0);
+  const choicesWeek = bySchool.reduce((n, r) => n + r.semaine, 0);
   const anomalies = s ? s.payees_autres + s.comptes_sans_paiement + s.payees_sans_compte : 0;
 
   return (
@@ -51,6 +55,32 @@ export default async function Reconciliation() {
           <div className="cx-kpi"><span>Comptes sans paiement</span><strong>{s.comptes_sans_paiement}</strong><small>élèves sans vente ni invitation</small></div>
           <div className="cx-kpi"><span>Payées sans compte</span><strong>{s.payees_sans_compte}</strong><small>{s.remboursees} remboursées · {s.en_cours} en cours</small></div>
         </div>
+      )}
+
+      <h3 style={{ marginTop: 20 }}>Choix d’école dans l’annuaire <small style={muted}>({choicesDay} en 24 h · {choicesWeek} en 7 jours)</small></h3>
+      <p style={muted}>Chaque école choisie dans la liste du formulaire, payée ou non ensuite, à côté des réservations et des ventes Stripe de cette école (7 jours).</p>
+      <ul style={list}>
+        {bySchool.length === 0 && <li style={{ ...item, ...muted }}>Aucun choix enregistré pour l’instant (compteur actif depuis le 28/11 au soir).</li>}
+        {bySchool.map((r) => (
+          <li key={r.name} style={item}>
+            <strong style={wrap}>{r.name}</strong>
+            <span style={muted}>{r.jour} choix en 24 h · {r.semaine} en 7 j · {r.reservations} réservation(s) · {r.payees} payée(s)</span>
+            <small style={muted}>dernier choix {at(r.dernier)}</small>
+          </li>
+        ))}
+      </ul>
+      {choices.length > 0 && (
+        <>
+          <h3 style={{ marginTop: 20 }}>Derniers choix d’école</h3>
+          <ul style={list}>
+            {choices.map((c, i) => (
+              <li key={i} style={{ ...item, gridTemplateColumns: '1fr auto' }}>
+                <span style={wrap}>{c.name}</span>
+                <small style={muted}>{at(c.at)}</small>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       <Block

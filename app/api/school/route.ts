@@ -11,6 +11,7 @@ import {
   startPurchase,
   startRegistration,
 } from '@/lib/school';
+import { noteSchoolChoice } from '@/lib/schoolChoices';
 import { pricingFor } from '@/lib/pricing';
 import { DEFAULT_LOCALE, isLocale } from '@/lib/locales';
 
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
         const intake = await publicIntake();
         return NextResponse.json(intake ? { ...intake, pricing: pricingFor(locale) } : null);
       }
+      case 'school_chosen':
+        // Choix d'une école dans la liste (28/11) : limite à part, pour ne jamais gêner une vraie inscription.
+        if (rateLimited(`choice:${ip}`, 60)) return NextResponse.json({ result: 'rate_limited' });
+        return NextResponse.json(await noteSchoolChoice(body));
       case 'start_registration':
         if (rateLimited(ip)) return NextResponse.json({ result: 'rate_limited' });
         return NextResponse.json(await startRegistration(body));

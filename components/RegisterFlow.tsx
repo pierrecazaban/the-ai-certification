@@ -267,7 +267,7 @@ export default function RegisterFlow({ locale, initialUniversities, initialIntak
                 <ul className="uni-list" aria-label={t.universities}>
                   {filtered.map((u) => (
                     <li key={u.id}>
-                      <button type="button" aria-pressed={u.id === uniId} onClick={() => { setUniId(u.id); setQuery(u.name); }}>
+                      <button type="button" aria-pressed={u.id === uniId} onClick={() => { setUniId(u.id); setQuery(u.name); api('school_chosen', { university_id: u.id, locale }).catch(() => null); }}>
                         {u.name}
                         <small>{t.allCampuses}</small>
                       </button>
