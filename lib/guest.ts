@@ -5,6 +5,7 @@ import { findOrCreateUser, setFirstPassword } from './auth';
 import { STUDENT_PROGRAM } from './catalog';
 import { publicIntake, TERMS_VERSION } from './school';
 import { siteUrl } from './site';
+import { saleLog } from './saleLog';
 
 // Free access for invited people: one secret link (/invite/<code>) set in the admin console.
 // Signing up there opens a student account with the course unlocked, like a paid registration at 0 €.
@@ -76,4 +77,5 @@ async function grantAccess(userId: string, p: { first: string; last: string; ema
       intake.intake_id, p.first, p.last, p.email, TERMS_VERSION, GUEST_PAYMENT, userId, p.locale, STUDENT_PROGRAM,
     ],
   );
+  saleLog('invite', { reference: 'GUEST', amount_cents: 0, currency: 'EUR', program: STUDENT_PROGRAM, intake_id: intake.intake_id, created_at: new Date() }, GUEST_PAYMENT);
 }

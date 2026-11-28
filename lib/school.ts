@@ -7,6 +7,7 @@ import { DEFAULT_LOCALE, isLocale, LOCALES, type Locale } from './locales';
 import { findOrCreateUser, setFirstPassword } from './auth';
 import { emailConfigured, sendConfirmationEmail } from './email';
 import { recordCommissions } from './team';
+import { saleLog } from './saleLog';
 import { createTicket } from './tickets';
 import { PROGRAM_CURRENCY, PROGRAM_PRICE_CENTS, programBySlug, STUDENT_PROGRAM } from './catalog';
 import { isOnSale } from './visibility';
@@ -297,6 +298,7 @@ export async function createCheckout(input: { registration_id?: string; client_t
       locale: r.locale,
     });
     await sql('update registrations set payment_id = $2 where id = $1', [r.id, payment.id]);
+    saleLog('page-stripe', r, payment.id);
     return { result: 'ok' as const, checkout_url: payment.checkoutUrl };
   } catch (err) {
     console.error(err);
@@ -322,11 +324,13 @@ export async function syncPayment(paymentId: string) {
       payment.paidAt ?? new Date().toISOString(),
       payment.id,
     ]);
+    saleLog('payee', r, payment.id, payment.paidAt ?? null);
     await onPaid(r.id);
     await recordCommissions(r.id);
   } else if (['canceled', 'expired', 'failed'].includes(payment.status) && r.payment_id === payment.id) {
     // Only the latest payment decides: an abandoned earlier tab must not cancel a place still being paid for.
     await sql(`update registrations set status = $2 where id = $1 and status = 'held'`, [r.id, payment.status]);
+    saleLog(payment.status, r, payment.id);
   }
 }
 
@@ -594,6 +598,7 @@ export async function passwordAfterPayment(input: { registration_id?: string; cl
   const [owner] = await sql('select role from users where id = $1', [r.user_id]);
   if (owner?.role !== 'student') return { result: 'not_found' as const };
   const user = await setFirstPassword(r.user_id, String(input.password ?? ''));
+  if (user) saleLog('mot-de-passe', r, r.payment_id ?? '');
   return user ? { result: 'ok' as const, redirect: `/space?lang=${r.locale}` } : { result: 'already_set' as const };
 }
 
