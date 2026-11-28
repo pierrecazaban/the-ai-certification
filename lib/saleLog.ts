@@ -2,7 +2,7 @@
 // Stripe créée, paiement confirmé, abandon, mot de passe choisi après paiement et accès gratuit par invitation. Numéro
 // d'inscription, montant, dates et identifiant de la session Stripe seulement : ni nom, ni e-mail, ni jeton. La Sentinelle
 // de l'associé recopie ces lignes hors de la base, pour qu'une vente ne puisse pas disparaître sans laisser de trace.
-type Reg = { reference?: unknown; amount_cents?: unknown; currency?: unknown; program?: unknown; created_at?: unknown; intake_id?: unknown };
+type Reg = { reference?: unknown; amount_cents?: unknown; currency?: unknown; program?: unknown; created_at?: unknown; intake_id?: unknown; university_id?: unknown };
 
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : v == null ? null : String(v));
 
@@ -16,6 +16,8 @@ export function saleLog(step: string, r: Reg, session: unknown, paidAt: unknown 
       devise: String(r.currency ?? ''),
       programme: String(r.program ?? ''),
       session_du: String(r.intake_id ?? ''),
+      // École de l'inscription (28/11) : son identifiant, le nom est dans la liste publique des écoles du formulaire.
+      ecole_id: String(r.university_id ?? ''),
       inscrite: iso(r.created_at),
       payee: iso(paidAt),
     }));
