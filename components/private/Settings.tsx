@@ -4,6 +4,7 @@ import { paymentsMode } from '@/lib/payments';
 import { emailConfigured } from '@/lib/email';
 import { siteUrl } from '@/lib/site';
 import LoginArrivals from '@/components/private/LoginArrivals';
+import Reconciliation from '@/components/private/Reconciliation';
 
 // Admin settings, read-only (15/11): which keys are set in Vercel, and a test for each. No key can be changed here.
 export default async function Settings({ params }: { params: Record<string, string | string[] | undefined> }) {
@@ -64,6 +65,7 @@ export default async function Settings({ params }: { params: Record<string, stri
           )}
         </section>
       ))}
+      <Reconciliation />
       <LoginArrivals />
     </>
   );
