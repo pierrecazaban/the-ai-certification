@@ -110,6 +110,51 @@ const matches = (domain: string, schoolDomain: string) => {
   return domain === d || domain.endsWith(`.${d}`) || d.endsWith(`.${domain}`);
 };
 
+/** Domaine d'un compte Smart Mail → id de l'école : domaines des écoles du site (le plus précis), alias, puis l'école que
+ *  choisissent le plus souvent les inscrits de ce domaine. */
+async function schoolIdsOfDomains(domains: string[], unis: Record<string, any>[]): Promise<Map<string, string>> {
+  const schoolOfDomain = new Map<string, string>(); // domaine → id d'école
+  for (const domain of domains) {
+    let best: { id: string; len: number } | null = null;
+    for (const u of unis) {
+      for (const d of (u.email_domains as string[]) ?? []) {
+        if (matches(domain, d) && (!best || d.length > best.len)) best = { id: String(u.id), len: d.length };
+      }
+    }
+    if (best) schoolOfDomain.set(domain, canonicalSchool(best.id));
+    else if (DOMAIN_SCHOOL[domain]) schoolOfDomain.set(domain, DOMAIN_SCHOOL[domain]);
+  }
+  const guess = domains.filter((d) => !schoolOfDomain.has(d) && !GENERIC.test(d));
+  if (guess.length) {
+    const rows = await sql(
+      `select dom, r.university_id::text as u, count(*)::int as n
+         from registrations r join unnest($1::text[]) as dom
+           on lower(split_part(r.email, '@', 2)) = dom or lower(split_part(r.email, '@', 2)) like '%.' || dom
+        where ${NOT_TEST.replaceAll('payment_id', 'r.payment_id')}
+        group by 1, 2 order by 1, 3 desc`,
+      [guess],
+    );
+    for (const r of rows) if (!schoolOfDomain.has(String(r.dom))) schoolOfDomain.set(String(r.dom), canonicalSchool(String(r.u)));
+  }
+  return schoolOfDomain;
+}
+
+/** Pour le calendrier des envois : domaine d'un compte Smart Mail → nom court de son école (mêmes règles qu'ici). */
+export async function schoolNamesOfDomains(domains: string[]): Promise<Map<string, string>> {
+  if (!domains.length) return new Map();
+  const unis = await sql(`select id::text as id, coalesce(nullif(short_name, ''), name) as name, email_domains
+                          from universities where cardinality(email_domains) > 0`);
+  const ids = await schoolIdsOfDomains(domains.map((d) => d.toLowerCase()), unis);
+  const names = new Map(unis.map((u) => [String(u.id), String(u.name)]));
+  const missing = [...new Set(ids.values())].filter((id) => !names.has(id));
+  if (missing.length) {
+    for (const u of await sql(`select id::text as id, coalesce(nullif(short_name, ''), name) as name from universities where id::text = any($1::text[])`, [missing])) {
+      names.set(String(u.id), String(u.name));
+    }
+  }
+  return new Map([...ids].map(([d, id]) => [d, names.get(id) ?? '']));
+}
+
 export async function conversionBySchool(period: Period): Promise<Conversion> {
   const today = parisDay();
   const { from, to } = bounds(period, today);
@@ -138,29 +183,7 @@ export async function conversionBySchool(period: Period): Promise<Conversion> {
 
   const uniBy = new Map<string, { name: string; fullName: string }>();
   for (const u of unis) uniBy.set(String(u.id), { name: String(u.name), fullName: String(u.full_name) });
-  const schoolOfDomain = new Map<string, string>(); // domaine → id d'école
-  for (const domain of domains) {
-    let best: { id: string; len: number } | null = null;
-    for (const u of unis) {
-      for (const d of (u.email_domains as string[]) ?? []) {
-        if (matches(domain, d) && (!best || d.length > best.len)) best = { id: String(u.id), len: d.length };
-      }
-    }
-    if (best) schoolOfDomain.set(domain, canonicalSchool(best.id));
-    else if (DOMAIN_SCHOOL[domain]) schoolOfDomain.set(domain, DOMAIN_SCHOOL[domain]);
-  }
-  const guess = domains.filter((d) => !schoolOfDomain.has(d) && !GENERIC.test(d));
-  if (guess.length) {
-    const rows = await sql(
-      `select dom, r.university_id::text as u, count(*)::int as n
-         from registrations r join unnest($1::text[]) as dom
-           on lower(split_part(r.email, '@', 2)) = dom or lower(split_part(r.email, '@', 2)) like '%.' || dom
-        where ${NOT_TEST.replaceAll('payment_id', 'r.payment_id')}
-        group by 1, 2 order by 1, 3 desc`,
-      [guess],
-    );
-    for (const r of rows) if (!schoolOfDomain.has(String(r.dom))) schoolOfDomain.set(String(r.dom), canonicalSchool(String(r.u)));
-  }
+  const schoolOfDomain = await schoolIdsOfDomains(domains, unis);
   // Noms des écoles qui manquent encore (écoles sans domaine : ventes, écoles devinées).
   const missing = [...new Set([...sales.map((r) => canonicalSchool(String(r.u))), ...schoolOfDomain.values()])].filter((id) => id && !uniBy.has(id));
   if (missing.length) {

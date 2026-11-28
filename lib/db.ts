@@ -597,6 +597,7 @@ create table if not exists smartmail_send_feed (
   accounts jsonb not null default '[]',
   received_at timestamptz not null default now()
 );
+alter table smartmail_send_feed add column if not exists planning jsonb not null default '[]';
 -- Arrivees sur la page de connexion (28/11) : provenance de chaque visite de /login, sans adresse IP (lib/loginArrivals.ts).
 create table if not exists login_arrivals (
   id bigserial primary key,

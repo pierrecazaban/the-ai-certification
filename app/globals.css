@@ -2941,3 +2941,15 @@ main > section.sc-detail::before { content: none; } /* pas de vague dorée du si
   .cv-plain li > span:last-child { text-align: left; font-size: 13px; }
   .cv-head h2 small { display: block; font-size: 13px; }
 }
+
+/* /admin › Calendrier › envois programmés (28/11) : jours à venir en pointillé, prochains envois compte par compte. */
+.sc-day.planned { background: transparent; border-style: dashed; border-color: #AFC1E4; }
+.sc-day.planned .sc-total { color: #5E6E90; }
+a.sc-day.planned:hover { border-color: var(--navy); }
+.sc-plan { font-size: 12px; color: #5E6E90; }
+.sp-next { white-space: nowrap; }
+.sp-msg { max-width: 420px; font-size: 13px; }
+@media (max-width: 760px) {
+  .sc-plan { display: none; }
+  .cv-list .cx-badge { margin-left: 4px; vertical-align: 1px; }
+}

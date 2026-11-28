@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { calendarDay, calendarMonth, feedFreshness, type CalendarDay } from '@/lib/sendCalendar';
+import { calendarDay, calendarMonth, feedFreshness, plannedByDay, sendPlan, type CalendarDay, type PlannedAccount, type PlanState } from '@/lib/sendCalendar';
 
 // /admin › Calendrier (28/11) : les e-mails envoyés chaque jour, heure de Paris. Un mois en grille (Smart Mail + site,
 // les ventes du jour en dessous), et le détail du jour choisi : Smart Mail compte par compte, heure par heure, et les
@@ -64,10 +64,17 @@ export default async function SendCalendar({ params }: { params: Params }) {
   const askedMonth = String(params.mois ?? '');
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(askedMonth) ? askedMonth : today.slice(0, 7);
   const askedDay = String(params.jour ?? '');
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(askedDay) && askedDay.startsWith(month) && !Number.isNaN(Date.parse(askedDay)) && askedDay <= today
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(askedDay) && askedDay.startsWith(month) && !Number.isNaN(Date.parse(askedDay))
     ? askedDay : today.startsWith(month) ? today : '';
 
-  const [days, fresh] = await Promise.all([calendarMonth(month), feedFreshness()]);
+  const [days, fresh, plan] = await Promise.all([
+    calendarMonth(month), feedFreshness(),
+    // Envois programmés (28/11) : jamais bloquants pour le calendrier.
+    sendPlan().catch((e) => { console.error('[calendrier] programmation', e); return [] as PlannedAccount[]; }),
+  ]);
+  const planned = plannedByDay(plan);
+  const plannedOf = (d: string) => (d >= today ? planned.get(d) ?? 0 : 0);
+  const plannedMonth = days.reduce((s, d) => s + plannedOf(d.day), 0);
   const max = Math.max(0, ...days.map(total));
   const sum = (f: (d: CalendarDay) => number) => days.reduce((s, d) => s + f(d), 0);
   const best = days.reduce<CalendarDay | null>((a, d) => (total(d) > (a ? total(a) : 0) ? d : a), null);
@@ -83,7 +90,7 @@ export default async function SendCalendar({ params }: { params: Params }) {
           <nav className="sc-nav" aria-label="Mois">
             <Link className="btn btn-sm btn-ghost" href={href(shiftMonth(month, -1))} aria-label="Mois précédent">‹ {monthLabel(shiftMonth(month, -1)).split(' ')[0]}</Link>
             {!today.startsWith(month) && <Link className="btn btn-sm btn-ghost" href={href(today.slice(0, 7), today)}>Aujourd’hui</Link>}
-            {shiftMonth(month, 1) <= today.slice(0, 7) && (
+            {shiftMonth(month, 1) <= shiftMonth(today.slice(0, 7), 1) && ( /* le mois prochain : ses envois programmés */
               <Link className="btn btn-sm btn-ghost" href={href(shiftMonth(month, 1))} aria-label="Mois suivant">{monthLabel(shiftMonth(month, 1)).split(' ')[0]} ›</Link>
             )}
           </nav>
@@ -94,6 +101,9 @@ export default async function SendCalendar({ params }: { params: Params }) {
           <div><span>Smart Mail</span><strong>{n(sum((d) => d.smartmail))}</strong><small>reçus par les élèves</small></div>
           <div><span>Site</span><strong>{n(sum((d) => d.site))}</strong><small>{sum((d) => d.siteFailed) ? `${plural(sum((d) => d.siteFailed), 'refusé')}` : 'connexions, rappels, tickets…'}</small></div>
           <div><span>Meilleur jour</span><strong>{best ? n(total(best)) : '—'}</strong><small>{best ? longDay(best.day, { weekday: 'long', day: 'numeric', month: 'long' }) : 'aucun envoi ce mois-ci'}</small></div>
+          {month >= today.slice(0, 7) && (
+            <div><span>Prévus</span><strong>{plannedMonth ? `≈ ${n(plannedMonth)}` : '0'}</strong><small><a href="#prevus">d’ici le {longDay(days[days.length - 1].day, { day: 'numeric', month: 'long' })}, programmés</a></small></div>
+          )}
         </div>
 
         <div className="sc-grid">
@@ -102,11 +112,20 @@ export default async function SendCalendar({ params }: { params: Params }) {
           {days.map((d) => {
             const t = total(d);
             const future = d.day > today;
-            const label = `${longDay(d.day)} : ${plural(t, 'e-mail')} (${n(d.smartmail)} Smart Mail, ${n(d.site)} site), ${plural(d.sales, 'vente')}`;
+            const p = plannedOf(d.day);
+            const label = future
+              ? `${longDay(d.day)} : ≈ ${plural(p, 'e-mail')} prévu${p > 1 ? 's' : ''}`
+              : `${longDay(d.day)} : ${plural(t, 'e-mail')} (${n(d.smartmail)} Smart Mail, ${n(d.site)} site), ${plural(d.sales, 'vente')}${p ? `, ≈ ${n(p)} encore prévus` : ''}`;
             const body = (
               <>
                 <span className="sc-date">{Number(d.day.slice(8))}</span>
-                {!future && !t && !d.sales && <small className="sc-none">aucun envoi</small>}
+                {future && p > 0 && (
+                  <>
+                    <strong className="sc-total"><span className="sc-full">≈ {n(p)}</span><span className="sc-short">≈{compact(p)}</span></strong>
+                    <small className="sc-line">prévus</small>
+                  </>
+                )}
+                {!future && !t && !d.sales && !p && <small className="sc-none">aucun envoi</small>}
                 {!future && (t > 0 || d.sales > 0) && (
                   <>
                     <strong className="sc-total"><span className="sc-full">{n(t)}</span><span className="sc-short">{compact(t)}</span></strong>
@@ -115,10 +134,11 @@ export default async function SendCalendar({ params }: { params: Params }) {
                     <small className={`sc-sales${d.sales ? ' on' : ''}`}>{d.sales ? plural(d.sales, 'vente') : '0 vente'}</small>
                   </>
                 )}
+                {!future && p > 0 && <small className="sc-plan">+ ≈ {n(p)} prévus</small>}
               </>
             );
-            const cls = `sc-day lv-${future ? 0 : level(t, max)}${d.day === today ? ' today' : ''}${d.day === day ? ' sel' : ''}${future ? ' future' : ''}`;
-            return future
+            const cls = `sc-day lv-${future ? 0 : level(t, max)}${d.day === today ? ' today' : ''}${d.day === day ? ' sel' : ''}${future ? (p ? ' planned' : ' future') : ''}`;
+            return future && !p
               ? <div key={d.day} className={cls} aria-hidden="true">{body}</div>
               : <Link key={d.day} className={cls} href={href(month, d.day)} aria-label={label} aria-current={d.day === day ? 'date' : undefined}>{body}</Link>;
           })}
@@ -135,12 +155,24 @@ export default async function SendCalendar({ params }: { params: Params }) {
         </div>
       </section>
 
-      {day && <DayDetail day={day} />}
+      <Planned plan={plan} />
+
+      {day && <DayDetail day={day} today={today} plan={plan} />}
     </>
   );
 }
 
-async function DayDetail({ day }: { day: string }) {
+async function DayDetail({ day, today, plan }: { day: string; today: string; plan: PlannedAccount[] }) {
+  const coming = dayEvents(plan, day);
+  if (day > today) {
+    const sum = coming.reduce((s, e) => s + e.n, 0);
+    return (
+      <section className="cx-card sc-detail" id="jour">
+        <h2>{longDay(day)} <small>· ≈ {plural(sum, 'e-mail')} prévu{sum > 1 ? 's' : ''}</small></h2>
+        {coming.length ? <ComingTable events={coming} /> : <p className="help">Rien de programmé ce jour-là.</p>}
+      </section>
+    );
+  }
   const d = await calendarDay(day);
   const smTotal = d.accounts.reduce((s, a) => s + a.total, 0);
   const hours = Array.from({ length: 24 }, (_, i) => d.accounts.reduce((s, a) => s + a.hours[i], 0));
@@ -163,6 +195,13 @@ async function DayDetail({ day }: { day: string }) {
         <div><span>Site</span><strong>{n(siteSent)}</strong><small>{siteAll ? (failed ? plural(failed, 'refusé') : 'tous partis') : 'aucun mail'}{siteAll - siteSent - failed > 0 ? ` · ${n(siteAll - siteSent - failed)} non envoyés` : ''}</small></div>
         <div><span>Ventes du jour</span><strong>{n(d.sales)}</strong><small>payées, hors invités et tests</small></div>
       </div>
+
+      {coming.length > 0 && (
+        <>
+          <h3 className="sc-h3">Encore prévus aujourd’hui · ≈ {plural(coming.reduce((s, e) => s + e.n, 0), 'e-mail')}</h3>
+          <ComingTable events={coming} />
+        </>
+      )}
 
       <h3 className="sc-h3">Smart Mail · heure par heure</h3>
       {smTotal ? (
@@ -222,6 +261,145 @@ async function DayDetail({ day }: { day: string }) {
           </details>
         </>
       ) : <p className="help">Aucun mail du site ce jour-là.</p>}
+    </section>
+  );
+}
+
+// ─── Envois programmés (28/11) ───────────────────────────────────────────────────────────────────────────────────────
+
+const STATE: Record<PlanState, { label: string; tone: string }> = {
+  programme: { label: 'Programmé', tone: 'ok' }, reconnexion: { label: 'Reconnexion', tone: 'warn' }, retard: { label: 'En retard', tone: 'warn' },
+  erreur: { label: 'Erreur', tone: 'bad' }, pause: { label: 'En pause', tone: 'muted' }, arrete: { label: 'Arrêté', tone: 'muted' },
+};
+const who = (a: PlannedAccount) => a.school || a.domain || '—';
+const accountName = (a: PlannedAccount) => (a.firstName ? a.firstName[0].toUpperCase() + a.firstName.slice(1) : `Compte n° ${a.id}`);
+const dayOfMs = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(ms));
+const hmFr = (ms: number) => new Date(ms).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }).replace(':', ' h ');
+function when(ms: number) {
+  const today = parisDay(), d = dayOfMs(ms);
+  const tomorrow = new Date(Date.parse(`${today}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  if (d === today) return `aujourd’hui ${hmFr(ms)}`;
+  if (d === tomorrow) return `demain ${hmFr(ms)}`;
+  return `${longDay(d, { weekday: 'short', day: 'numeric', month: 'short' })} ${hmFr(ms)}`;
+}
+const every = (min: number) => (min >= 1380 ? '1 envoi par jour' : min >= 120 ? `toutes les ${Math.round(min / 60)} h` : `toutes les ${min} min`);
+const remainingText = (a: PlannedAccount) => (a.remaining > 0 ? n(a.remaining) : a.collecting !== null ? `liste en cours (${n(a.collecting)} relevés)` : '0');
+const endText = (a: PlannedAccount) => (a.endsAt ? longDay(dayOfMs(a.endsAt), { day: 'numeric', month: 'short', year: 'numeric' }) : a.remaining > 0 ? 'dans plus de 2 ans' : '—');
+
+type Coming = { at: number; n: number; a: PlannedAccount };
+function dayEvents(plan: PlannedAccount[], day: string): Coming[] {
+  const out: Coming[] = [];
+  for (const a of plan) for (const e of a.events) if (dayOfMs(e.at) === day) out.push({ ...e, a });
+  return out.sort((x, y) => x.at - y.at);
+}
+
+function ComingTable({ events }: { events: Coming[] }) {
+  return (
+    <>
+      <table className="cx-table cv-table">
+        <thead><tr><th>Heure</th><th>École</th><th>Compte</th><th>Serveur</th><th className="num">E-mails</th></tr></thead>
+        <tbody>
+          {events.map((e) => (
+            <tr key={`${e.a.key}:${e.at}`}>
+              <td>{hmFr(e.at)}</td><td>{who(e.a)}</td><td>{accountName(e.a)}</td><td>{server(e.a.source)}</td>
+              <td className="num">≈ {n(e.n)}{e.a.remaining === 0 && e.a.collecting !== null ? <small>liste en cours</small> : null}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <ul className="cv-list">
+        {events.map((e) => (
+          <li key={`${e.a.key}:${e.at}`}>
+            <div className="cv-list-main"><div className="cv-list-name">{who(e.a)}</div><small>{hmFr(e.at)} · {accountName(e.a)} · {server(e.a.source)}</small></div>
+            <strong>≈ {n(e.n)}</strong>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** Ce que chaque compte Smart Mail va envoyer, et les envois arrêtés qu'il faut relancer. */
+function Planned({ plan }: { plan: PlannedAccount[] }) {
+  const on = plan.filter((a) => a.state === 'programme');
+  const stuck = plan.filter((a) => (a.state === 'reconnexion' || a.state === 'retard' || a.state === 'erreur' || a.state === 'pause') && (a.remaining > 0 || a.collecting !== null));
+  const stopped = plan.filter((a) => a.state === 'arrete' && a.remaining > 0);
+  const perDay = on.reduce((s, a) => s + (Number.isFinite(a.perDay) ? a.perDay : 0), 0);
+  const waiting = stuck.reduce((s, a) => s + a.remaining, 0);
+  return (
+    <section className="cx-card sc-detail" id="prevus">
+      <h2>Envois programmés <small>· {on.length ? `${plural(on.length, 'compte')}, ≈ ${n(perDay)} e-mails par jour` : 'aucun'}</small></h2>
+      {on.length > 0 ? (
+        <>
+          <table className="cx-table cv-table">
+            <thead><tr><th>École</th><th>Compte</th><th>Prochain envoi</th><th className="num">Par envoi</th><th>Rythme</th><th className="num">Élèves restants</th><th>Fin estimée</th></tr></thead>
+            <tbody>
+              {on.map((a) => (
+                <tr key={a.key}>
+                  <td>{who(a)}{a.school && a.domain ? <small>{a.domain}</small> : null}</td>
+                  <td>{accountName(a)}<small>{server(a.source)}</small></td>
+                  <td className="sp-next"><strong>{a.events[0] ? when(a.events[0].at) : '—'}</strong></td>
+                  <td className="num">{n(a.perSend)}</td>
+                  <td>{every(a.everyMin)}<small>{a.startHour} h – {a.endHour} h{a.maxDay ? ` · ${n(a.maxDay)} max par jour` : ''}</small></td>
+                  <td className="num">{remainingText(a)}</td>
+                  <td>{endText(a)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <ul className="cv-list">
+            {on.map((a) => (
+              <li key={a.key}>
+                <div className="cv-list-main">
+                  <div className="cv-list-name">{who(a)}</div>
+                  <small>{accountName(a)} · {n(a.perSend)} par envoi, {every(a.everyMin).replace('1 envoi par jour', '1 fois par jour')} · {remainingText(a)} restants</small>
+                </div>
+                <strong className="sp-next">{a.events[0] ? when(a.events[0].at) : '—'}</strong>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : <p className="help">Aucun envoi programmé pour l’instant.</p>}
+
+      {stuck.length > 0 && (
+        <>
+          <h3 className="sc-h3">À débloquer · {plural(stuck.length, 'compte')}, {n(waiting)} élèves en attente</h3>
+          <table className="cx-table cv-table">
+            <thead><tr><th>École</th><th>Compte</th><th>État</th><th>Message de Smart Mail</th><th className="num">Élèves restants</th></tr></thead>
+            <tbody>
+              {stuck.map((a) => (
+                <tr key={a.key}>
+                  <td>{who(a)}</td>
+                  <td>{accountName(a)}<small>{server(a.source)}</small></td>
+                  <td><span className={`cx-badge tone-${STATE[a.state].tone}`}>{STATE[a.state].label}</span></td>
+                  <td className="sp-msg">{a.message || '—'}{a.updatedAt ? <small>{at(new Date(a.updatedAt))}</small> : null}</td>
+                  <td className="num">{remainingText(a)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <ul className="cv-list">
+            {stuck.map((a) => (
+              <li key={a.key}>
+                <div className="cv-list-main"><div className="cv-list-name">{who(a)} <span className={`cx-badge tone-${STATE[a.state].tone}`}>{STATE[a.state].label}</span></div><small>{accountName(a)} · {a.message}</small></div>
+                <strong>{remainingText(a)}</strong>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {stopped.length > 0 && (
+        <details className="cv-details">
+          <summary>Comptes arrêtés avec des élèves restants · {plural(stopped.length, 'compte')}, {n(stopped.reduce((s, a) => s + a.remaining, 0))} élèves</summary>
+          <ul className="cv-plain">{stopped.map((a) => <li key={a.key}><span>{who(a)} · {accountName(a)}</span><span>{n(a.remaining)} restants · {a.message}</span></li>)}</ul>
+        </details>
+      )}
+
+      <p className="help cv-help">
+        Prévisions d’après la programmation de chaque compte dans Smart Mail (prochain envoi, élèves par envoi, attente entre deux envois, plafond par jour, fenêtre horaire), mises à jour toutes les 10 minutes.
+        Un envoi peut partir quelques minutes plus tard, ou pas du tout si l’ambassadeur doit se reconnecter.
+      </p>
     </section>
   );
 }

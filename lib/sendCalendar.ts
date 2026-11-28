@@ -1,6 +1,7 @@
 import 'server-only';
 import { sql } from './db';
 import { GUEST_PAYMENT } from './guest';
+import { schoolNamesOfDomains } from './conversion';
 
 // Calendrier des envois (28/11) : les e-mails partis chaque jour, heure de Paris.
 // - Smart Mail : chaque serveur envoie toutes les 10 minutes ses mails reçus par les élèves, compte par compte et heure
@@ -19,8 +20,9 @@ const NOT_TEST = `coalesce(payment_id, '') not like 'mock\\_%' and coalesce(paym
 const parisStart = (n: number) => `($${n}::date::timestamp at time zone 'Europe/Paris')`;
 
 /** Ce qu'un serveur Smart Mail envoie : ses comptes et, pour chacun, ses mails reçus heure par heure. Remplace ce que
- *  ce serveur avait envoyé avant (une heure absente de la nouvelle liste est retirée). */
-export async function saveSendFeed(source: string, accounts: unknown, hours: unknown) {
+ *  ce serveur avait envoyé avant (une heure absente de la nouvelle liste est retirée). `planning` (28/11) : la
+ *  programmation des envois de ses comptes ; absent (ancien script), celle déjà reçue est gardée. */
+export async function saveSendFeed(source: string, accounts: unknown, hours: unknown, planning?: unknown) {
   if (!SOURCE.test(source) || !Array.isArray(accounts) || !Array.isArray(hours) || accounts.length > 2000 || hours.length > 200_000) return false;
   const acc: FeedAccount[] = [];
   for (const a of accounts as Record<string, unknown>[]) {
@@ -36,10 +38,11 @@ export async function saveSendFeed(source: string, accounts: unknown, hours: unk
     if (!(a > 0) || !(h >= FIRST_HOUR && h <= nowHour) || !(n > 0 && n < 1_000_000)) continue;
     ids.push(a); hs.push(h); ns.push(n);
   }
+  const plan = cleanPlan(planning);
   await sql(
-    `insert into smartmail_send_feed (source, accounts, received_at) values ($1, $2::jsonb, now())
-     on conflict (source) do update set accounts = excluded.accounts, received_at = now()`,
-    [source, JSON.stringify(acc)],
+    `insert into smartmail_send_feed (source, accounts, planning, received_at) values ($1, $2::jsonb, coalesce($3::jsonb, '[]'::jsonb), now())
+     on conflict (source) do update set accounts = excluded.accounts, planning = coalesce($3::jsonb, smartmail_send_feed.planning), received_at = now()`,
+    [source, JSON.stringify(acc), plan ? JSON.stringify(plan) : null],
   );
   if (!ids.length) return true; // rien à compter : on ne vide jamais un serveur sur une liste vide
   await sql(
@@ -126,4 +129,133 @@ export async function calendarDay(day: string) {
 export async function feedFreshness() {
   const rows = await sql(`select source, received_at from smartmail_send_feed order by source`);
   return rows.map((r) => ({ source: String(r.source), at: new Date(r.received_at) }));
+}
+
+// ─── Envois programmés (28/11) ───────────────────────────────────────────────────────────────────────────────────────
+// Chaque serveur Smart Mail envoie aussi la programmation de ses comptes (sa tâche d'envoi) : état, heure du prochain
+// envoi, élèves par envoi, attente entre deux envois, plafond par jour, fenêtre horaire (heure de Paris), élèves restants.
+// Le site en tire les envois à venir, jour par jour : une estimation (Smart Mail peut prendre du retard, être mis en pause).
+
+export type PlanTask = {
+  id: number; status: string; next: number | null; perSend: number; everyMin: number; maxDay: number;
+  startHour: number; endHour: number; remaining: number; sent: number; message: string; updatedAt: string;
+  collecting: number | null; // liste d'élèves en cours de collecte (contacts relevés jusqu'ici), sinon null
+};
+export type PlanEvent = { at: number; n: number };
+export type PlanState = 'programme' | 'reconnexion' | 'retard' | 'pause' | 'erreur' | 'arrete';
+export type PlannedAccount = PlanTask & {
+  source: string; key: string; domain: string; firstName: string; school: string; active: boolean;
+  state: PlanState; events: PlanEvent[]; perDay: number; endsAt: number | null;
+};
+
+function cleanPlan(planning: unknown): PlanTask[] | null {
+  if (!Array.isArray(planning)) return null;
+  const num = (v: unknown, min: number, max: number, def: number) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? Math.trunc(Math.min(max, Math.max(min, x))) : def;
+  };
+  const out: PlanTask[] = [];
+  for (const p of planning.slice(0, 2000) as Record<string, unknown>[]) {
+    const id = Math.trunc(Number(p?.id));
+    if (!Number.isFinite(id) || id <= 0) continue;
+    const next = Number(p.prochain);
+    out.push({
+      id, status: String(p.statut ?? '').slice(0, 20),
+      next: Number.isFinite(next) && next > 1.7e9 && next < 2.2e9 ? next : null,
+      perSend: num(p.destinataires, 0, 100_000, 0), everyMin: num(p.attente, 0, 100_000, 0), maxDay: num(p.max_jour, 0, 1_000_000, 0),
+      startHour: num(p.heure_debut, 0, 24, 0), endHour: num(p.heure_fin, 0, 24, 24),
+      remaining: num(p.restants, 0, 10_000_000, 0), sent: num(p.envoyes, 0, 10_000_000, 0),
+      collecting: p.collecte === null || p.collecte === undefined ? null : num(p.collecte, 0, 10_000_000, 0),
+      // Texte d'état de Smart Mail (« Pack terminé… », « Microsoft a bloqué… ») : jamais une adresse.
+      message: String(p.message ?? '').replace(/\S+@\S+/g, '[adresse]').slice(0, 240), updatedAt: String(p.maj ?? '').slice(0, 40),
+    });
+  }
+  return out;
+}
+
+const parisDayOf = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(ms));
+const parisHourOf = (ms: number) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hourCycle: 'h23' }).format(new Date(ms)));
+const nextDay = (day: string) => new Date(Date.parse(`${day}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+/** Décalage de Paris (minutes) à cet instant. */
+function parisOffset(ms: number) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ms));
+  const g = (t: string) => Number(parts.find((x) => x.type === t)?.value);
+  return (Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - Math.floor(ms / 60_000) * 60_000) / 60_000;
+}
+/** L'instant où il est `hour` h (0 à 24) à Paris le jour `day`. */
+function parisAt(day: string, hour: number) {
+  const guess = Date.parse(`${day}T00:00:00Z`) + hour * 3_600_000;
+  return guess - parisOffset(guess) * 60_000;
+}
+
+const HORIZON = 2 * 365 * 86_400_000; // date de fin cherchée sur deux ans au plus
+const MAX_EVENTS = 4000;
+
+/** Les envois à venir d'un compte programmé : un envoi de `perSend` élèves, puis `everyMin` minutes d'attente, dans la
+ *  fenêtre horaire, sans dépasser le plafond du jour ni les élèves restants. */
+function project(t: PlanTask, now: number): PlanEvent[] {
+  // Liste vide mais annuaire en cours de collecte : les envois sont comptés comme si elle allait se remplir.
+  const total = t.remaining > 0 ? t.remaining : t.collecting !== null ? Number.POSITIVE_INFINITY : 0;
+  if (t.status !== 'attente' || !t.next || t.perSend <= 0 || total <= 0) return [];
+  const start = Math.min(t.startHour, 23), end = Math.max(t.endHour, start + 1);
+  const every = Math.max(1, t.everyMin) * 60_000;
+  const until = now + HORIZON;
+  const perDay = new Map<string, number>();
+  const out: PlanEvent[] = [];
+  let at = Math.max(t.next * 1000, now), left = total;
+  for (let guard = 0; guard < MAX_EVENTS * 3 && out.length < MAX_EVENTS && at < until && left > 0; guard++) {
+    const day = parisDayOf(at), h = parisHourOf(at);
+    if (h < start) { at = parisAt(day, start); continue; }
+    if (h >= end) { at = parisAt(nextDay(day), start); continue; }
+    const used = perDay.get(day) ?? 0;
+    const cap = t.maxDay > 0 ? t.maxDay - used : Number.POSITIVE_INFINITY;
+    if (cap <= 0) { at = parisAt(nextDay(day), start); continue; }
+    const n = Math.min(t.perSend, left, cap);
+    out.push({ at, n });
+    perDay.set(day, used + n);
+    left -= n;
+    at += every;
+  }
+  return out;
+}
+
+const STATE_ORDER: Record<PlanState, number> = { programme: 0, reconnexion: 1, retard: 2, erreur: 3, pause: 4, arrete: 5 };
+const LATE = 60 * 60_000; // prochain envoi dépassé de plus d'une heure : le compte n'enverra pas tout seul
+
+/** La programmation de tous les comptes Smart Mail, avec leurs envois à venir. */
+export async function sendPlan(): Promise<PlannedAccount[]> {
+  const now = Date.now();
+  const feeds = await sql(`select source, accounts, planning from smartmail_send_feed order by source`);
+  const rows: PlannedAccount[] = [];
+  for (const f of feeds) {
+    const accounts = new Map(((f.accounts as FeedAccount[]) ?? []).map((a) => [a.id, a]));
+    for (const t of (f.planning as PlanTask[]) ?? []) {
+      const info = accounts.get(t.id);
+      // « attente » veut dire programmé seulement si l'heure du prochain envoi n'est pas dépassée (BSB, 28/11 : prochain
+      // envoi le 26/11 mais en attente de la reconnexion de l'ambassadeur).
+      const due = t.next !== null && t.next * 1000 >= now - LATE;
+      const state: PlanState = t.status === 'attente' ? (due ? 'programme' : /reconnex/i.test(t.message) ? 'reconnexion' : 'retard')
+        : t.status === 'pause' ? 'pause' : t.status === 'erreur' ? 'erreur' : 'arrete';
+      const events = state === 'programme' ? project(t, now) : [];
+      const start = Math.min(t.startHour, 23), end = Math.max(t.endHour, start + 1);
+      const packs = t.everyMin >= 1380 ? 1 : Math.max(1, Math.floor(((end - start) * 60) / Math.max(1, t.everyMin)));
+      const left = t.remaining > 0 ? t.remaining : t.collecting !== null ? Number.POSITIVE_INFINITY : 0;
+      const perDay = state === 'programme' ? Math.min(t.maxDay > 0 ? t.maxDay : Number.POSITIVE_INFINITY, t.perSend * packs, left) : 0;
+      const done = t.remaining > 0 && events.reduce((s, e) => s + e.n, 0) >= t.remaining;
+      rows.push({
+        ...t, source: String(f.source), key: `${f.source}:${t.id}`, domain: info?.domain ?? '', firstName: info?.first_name ?? '', school: '',
+        active: info?.active ?? true, state, events, perDay, endsAt: done && events.length ? events[events.length - 1].at : null,
+      });
+    }
+  }
+  const names = await schoolNamesOfDomains([...new Set(rows.map((r) => r.domain).filter(Boolean))]);
+  for (const r of rows) r.school = names.get(r.domain.toLowerCase()) ?? '';
+  return rows.sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || (a.events[0]?.at ?? Infinity) - (b.events[0]?.at ?? Infinity) || b.remaining - a.remaining);
+}
+
+/** Envois à venir par jour de Paris (AAAA-MM-JJ → e-mails), d'après la programmation. */
+export function plannedByDay(plan: PlannedAccount[]) {
+  const days = new Map<string, number>();
+  for (const a of plan) for (const e of a.events) days.set(parisDayOf(e.at), (days.get(parisDayOf(e.at)) ?? 0) + e.n);
+  return days;
 }
