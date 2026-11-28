@@ -12,8 +12,56 @@ const PARIS = process.env.TOOL_URL_PARIS ?? 'https://2-25-7-244.sslip.io';
 // English (a `?en`/`?lang=en…` link, remembered with the `site_lang` cookie).
 const FRENCH_GEO = new Set(['FR', 'MC']);
 
+// Journal des arrivées sur /login (28/11) : d'où vient chaque visite de la page de connexion, pour repérer un renvoi
+// depuis un autre site. Une ligne par requête dans les journaux Vercel, sans adresse IP. Les valeurs des paramètres
+// sont masquées (sauf lang, sso, reset, expired) et la page d'où l'on vient est réduite à son adresse sans paramètres,
+// le code d'invitation masqué : aucun jeton n'est jamais écrit. Ne bloque jamais la page (try/catch).
+const LOGIN_KEEP = new Set(['lang', 'sso', 'reset', 'expired']);
+function logLoginArrival(req: NextRequest) {
+  try {
+    const { pathname, searchParams } = req.nextUrl;
+    const h = req.headers;
+    const query = Array.from(searchParams.keys())
+      .map((k) => (LOGIN_KEEP.has(k) ? `${k}=${(searchParams.get(k) ?? '').slice(0, 20)}` : `${k}=…`))
+      .join('&');
+    let ref = '';
+    const raw = h.get('referer') ?? '';
+    if (raw) {
+      try {
+        const u = new URL(raw);
+        ref = u.origin + u.pathname.replace(/^\/invite\/.+/, '/invite/…').slice(0, 160);
+      } catch {
+        ref = 'illisible';
+      }
+    }
+    const ua = h.get('user-agent') ?? '';
+    const purpose = `${h.get('purpose') ?? ''} ${h.get('sec-purpose') ?? ''}`;
+    console.log('[arrivee-login] ' + JSON.stringify({
+      path: pathname,
+      query,
+      ref,
+      site: h.get('sec-fetch-site') ?? '',
+      mode: h.get('sec-fetch-mode') ?? '',
+      rsc: h.get('rsc') === '1',
+      prefetch: h.has('next-router-prefetch') || purpose.includes('prefetch'),
+      pays: (h.get('x-vercel-ip-country') ?? '').toUpperCase(),
+      appareil: /mobile|iphone|android/i.test(ua) ? 'mobile' : 'ordinateur',
+      robot: /bot|crawl|spider|preview|curl|python|headless|wget|http/i.test(ua),
+      nav: (ua.match(/(Edg|OPR|Chrome|Firefox|Safari)\//) ?? [])[1] ?? '',
+    }));
+  } catch {
+    // never block the login page
+  }
+}
+
 export function middleware(req: NextRequest) {
   const { pathname, search, searchParams } = req.nextUrl;
+
+  // Page de connexion : on note d'où vient la visite, puis la page s'affiche comme avant.
+  if (pathname === '/login' || pathname.startsWith('/login/')) {
+    logLoginArrival(req);
+    return NextResponse.next();
+  }
 
   // Smart Mail relay (/tool), unchanged.
   if (pathname === '/tool' || pathname.startsWith('/tool/')) {
@@ -41,4 +89,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/school', '/tool', '/tool/:path*'] };
+export const config = { matcher: ['/school', '/tool', '/tool/:path*', '/login', '/login/:path*'] };
