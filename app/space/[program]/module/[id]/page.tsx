@@ -26,7 +26,7 @@ type Props = { params: Promise<{ program: string; id: string }>; searchParams: P
 export default async function ModulePage({ params, searchParams }: Props) {
   const { program, id } = await params;
   const query = await searchParams;
-  const { user, progress } = await requireLearner(program);
+  const { user, progress } = await requireLearner(program, `/space/${program}/module/${id}`);
   const { locale, course } = progress;
   const l = learn(locale);
   const index = course.modules.findIndex((m) => m.id === id);

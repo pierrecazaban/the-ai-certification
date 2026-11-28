@@ -28,7 +28,7 @@ type Props = { params: Promise<{ program: string }>; searchParams: Promise<{ rat
 export default async function CertificatePage({ params, searchParams }: Props) {
   const { program } = await params;
   const query = await searchParams;
-  const { user, progress } = await requireLearner(program);
+  const { user, progress } = await requireLearner(program, `/space/${program}/certificate`);
   const cert = progress.certificate;
   if (!cert) redirect('/space');
   const { locale, course } = progress;

@@ -27,9 +27,9 @@ export function saleLog(step: string, r: Reg, session: unknown, paidAt: unknown 
 }
 
 /** Connexions et arrivées dans l'espace (28/11) : les numéros d'inscription payés du compte, son rôle. Ni nom ni e-mail. */
-export function memberLog(step: string, refs: string[], role: string) {
+export function memberLog(step: string, refs: string[], role: string, extra: Record<string, string> = {}) {
   try {
-    console.log('[vente] ' + JSON.stringify({ etape: step, ref: refs.join(' '), role }));
+    console.log('[vente] ' + JSON.stringify({ etape: step, ref: refs.join(' '), role, ...extra }));
   } catch {
     // never break a page
   }

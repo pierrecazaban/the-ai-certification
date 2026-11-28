@@ -20,7 +20,7 @@ type Props = { params: Promise<{ program: string }>; searchParams: Promise<Recor
 export default async function ExamPage({ params, searchParams }: Props) {
   const { program } = await params;
   const query = await searchParams;
-  const { user, progress } = await requireLearner(program);
+  const { user, progress } = await requireLearner(program, `/space/${program}/exam`);
   if (progress.certificate) redirect(`/space/${program}/certificate`);
   const { locale, course } = progress;
   const l = learn(locale);
