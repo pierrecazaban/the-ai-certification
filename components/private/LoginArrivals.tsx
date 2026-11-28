@@ -12,6 +12,11 @@ const KIND: Record<ArrivalKind, { label: string; tone: string }> = {
   directe: { label: 'Directe (tapée, favori, appli)', tone: 'tone-muted' },
 };
 const kind = (k: ArrivalKind) => KIND[k] ?? { label: k, tone: 'tone-muted' };
+// Sur /confirmation, venir de Stripe est le retour normal d'un paiement.
+const shown = (k: ArrivalKind, path: string | boolean) =>
+  k === 'stripe' && (path === true || (typeof path === 'string' && path.startsWith('/confirmation')))
+    ? { label: 'Retour de paiement Stripe', tone: 'tone-ok' }
+    : kind(k);
 
 const at = (d: string | Date) =>
   new Date(d).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -40,7 +45,8 @@ export default async function LoginArrivals() {
   } catch {
     // table not ready yet: shown empty
   }
-  const suspicious = origins.filter((o) => o.kind === 'stripe' || o.kind === 'reetma').reduce((s, o) => s + o.week, 0);
+  const suspicious = origins.filter((o) => (o.kind === 'stripe' && !o.conf) || o.kind === 'reetma').reduce((s, o) => s + o.week, 0);
+  const paymentsBack = origins.filter((o) => o.kind === 'stripe' && o.conf).reduce((s, o) => s + o.day, 0);
 
   const wrap = { overflowWrap: 'anywhere' as const, wordBreak: 'break-word' as const };
   const muted = { color: 'var(--muted)', fontSize: 13 };
@@ -52,7 +58,8 @@ export default async function LoginArrivals() {
     <details className="cx-card" id="arrivees-login" style={{ minWidth: 0 }}>
       <summary style={{ cursor: 'pointer', listStyle: 'revert' }}>
         <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, verticalAlign: 'middle' }}>
-          <strong style={{ fontSize: 18 }}>Arrivées sur la connexion et l’espace</strong>
+          <strong style={{ fontSize: 18 }}>Arrivées sur la connexion, la confirmation et l’espace</strong>
+          {paymentsBack > 0 && <span className="cx-badge tone-info">{paymentsBack} retour(s) de paiement en 24 h</span>}
           {suspicious > 0 ? (
             <span className="cx-badge tone-bad">{suspicious} depuis Stripe ou Reetma (7 j)</span>
           ) : (
@@ -67,7 +74,7 @@ export default async function LoginArrivals() {
         {origins.map((o) => (
           <li key={`${o.kind}|${o.host}`} style={item}>
             <div style={top}>
-              <span className={`cx-badge ${kind(o.kind).tone}`}>{kind(o.kind).label}</span>
+              <span className={`cx-badge ${shown(o.kind, o.conf).tone}`}>{shown(o.kind, o.conf).label}</span>{o.conf && o.kind !== 'stripe' && <small style={muted}> → confirmation</small>}
               <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{o.day} <small style={muted}>24 h</small> · {o.week} <small style={muted}>7 j</small></strong>
             </div>
             <div style={wrap}>{o.host || '—'}</div>
@@ -82,7 +89,7 @@ export default async function LoginArrivals() {
         {rows.map((a, i) => (
           <li key={`${a.at}-${i}`} style={item}>
             <div style={top}>
-              <span className={`cx-badge ${kind(a.kind).tone}`}>{kind(a.kind).label}</span>
+              <span className={`cx-badge ${shown(a.kind, a.path).tone}`}>{shown(a.kind, a.path).label}</span>
               <small style={{ ...muted, fontVariantNumeric: 'tabular-nums' }}>{at(a.at)}</small>
             </div>
             <div style={wrap}>{a.ref || '—'}</div>

@@ -17,7 +17,7 @@ const FRENCH_GEO = new Set(['FR', 'MC']);
 // depuis un autre site. Une ligne par requête dans les journaux Vercel, sans adresse IP. Les valeurs des paramètres
 // sont masquées (sauf lang, sso, reset, expired) et la page d'où l'on vient est réduite à son adresse sans paramètres,
 // le code d'invitation masqué : aucun jeton n'est jamais écrit. Ne bloque jamais la page (try/catch).
-const LOGIN_KEEP = new Set(['lang', 'sso', 'reset', 'expired']);
+const LOGIN_KEEP = new Set(['lang', 'sso', 'reset', 'expired', 'ref', 'canceled']);
 function logLoginArrival(req: NextRequest) {
   try {
     const { pathname, searchParams } = req.nextUrl;
@@ -59,7 +59,7 @@ export function middleware(req: NextRequest) {
   const { pathname, search, searchParams } = req.nextUrl;
 
   // Page de connexion : on note d'où vient la visite, puis la page s'affiche comme avant.
-  if (pathname === '/login' || pathname.startsWith('/login/') || pathname === '/space') {
+  if (pathname === '/login' || pathname.startsWith('/login/') || pathname === '/space' || pathname === '/confirmation') {
     if (req.cookies.get(STAFF_COOKIE)?.value !== '1') logLoginArrival(req);
     return NextResponse.next();
   }
@@ -90,4 +90,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/school', '/tool', '/tool/:path*', '/login', '/login/:path*', '/space'] };
+export const config = { matcher: ['/school', '/tool', '/tool/:path*', '/login', '/login/:path*', '/space', '/confirmation'] };

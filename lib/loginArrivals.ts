@@ -4,14 +4,15 @@ import { after } from 'next/server';
 import { sql } from './db';
 import { STAFF_COOKIE } from './staffDevice';
 
-// Arrivées sur la connexion et l'espace élève (28/11, demandé par un associé) : d'où vient chaque visite de /login,
-// /login/password et /space, pour repérer un renvoi depuis un autre site. Rien qui identifie la personne : ni adresse IP ni cookie.
+// Arrivées sur la connexion, la confirmation et l'espace élève (28/11, demandé par un associé) : d'où vient chaque visite
+// de /login, /login/password, /confirmation et /space, pour repérer un renvoi depuis un autre site. Rien qui identifie la personne : ni adresse IP ni cookie.
 // La page d'origine est réduite à son adresse sans paramètres (code d'invitation masqué) et les valeurs des paramètres
 // sont masquées, sauf lang, sso, reset et expired. Lignes gardées 90 jours. Affiché dans /admin › Réglages.
 
 export type ArrivalKind = 'stripe' | 'reetma' | 'externe' | 'connu' | 'messagerie' | 'interne' | 'sans-provenance' | 'directe';
 
-const KEEP = new Set(['lang', 'sso', 'reset', 'expired']);
+// ref = numéro d'inscription de la page de confirmation (le jeton t, lui, reste masqué).
+const KEEP = new Set(['lang', 'sso', 'reset', 'expired', 'ref', 'canceled']);
 const SITE = /^(www\.)?the-ai-certification\.com$|^the-ai-certification(-[a-z0-9]+)*\.vercel\.app$/;
 const KNOWN =
   /(^|\.)(google\.[a-z.]+|bing\.com|duckduckgo\.com|yahoo\.[a-z.]+|ecosia\.org|qwant\.com|linkedin\.com|lnkd\.in|instagram\.com|facebook\.com|t\.co|x\.com|whatsapp\.com|snapchat\.com|tiktok\.com|youtube\.com|live\.com|office\.com|office365\.com|outlook\.com|microsoft\.com|microsoftonline\.com|gmail\.com|icloud\.com|sslip\.io|chatgpt\.com|claude\.ai)$/i;
@@ -93,7 +94,7 @@ export type Arrival = {
   at: string; path: string; query: string; ref: string; host: string; kind: ArrivalKind;
   fetch_site: string; country: string; device: string; browser: string; bot: boolean;
 };
-export type OriginCount = { kind: ArrivalKind; host: string; day: number; week: number; last: string };
+export type OriginCount = { kind: ArrivalKind; host: string; conf: boolean; day: number; week: number; last: string };
 
 /** The latest visits, newest first (robots included, marked). Hosts in .invalid are test visits, left out. */
 export async function latestArrivals(limit = 150): Promise<Arrival[]> {
@@ -107,12 +108,12 @@ export async function latestArrivals(limit = 150): Promise<Arrival[]> {
 /** Visits per origin over 24 h and 7 days, robots left out. */
 export async function arrivalsByOrigin(): Promise<OriginCount[]> {
   return (await sql(
-    `select kind, host,
+    `select kind, host, path like '/confirmation%' as conf,
             count(*) filter (where at > now() - interval '1 day')::int as day,
             count(*)::int as week,
             max(at) as last
      from login_arrivals where at > now() - interval '7 days' and not bot and host not like '%.invalid'
-     group by kind, host order by week desc, last desc limit 60`,
+     group by kind, host, conf order by week desc, last desc limit 60`,
   )) as unknown as OriginCount[];
 }
 
