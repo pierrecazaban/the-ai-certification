@@ -596,7 +596,23 @@ create table if not exists smartmail_send_feed (
   source text primary key,
   accounts jsonb not null default '[]',
   received_at timestamptz not null default now()
-)
+);
+-- Arrivees sur la page de connexion (28/11) : provenance de chaque visite de /login, sans adresse IP (lib/loginArrivals.ts).
+create table if not exists login_arrivals (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  path text not null,
+  query text not null default '',
+  ref text not null default '',
+  host text not null default '',
+  kind text not null,
+  fetch_site text not null default '',
+  country text not null default '',
+  device text not null default '',
+  browser text not null default '',
+  bot boolean not null default false
+);
+create index if not exists login_arrivals_at on login_arrivals (at)
 `;
 
 /** Moves everything attached to school `from` onto school `into`, then deletes `from`. No-op once done. */

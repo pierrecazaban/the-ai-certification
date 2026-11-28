@@ -4,6 +4,7 @@ import SetPasswordForm from '@/components/SetPasswordForm';
 import { member } from '@/lib/i18n/member';
 import { LOCALES } from '@/lib/locales';
 import { localeFromSearch } from '@/lib/requestLocale';
+import { noteLoginArrival } from '@/lib/loginArrivals';
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -14,7 +15,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 // Opened from an email: first sign-in after paying or joining, or a forgotten password.
 export default async function SetPasswordPage({ searchParams }: Props) {
   const locale = await localeFromSearch(searchParams);
-  const token = String((await searchParams).token ?? '');
+  const search = await searchParams;
+  const token = String(search.token ?? '');
+  // D'où vient la visite (28/11, /admin › Réglages) : le jeton du lien n'est jamais noté.
+  await noteLoginArrival('/login/password', search);
   return (
     <div lang={LOCALES[locale].lang}>
       <Header locale={locale} minimal />

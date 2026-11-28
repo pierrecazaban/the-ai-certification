@@ -3,6 +3,7 @@ import { settingsOverview } from '@/lib/settings';
 import { paymentsMode } from '@/lib/payments';
 import { emailConfigured } from '@/lib/email';
 import { siteUrl } from '@/lib/site';
+import LoginArrivals from '@/components/private/LoginArrivals';
 
 // Admin settings, read-only (15/11): which keys are set in Vercel, and a test for each. No key can be changed here.
 export default async function Settings({ params }: { params: Record<string, string | string[] | undefined> }) {
@@ -42,6 +43,7 @@ export default async function Settings({ params }: { params: Record<string, stri
           checkout.session.expired) grants access even if the buyer closes the page. Its signing secret is set in Vercel (STRIPE_WEBHOOK_SECRET).
         </p>
       </section>
+      <LoginArrivals />
       {rows.map((r) => (
         <section key={r.key} className="cx-card cx-setting">
           <div className="cx-toolbar">

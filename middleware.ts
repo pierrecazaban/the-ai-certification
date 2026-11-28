@@ -12,7 +12,7 @@ const PARIS = process.env.TOOL_URL_PARIS ?? 'https://2-25-7-244.sslip.io';
 // English (a `?en`/`?lang=en…` link, remembered with the `site_lang` cookie).
 const FRENCH_GEO = new Set(['FR', 'MC']);
 
-// Journal des arrivées sur /login (28/11) : d'où vient chaque visite de la page de connexion, pour repérer un renvoi
+// Journal des arrivées sur /login et /space (28/11) : d'où vient chaque visite de la connexion et de l'espace, pour repérer un renvoi
 // depuis un autre site. Une ligne par requête dans les journaux Vercel, sans adresse IP. Les valeurs des paramètres
 // sont masquées (sauf lang, sso, reset, expired) et la page d'où l'on vient est réduite à son adresse sans paramètres,
 // le code d'invitation masqué : aucun jeton n'est jamais écrit. Ne bloque jamais la page (try/catch).
@@ -58,7 +58,7 @@ export function middleware(req: NextRequest) {
   const { pathname, search, searchParams } = req.nextUrl;
 
   // Page de connexion : on note d'où vient la visite, puis la page s'affiche comme avant.
-  if (pathname === '/login' || pathname.startsWith('/login/')) {
+  if (pathname === '/login' || pathname.startsWith('/login/') || pathname === '/space') {
     logLoginArrival(req);
     return NextResponse.next();
   }
@@ -89,4 +89,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/school', '/tool', '/tool/:path*', '/login', '/login/:path*'] };
+export const config = { matcher: ['/school', '/tool', '/tool/:path*', '/login', '/login/:path*', '/space'] };

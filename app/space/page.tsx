@@ -17,6 +17,7 @@ import { resetMyProgressAction, simulatePassedExamAction } from '@/lib/learnActi
 import { formatDate, isLocale, LOCALES, type Locale } from '@/lib/locales';
 import { localeFromSearch } from '@/lib/requestLocale';
 import { PRIVATE_SLUGS } from '@/lib/private';
+import { noteLoginArrival } from '@/lib/loginArrivals';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'The AI Certification', robots: { index: false, follow: false } };
@@ -29,6 +30,8 @@ type Owned = { program: string; reference: string; paid_at: string; progress: Pr
 export default async function SpacePage({ searchParams }: Props) {
   const queryLocale = await localeFromSearch(searchParams);
   const user = await currentUser();
+  // D'où vient la visite (28/11, /admin › Réglages), connecté ou non, sans adresse IP.
+  await noteLoginArrival(user ? '/space' : '/space (sans session)', await searchParams);
   if (!user) redirect(`/login?lang=${queryLocale}`);
   const preview = user.role === 'admin';
   const ambassador = user.role === 'ambassador';
