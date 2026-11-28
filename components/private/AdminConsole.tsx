@@ -21,8 +21,8 @@ import RevenueChart from '@/components/private/RevenueChart';
 import { payReminderStatus } from '@/lib/payReminder';
 import MailFrame from '@/components/private/MailFrame';
 import SendCalendar from '@/components/private/SendCalendar';
-import Conversion, { GradeLetter, pct } from '@/components/private/Conversion';
-import { conversionBySchool, type Conversion as ConversionData } from '@/lib/conversion';
+import Conversion, { GradeLetter, n as nFr, pct } from '@/components/private/Conversion';
+import { canonicalSchool, conversionBySchool, type Conversion as ConversionData } from '@/lib/conversion';
 
 // Admin console, rendered by app/[locale]/page.tsx for signed-in admins only.
 // It has no route of its own, so for anyone else its address behaves like any unknown address.
@@ -147,7 +147,7 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
     select count(distinct lower(r.email))::int as n,
       count(distinct lower(r.email)) filter (where (coalesce(r.paid_at, r.created_at) at time zone 'Europe/Paris')::date = (now() at time zone 'Europe/Paris')::date)::int as today
     from registrations r where ${BOUGHT}`);
-  const bySchool = await sql(`
+  const bySchoolRows = await sql(`
     select u.id::text as uid, coalesce(nullif(u.short_name, ''), u.name, 'No school') as school, count(distinct lower(r.email))::int as n,
       count(distinct lower(r.email)) filter (where (coalesce(r.paid_at, r.created_at) at time zone 'Europe/Paris')::date = (now() at time zone 'Europe/Paris')::date)::int as today
     from registrations r left join universities u on u.id = r.university_id
@@ -156,6 +156,16 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
   // Jamais bloquante : sans elle, le tableau reste tel quel.
   const conv: ConversionData | null = await conversionBySchool('tout').catch((e) => { console.error('[admin] conversion', e); return null; });
   const convOf = new Map((conv?.schools ?? []).map((s) => [s.key, s]));
+  // Une école présente deux fois en base (MBS et « Mbs Education ») sur une seule ligne, comme dans l'onglet Conversion.
+  const bySchool: Record<string, any>[] = [];
+  for (const r of bySchoolRows) {
+    const uid = r.uid ? canonicalSchool(String(r.uid)) : null;
+    const same = uid ? bySchool.find((x) => x.uid === uid) : undefined;
+    if (!same) { bySchool.push({ ...r, uid, school: uid && uid !== r.uid ? (convOf.get(uid)?.name ?? r.school) : r.school }); continue; }
+    same.n += Number(r.n); same.today += Number(r.today);
+    if (uid === r.uid) same.school = r.school;
+  }
+  bySchool.sort((a, b) => b.n - a.n || String(a.school).localeCompare(String(b.school)));
   const conversion = counts.total ? Math.round((counts.paid / counts.total) * 100) : 0;
 
 
@@ -176,33 +186,28 @@ async function Overview({ name, msg }: { name: string; msg: string }) {
       </Suspense>
 
       <section className="cx-card" id="buyers">
-        <div className="cx-toolbar">
-          <h2>Buyers by school</h2>
-          <Link className="btn btn-sm btn-ghost" href="/admin?tab=conversion">Taux de conversion par école ›</Link>
-        </div>
-        <p className="help">People who paid (one line per person, free guests and tests left out). Conversion: sales ÷ Smart Mail emails received by the school’s students, since the start.</p>
-        <div className="cx-scroll">
+        <h2>Buyers by school</h2>
+        <p className="help">People who paid (one line per person, free guests and tests left out). Conversion: sales ÷ Smart Mail emails received by the school’s students, since the start · <Link href="/admin?tab=conversion">details</Link></p>
         <table className="cx-table">
-          <thead><tr><th>School</th><th className="num">Buyers</th><th className="num">Today</th><th className="num">Emails sent</th><th>Conversion</th></tr></thead>
+          <thead><tr><th>School</th><th className="num">Buyers</th><th className="num">Today</th><th>Conversion</th></tr></thead>
           <tbody>
             {bySchool.map((s) => {
               const c = convOf.get(String(s.uid ?? ''));
               return (
                 <tr key={String(s.uid ?? s.school)}>
                   <td>{String(s.school)}</td><td className="num">{s.n}</td><td className="num">{s.today}</td>
-                  <td className="num">{c?.mails ? new Intl.NumberFormat('fr-FR').format(c.mails) : '—'}</td>
-                  <td>{c?.mails ? <span className="cv-inline"><GradeLetter grade={c.grade} size="sm" indicative={c.indicative} /> {pct(c.rate)}</span> : <span className="help">no email</span>}</td>
+                  <td>{c?.mails
+                    ? <><span className="cv-inline"><GradeLetter grade={c.grade} indicative={c.indicative} /> {pct(c.rate)}</span><small>{nFr(c.mails)} emails</small></>
+                    : <span className="help">no email</span>}</td>
                 </tr>
               );
             })}
             <tr>
               <td><strong>Total</strong></td><td className="num"><strong>{buyers.n}</strong></td><td className="num"><strong>{buyers.today}</strong></td>
-              <td className="num"><strong>{conv?.mails ? new Intl.NumberFormat('fr-FR').format(conv.mails) : '—'}</strong></td>
-              <td>{conv?.mails ? <span className="cv-inline"><GradeLetter grade={conv.grade} size="sm" /> <strong>{pct(conv.rate)}</strong></span> : null}</td>
+              <td>{conv?.mails ? <><span className="cv-inline"><GradeLetter grade={conv.grade} /> <strong>{pct(conv.rate)}</strong></span><small>{nFr(conv.mails)} emails</small></> : null}</td>
             </tr>
           </tbody>
         </table>
-        </div>
       </section>
 
       <section className="cx-card" id="invite">

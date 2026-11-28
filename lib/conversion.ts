@@ -82,6 +82,14 @@ const MAX_DAYS = 62; // jours dessinés au plus dans la petite courbe de chaque 
 const DOMAIN_SCHOOL: Record<string, string> = {
   'mbs-education.com': 'f308addc-3aa5-4713-93f9-a628716aba1d', // Montpellier Business School (montpellier-bs.com)
 };
+// Une même école présente deux fois dans la base (28/11) : l'entrée créée d'après un domaine Smart Mail est comptée avec
+// l'école d'origine, e-mails et ventes ensemble. Rien n'est fusionné en base (inscriptions, commissions et écoles des
+// ambassadeurs restent où elles sont) : seuls les chiffres de conversion sont réunis.
+const SAME_SCHOOL: Record<string, string> = {
+  '442784dc-7025-4fab-b005-32099f25a400': 'f308addc-3aa5-4713-93f9-a628716aba1d', // « Mbs Education » (mbs-education.com) = MBS
+};
+/** L'école sous laquelle une entrée est comptée dans la conversion. */
+export const canonicalSchool = (id: string) => SAME_SCHOOL[id] ?? id;
 const GENERIC = /^(gmail|googlemail|outlook|hotmail|live|msn|yahoo|ymail|icloud|me|mac|aol|proton|protonmail|pm|gmx|laposte|orange|free|sfr|wanadoo)\.[a-z.]+$/;
 
 export const parisDay = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
@@ -138,7 +146,7 @@ export async function conversionBySchool(period: Period): Promise<Conversion> {
         if (matches(domain, d) && (!best || d.length > best.len)) best = { id: String(u.id), len: d.length };
       }
     }
-    if (best) schoolOfDomain.set(domain, best.id);
+    if (best) schoolOfDomain.set(domain, canonicalSchool(best.id));
     else if (DOMAIN_SCHOOL[domain]) schoolOfDomain.set(domain, DOMAIN_SCHOOL[domain]);
   }
   const guess = domains.filter((d) => !schoolOfDomain.has(d) && !GENERIC.test(d));
@@ -151,10 +159,10 @@ export async function conversionBySchool(period: Period): Promise<Conversion> {
         group by 1, 2 order by 1, 3 desc`,
       [guess],
     );
-    for (const r of rows) if (!schoolOfDomain.has(String(r.dom))) schoolOfDomain.set(String(r.dom), String(r.u));
+    for (const r of rows) if (!schoolOfDomain.has(String(r.dom))) schoolOfDomain.set(String(r.dom), canonicalSchool(String(r.u)));
   }
   // Noms des écoles qui manquent encore (écoles sans domaine : ventes, écoles devinées).
-  const missing = [...new Set([...sales.map((r) => String(r.u)), ...schoolOfDomain.values()])].filter((id) => id && !uniBy.has(id));
+  const missing = [...new Set([...sales.map((r) => canonicalSchool(String(r.u))), ...schoolOfDomain.values()])].filter((id) => id && !uniBy.has(id));
   if (missing.length) {
     for (const u of await sql(`select id::text as id, coalesce(nullif(short_name, ''), name) as name, name as full_name
                                from universities where id::text = any($1::text[])`, [missing])) {
@@ -202,7 +210,7 @@ export async function conversionBySchool(period: Period): Promise<Conversion> {
     if (i !== undefined) s.series.mails[i] += n;
   }
   for (const r of sales) {
-    const s = school(String(r.u));
+    const s = school(canonicalSchool(String(r.u)));
     const n = Number(r.n);
     s.sales += n;
     const i = slot.get(String(r.b));

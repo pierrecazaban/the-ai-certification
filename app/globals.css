@@ -2885,84 +2885,59 @@ main > section.sc-detail::before { content: none; } /* pas de vague dorée du si
   .sc-day.today .sc-date { padding: 0 5px; }
 }
 
-/* /admin › Conversion (28/11) : e-mails Smart Mail → ventes par école, avec une note en lettre de A à E. */
-.cv-periods { display: flex; gap: 6px; flex-wrap: wrap; }
-.cv-periods .btn { min-height: 36px; padding: 0 14px; font-size: 14px; }
-.cv-periods .btn.cv-on { background: var(--navy); color: #fff; border-color: var(--navy); }
-.cv-nw { white-space: nowrap; }
-.cv-top { display: grid; grid-template-columns: minmax(260px, 1.05fr) 2fr; gap: 14px; align-items: stretch; margin: 6px 0 18px; }
-.cv-hero { display: flex; align-items: center; gap: 18px; padding: 16px 18px; border-radius: 14px; color: #fff;
-  background: radial-gradient(120% 140% at 0% 0%, #2A3866 0%, var(--navy) 55%, #0B152C 100%); box-shadow: 0 18px 36px -26px rgba(11,21,44,.9); }
-.cv-hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.cv-hero-text > span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--gold-light); }
-.cv-hero-text > strong { font-size: 34px; font-weight: 800; letter-spacing: -.8px; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.cv-hero-text > small { font-size: 13px; color: #C9D2E6; }
-.cv-sum { margin: 0; align-content: stretch; }
-.cv-best strong { display: flex; align-items: center; gap: 8px; font-size: 22px; min-width: 0; }
-/* La lettre : pastille en dégradé, reflet en haut, liseré clair, ombre de sa couleur. */
-.cv-grade { --g1: #8F9AB3; --g2: #5E6A86; position: relative; display: inline-grid; place-items: center; flex: none; overflow: hidden;
-  width: 36px; height: 36px; border-radius: 11px; font: 800 21px/1 "Manrope Variable", "Manrope", system-ui, sans-serif; letter-spacing: -.5px;
-  color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.28); background: linear-gradient(150deg, var(--g1) 0%, var(--g2) 100%);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 -3px 0 rgba(0,0,0,.14), 0 6px 14px -8px var(--g2); vertical-align: middle; cursor: default; }
-.cv-grade::after { content: ""; position: absolute; left: 8%; right: 8%; top: 5%; height: 44%; border-radius: 9px 9px 40% 40%;
-  background: linear-gradient(rgba(255,255,255,.42), rgba(255,255,255,0)); pointer-events: none; }
-.cv-grade.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 15px; }
-.cv-grade.sm::after { border-radius: 6px 6px 40% 40%; }
-.cv-grade.xl { width: 92px; height: 92px; border-radius: 26px; font-size: 60px; letter-spacing: -2px; text-shadow: 0 2px 4px rgba(0,0,0,.25);
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,.28), inset 0 -6px 0 rgba(0,0,0,.14), 0 14px 30px -12px var(--g2), 0 0 0 5px rgba(255,255,255,.08); }
-.cv-grade.xl::after { border-radius: 20px 20px 45% 45%; }
-.cv-grade.faint { background: #fff; color: var(--g2); text-shadow: none; box-shadow: none; outline: 2px dashed var(--g1); outline-offset: -2px; }
-.cv-grade.faint::after { content: none; }
-.cv-grade.cv-none { background: var(--cream); color: #9AA3B8; text-shadow: none; box-shadow: inset 0 0 0 1px var(--line); }
-.cv-grade.cv-none::after { content: none; }
-.cv-hero .cv-grade.cv-none { background: rgba(255,255,255,.06); color: rgba(255,255,255,.45); box-shadow: inset 0 0 0 2px rgba(255,255,255,.16); }
-.g-a { --g1: #34B37A; --g2: #0E7A4C; }
-.g-b { --g1: #8CC24A; --g2: #4C8D22; }
-.g-c { --g1: #FFD45C; --g2: #E2A300; }
-.g-c.cv-grade:not(.faint) { color: #3D2C00; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
-.g-c.cv-grade.faint { color: #8A6400; }
-.g-d { --g1: #FFA552; --g2: #DE6410; }
-.g-e { --g1: #F26B5E; --g2: #C2271C; }
-/* L'échelle A → E sous le taux global, façon étiquette : la note du moment grossie et soulevée. */
-.cv-scale { display: flex; align-items: center; gap: 3px; margin-top: 8px; }
-.cv-scale span { display: grid; place-items: center; width: 24px; height: 20px; font-size: 12px; font-weight: 800; color: rgba(255,255,255,.92);
-  background: linear-gradient(150deg, var(--g1), var(--g2)); opacity: .82; }
-.cv-scale span:first-child { border-radius: 7px 0 0 7px; }
-.cv-scale span:last-child { border-radius: 0 7px 7px 0; }
-.cv-scale span.on { opacity: 1; width: 32px; height: 28px; font-size: 16px; border-radius: 8px; box-shadow: 0 0 0 2px #fff, 0 6px 14px -6px var(--g2); }
-.cv-table th .cv-sort { color: inherit; text-decoration: none; }
-.cv-table th .cv-sort:hover, .cv-table th .cv-sort.on { color: var(--navy); }
+/* /admin › Conversion (28/11) : e-mails Smart Mail → ventes par école, note de A à E. Sobre, mêmes briques que la console. */
+.cv-head { margin: 4px 0 14px; }
+.cv-head h2 { font-size: 20px; letter-spacing: -.3px; }
+.cv-head h2 small { color: var(--muted); font-weight: 600; font-size: 15px; }
+.cv-head .cx-pills { margin-top: 0; }
+.cv-kpis { margin-bottom: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cv-kpi-rate { display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; }
+.cv-kpi-best { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* La note : lettre sur une pastille teintée, liseré de la même teinte (comme les badges de statut). */
+.cv-grade { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 6px; font-size: 13px; font-weight: 800; line-height: 1;
+  color: var(--fg); background: var(--bg); box-shadow: inset 0 0 0 1px var(--bd); cursor: default; }
+.cv-grade.lg { width: 32px; height: 32px; border-radius: 8px; font-size: 17px; }
+.cv-grade.faint { background: #fff; box-shadow: none; outline: 1.5px dashed var(--bd); outline-offset: -1.5px; }
+.cv-grade.cv-none { --fg: #8A93A8; --bg: var(--cream); --bd: var(--line); }
+.g-a { --fg: #0B6B3A; --bg: #E5F4EB; --bd: #B5DEC6; }
+.g-b { --fg: #3B6912; --bg: #EEF5E2; --bd: #C6DEA3; }
+.g-c { --fg: #7A5A00; --bg: #FFF5D6; --bd: #EDD486; }
+.g-d { --fg: #A1460A; --bg: #FDEEE2; --bd: #F1C29D; }
+.g-e { --fg: #A42117; --bg: #FCE9E7; --bd: #F0B8B1; }
 .cv-table td { vertical-align: middle; }
-.cv-table td:nth-child(2) small { white-space: nowrap; }
-.cv-rate { min-width: 110px; }
-.cv-rate b { font-variant-numeric: tabular-nums; }
-.cv-meter { display: block; height: 6px; margin-top: 5px; border-radius: 999px; background: var(--cream); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
-.cv-meter > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--g1), var(--g2)); }
-.cv-spark { display: block; overflow: visible; }
-.cv-bar { fill: #AFC1E4; }
-.cv-dot { fill: var(--gold-mid); stroke: #fff; stroke-width: 1; }
-.cv-total td { background: var(--cream); }
-.cv-inline { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
-.cv-others { margin-top: 12px; }
-.cv-others summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 6px 0; }
-.cv-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 16px 0 10px; font-size: 13px; color: var(--muted); }
-.cv-legend > span { display: inline-flex; align-items: center; gap: 6px; }
-.cv-legend b { color: var(--navy); }
-.cv-help { font-size: 13px; }
-@media (max-width: 860px) {
-  .cv-top { grid-template-columns: 1fr; }
-}
-@media (max-width: 640px) {
-  .cv-table th:nth-child(6), .cv-table td:nth-child(6), .cv-table th:nth-child(7), .cv-table td:nth-child(7) { display: none; }
-  .cv-table th, .cv-table td { padding-left: 4px; padding-right: 4px; font-size: 13px; }
-  .cv-table th { font-size: 10px; letter-spacing: .3px; }
-  .cv-table td:nth-child(2) small { white-space: normal; overflow-wrap: anywhere; font-size: 11px; }
-  .cv-table .cv-grade:not(.sm) { width: 28px; height: 28px; border-radius: 9px; font-size: 16px; }
-  .cv-rate { min-width: 64px; }
-}
-@media (max-width: 520px) {
-  .cv-hero { gap: 14px; padding: 14px; }
-  .cv-grade.xl { width: 72px; height: 72px; font-size: 46px; border-radius: 20px; }
-  .cv-hero-text > strong { font-size: 28px; }
-  .cv-best strong { font-size: 18px; }
+.cv-table tfoot td { border-bottom: 0; border-top: 2px solid var(--line); }
+.cv-school { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cv-school small { white-space: nowrap; }
+.cv-muted { color: var(--muted); }
+.cv-sort { color: inherit; text-decoration: none; }
+.cv-sort:hover, .cv-sort.on { color: var(--navy); }
+.cv-spark { display: block; }
+.cv-bar { fill: #C9D3E6; }
+.cv-dot { fill: var(--navy); }
+.cv-sortbar, .cv-list { display: none; }
+.cv-details { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.cv-details summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.cv-plain { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
+.cv-plain li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.cv-plain li:last-child { border-bottom: 0; }
+.cv-plain li > span:first-child { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.cv-plain li > span:last-child { color: var(--muted); text-align: right; }
+.cv-help { margin-top: 14px; font-size: 13px; }
+.cv-inline { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 960px) { .cv-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .cv-table { display: none; }
+  .cv-sortbar { display: flex; gap: 12px; align-items: center; font-size: 13px; color: var(--muted); margin-bottom: 2px; }
+  .cv-sortbar .cv-sort { font-weight: 600; }
+  .cv-sortbar .cv-sort.on { text-decoration: underline; text-underline-offset: 3px; }
+  .cv-list { display: block; list-style: none; margin: 0; padding: 0; }
+  .cv-list li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .cv-list li > strong { margin-left: auto; padding-left: 8px; font-variant-numeric: tabular-nums; font-size: 15px; white-space: nowrap; }
+  .cv-list-main { min-width: 0; }
+  .cv-list-name { font-weight: 600; font-size: 15px; line-height: 1.3; }
+  .cv-list-main small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .cv-list li.cv-list-total { border-bottom: 0; border-top: 1px solid var(--line); }
+  .cv-plain li { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .cv-plain li > span:last-child { text-align: left; font-size: 13px; }
+  .cv-head h2 small { display: block; font-size: 13px; }
 }
