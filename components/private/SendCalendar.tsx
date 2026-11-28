@@ -130,7 +130,7 @@ export default async function SendCalendar({ params }: { params: Params }) {
             {fresh.length
               ? <>Chiffres Smart Mail reçus : {fresh.map((f) => `${server(f.source)} ${at(f.at)}`).join(' · ')}{stale.length ? <strong className="cx-flag"> · ⚑ {stale.map((f) => server(f.source)).join(' et ')} ne répond plus depuis plus de 30 min</strong> : null}</>
               : <strong className="cx-flag">⚑ Aucun chiffre Smart Mail reçu pour l’instant (envoi toutes les 10 minutes par chaque serveur).</strong>}
-            .{' '}Jours en heure de Paris. Smart Mail : mails arrivés chez les élèves, depuis les boîtes des ambassadeurs. Site : mails envoyés par le site lui-même.
+            .{' '}Jours en heure de Paris. Smart Mail : mails arrivés chez les élèves, depuis les boîtes des ambassadeurs. Site : mails envoyés par le site lui-même.{' '}<Link href="/admin?tab=conversion">Taux de conversion par école ›</Link>
           </p>
         </div>
       </section>
